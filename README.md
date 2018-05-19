@@ -61,7 +61,7 @@ python rnaseq_mutation_pipeline.py \
     --is_hg19 \
     --out_dir rnaseq_mut_out \
     --plot \
-    --index Hg19_11 \
+    --index Hg19.fa_star_index \
     --bed hg19.refGene.sort.bed
 ```
 
