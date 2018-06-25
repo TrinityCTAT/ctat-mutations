@@ -1,24 +1,38 @@
 #!/usr/bin/env python
 
-
 import argparse
 import datetime
 import os,sys
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.abspath(__file__)), "SciEDPipeR"]))
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.abspath(__file__)), "SciEDPipeR", "sciedpiper"]))
-import sciedpiper.Command as Command
-import sciedpiper.PipelineRunner as PipelineRunner
-import sciedpiper.Pipeline as Pipeline
+#sys.path.append(os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "SciEDPipeR"]))
+#sys.path.append(os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "SciEDPipeR", "sciedpiper"]))
+
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
+from Pipeliner import Pipeliner, Command
 
 
-__author__="Timothy Tickle"
-__copyright__="Copyright 2014"
-__credits__=["Timothy Tickle", "Brian Haas"]
-__license__="MIT"
-__maintainer__="Timothy Tickle"
-__email__="ttickle@broadinstitute.org"
-__status__="Development"
+import logging
+FORMAT = "%(asctime)-15s %(levelname)s %(module)s.%(name)s.%(funcName)s at %(lineno)d :\n\t%(message)s\n"
+global logger
+logger = logging.getLogger()
+logging.basicConfig(filename='CTAT_mutations.log', format=FORMAT, filemode='w', level=logging.DEBUG)
+# add a new Handler to print all INFO and above messages to stdout
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
 
+#import sciedpiper.Command as Command
+#import sciedpiper.PipelineRunner as PipelineRunner
+#import sciedpiper.Pipeline as Pipeline
+
+"""
+   _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
+  / ____|__   __|/\|__   __|          |  \/  | |  | |__   __|/\|__   __|_   _/ __ \| \ | |
+ | |       | |  /  \  | |     ______  | \  / | |  | |  | |  /  \  | |    | || |  | |  \| |
+ | |       | | / /\ \ | |    |______| | |\/| | |  | |  | | / /\ \ | |    | || |  | | . ` |
+ | |____   | |/ ____ \| |             | |  | | |__| |  | |/ ____ \| |   _| || |__| | |\  |
+  \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
+
+"""                                                                                          
 
 # Constants
 # Keys for alignment return (dicts)
@@ -78,10 +92,25 @@ STR_MISC_DIR = "misc"
 # Mutation Inspector file
 C_STR_MUTATION_INSPECTOR = "mutation_inspector.json"
 
-class RnaseqSnp(PipelineRunner.PipelineRunner):
+class RnaseqSnp:
     """
     SNP detection using RNA-Seq data.
     """
+    '''
+    checkpoints_dir = args_parsed.str_out_dir + "/chckpts_dir"
+    checkpoints_dir = os.path.abspath(checkpoints_dir)
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
+    '''
+
+    def run(self):
+        checkpoints_dir = 'chckpts_dir'
+
+        ##Construct pipeline
+        pipeliner = Pipeliner(checkpoints_dir)
+
+
+        pipeliner.run()
 
     def func_do_star_alignment(self,
                                args_call,
@@ -170,10 +199,13 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                                     "--outSAMmapqUnique", "60",
                                    "--genomeFastaFiles", args_call.str_genome_fa,
                                    "--runThreadN", str_num_threads])
+            '''
             cmd_i = Command.Command(str_cur_command=str_index,
                                     lstr_cur_dependencies=[args_call.str_genome_fa],
                                     lstr_cur_products=[str_index_dir])
+            '''
             lcmd_commands.append(cmd_i)
+            pipeliner.add_commands([Command(str_index, "star_index.ok")])
 
         # Perform two-pass alignment.
         if not f_index_only:
@@ -202,24 +234,32 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                                        " --outSAMmapqUnique","60",
                                        "--outFileNamePrefix",
                                        str_misc_dir + os.sep])
+            '''
             lstr_deps = [str_index_dir, str_left, str_right]
             lstr_prods = [str_star_sorted_bam, str_output_log_final,
                           str_output_log, str_output_log_progress, str_output_SJ]
+            
             cmd_star_align = Command.Command(str_cur_command=str_star_align,
                                              lstr_cur_dependencies=lstr_deps,
                                              lstr_cur_products=lstr_prods)
             cmd_star_align.func_set_dependency_clean_level([str_index_dir,
                                                             str_left, str_right],
                                                             Command.CLEAN_NEVER)
+            '''
+            pipeliner.add_commands([Command(str_star_align, "star_align.ok")])
             lcmd_commands.append(cmd_star_align)
 
             # Create bai
             str_star_bai = " ".join(["samtools index", str_star_sorted_bam])
+            '''
             cmd_bai = Command.Command(str_cur_command=str_star_bai,
                                       lstr_cur_dependencies=[str_star_sorted_bam],
                                       lstr_cur_products=[str_star_output_bai])
+            pipeliner.add_commands([Command(str_star_bai, "oases_multiK_assembly.ok")])
             cmd_bai.func_set_dependency_clean_level([str_star_sorted_bam],
                                                      Command.CLEAN_NEVER)
+            '''
+            pipeliner.add_commands([Command(str_star_bai, "star_align.ok")])
             lcmd_commands.append(cmd_bai)
 
         return({INDEX_CMD:lcmd_commands,
@@ -258,6 +298,7 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
         ### BWA, make coordinate ordered bam
         #### Index reference
         if f_index_only or not hasattr(args_call, "str_initial_index") or not args_call.str_initial_index:
+            '''
             cmd_bwa_index = Command.Command(str_cur_command = "".join(["bwa index -a bwtsw ", args.str_genome_fa]),
                                                 lstr_cur_dependencies = [args.str_genome_fa],
                                                 lstr_cur_products = [args.str_genome_fa + ".amb",
@@ -265,6 +306,11 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                                                                      args.str_genome_fa + ".bwt",
                                                                      args.str_genome_fa + ".pac",
                                                                      args.str_genome_fa + ".sa"])
+            '''
+
+            cmd_bwa_index = "".join(["bwa index -a bwtsw ", args.str_genome_fa])
+            pipeliner.add_commands([Command(cmd_bwa_index, "bwa_index.ok")])
+            
             if f_index_only:
                 return { INDEX_CMD: [cmd_bwa_index], INDEX_FOLDER: os.path.dirname(args.str_genome_fa) }
             else:
@@ -365,23 +411,7 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
         lcmd_gatk_recalibration_commands.extend([cmd_add_or_replace_groups, cmd_mark_duplicates, cmd_split_cigar_reads])
         str_return_bam = str_split_bam
         str_return_bai = str_split_bai
-        '''
 
-        # optional indel realignment step
-        if not args_call.f_stop_optional_realignment:
-            cmd_realigner_target_creator = Command.Command(str_cur_command = " ".join(["java -Xmx2g -jar GenomeAnalysisTK.jar -T RealignerTargetCreator -R",
-                                                                              args_call.str_genome_fa, "-I", str_split_bam, "--out", str_intervals] + lstr_known_two_dash_vcf),
-                                                    lstr_cur_dependencies = [args_call.str_genome_fa, str_split_bam, str_split_bai, args_call.str_vcf_file],
-                                                    lstr_cur_products = [str_intervals])
-            cmd_indel_realigner = Command.Command(str_cur_command = " ".join(["java -Xmx4g -jar GenomeAnalysisTK.jar -T IndelRealigner -R",
-                                                                               args_call.str_genome_fa, "-I", str_split_bam, "-targetIntervals",
-                                                                               str_intervals, "--out", str_realigned_bam] + lstr_known_vcf),
-                                                     lstr_cur_dependencies = [args_call.str_genome_fa, str_split_bam, str_split_bai, str_intervals, args_call.str_vcf_file],
-                                                     lstr_cur_products = [str_realigned_bam, str_realigned_bai])
-            lcmd_gatk_recalibration_commands.extend([cmd_realigner_target_creator, cmd_indel_realigner])
-            str_return_bam = str_realigned_bam
-            str_return_bai = str_realigned_bai
-        '''
         # Recalibrate alignments
         if not args_call.str_vcf_file is None:
             cmd_base_recalibrator = Command.Command(str_cur_command = " ".join(["java -Xmx4g -jar gatk-package-4.0.1.2-local.jar BaseRecalibrator -I",
@@ -617,6 +647,18 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
 
         # Commands so far
         ls_cmds = [cmd_sort_bam, cmd_sort_index_bam, cmd_dedup, cmd_replace, cmd_create_target, cmd_realign, cmd_recalibrate, cmd_print, cmd_recalibrate_2]
+
+        '''
+        # Optional plotting of recalibration
+        if args_call.f_optional_recalibration_plot:
+            # java -jar GenomeAnalysisTK.jar -T AnalyzeCovariates -R human.fasta -before recal.table -after after_recal.tale -plots recal_plots.pdf
+            cmd_covariates = Command.Command(str_cur_command = " ".join(["java -jar gatk-package-4.0.1.2-local.jar AnalyzeCovariates -R",
+                                            args_call.str_genome_fa, "-before", str_recal_table, "-after", str_recal_table_2,
+                                            "-plots", str_recal_plot]),
+                                    lstr_cur_dependencies = [args_call.str_genome_fa, str_recal_table, str_recal_table_2],
+                                    lstr_cur_products = [str_recal_plot])
+            ls_cmds.append(cmd_covariates)
+        '''
         # Create depth file
         if args_call.f_calculate_base_coverage:
     #        str_depth_compressed_file = os.path.basename(args_call.str_out_dir) + ".depth.gz"
@@ -1199,8 +1241,6 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                 str_annotated_vcf_file = str_clean_vcf
                 lcmd_commands.append(cmd_clean_vcf)
 
-    #            lcmd_commands.extend(self.func_plot_vcf(str_annotated_vcf_file)[INDEX_CMD])
-
                 # Filter results to just SNPs
                 str_snp_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_snp.vcf")
                 str_cmd_filter_snps = " ".join(["reduce_vcf_to_snps.py", str_annotated_vcf_file, str_snp_filtered_vcf])
@@ -1209,7 +1249,6 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                                               lstr_cur_products = [str_snp_filtered_vcf])
                 lcmd_commands.append(cmd_snp_filter)
                 str_annotated_vcf_file = str_snp_filtered_vcf
-    #            lcmd_commands.extend(self.func_plot_vcf(str_annotated_vcf_file)[INDEX_CMD])
 
                 # Filter RNA Editing
                 if args_parsed.str_darned_data or args_parsed.str_radar_data:
@@ -1227,7 +1266,6 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
                     lcmd_commands.append(cmd_rna_editing_filter)
                     # Switch over the annotated VCF to this RNA-Edited annotated VCF
                     str_annotated_vcf_file = str_rna_edit_filtered_vcf
-    #                lcmd_commands.extend(self.func_plot_vcf(str_annotated_vcf_file)[INDEX_CMD])
 
                 # Tabix / gz file sample
                 dict_sample_csi = self.func_csi(str_annotated_vcf_file,
@@ -1450,14 +1488,15 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
         args_group_run.add_argument("--variant_filtering_mode", metavar = "Filter_mode", dest = "str_variant_filter_mode", default = STR_FILTERING_DEFAULT, choices = LSTR_VARIANT_FILTERING_CHOICES, help = "Specifies the variant filtering method.")
         args_group_run.add_argument("--base_depth", dest = "f_calculate_base_coverage", default = False, action = "store_true", help = "Calculates the base coverage per base.")
         args_group_run.add_argument("-i", "--index", metavar = "Use_premade_index", dest = "str_initial_index", default = None, help = "The initial index is made only from the reference genome and can be shared. If premade, supply a path here to the index directory so that it is not rebuilt for every alignment. Please provide the full path.")
-        #args_group_run.add_argument("--validate_dnaseq", dest = "f_validate_by_dnaseq", default = False, action = "store_true", help = "Used for development only. Should not be used with biological samples.")
         args_group_run.add_argument("-y", "--star_memory", metavar = "Star_memory", dest = "str_star_memory_limit", default = None, help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
+
         # GATK associated
         args_group_gatk = arg_raw.add_argument_group("GATK", "Associated with or controlling GATK tools.")
         args_group_gatk.add_argument("-a", "--realign", dest = "f_stop_optional_realignment", default = False, action = "store_true", help = "Turns off optional indel realignment step.")
         args_group_gatk.add_argument("-j", "--recalibrate_sam", dest = "f_recalibrate_sam", default = True, action="store_false", help = "If used, turns off gatk recalibration of bam files before samtools variant calling.")
         args_group_gatk.add_argument("-p", "--plot", dest = "f_optional_recalibration_plot", default = True, action = "store_false", help = "Turns off plotting recalibration of alignments.")
         arg_raw.add_argument("-s", "--sequencing_platform", metavar = "Sequencing Platform", dest = "str_sequencing_platform", default = "ILLUMINA", choices = LSTR_SEQ_CHOICES, help = "The sequencing platform used to generate the samples choices include " + " ".join(LSTR_SEQ_CHOICES) + ".")
+
         # Resources
         args_group_resources = arg_raw.add_argument_group("Resources", "Associated with resources for the pipelines.")
         args_group_resources.add_argument("--cosmic_vcf", metavar="cosmic_reference_vcf", dest="str_cosmic_coding_vcf", default=None, action="store", help="Coding Cosmic Mutation VCF annotated with Phenotype Information.")
@@ -1468,6 +1507,7 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
         args_group_resources.add_argument("--darned", metavar = "Darned_data", dest = "str_darned_data", default = None, help = "Darned data for RNA editing removal, if included will be used for RNA editing removal.")
         args_group_resources.add_argument("--radar", metavar = "Radar_data", dest = "str_radar_data", default = None, help = "Radar data for RNA editing removal, if included will be used for RNA editing removal.")
         args_group_resources.add_argument("--bed", metavar = "Reference BED file", dest = "str_bed", default = None, help = "Bed file for reference genome, required only if making the mutation inspector json. If given the json file will be made. Please make sure the bed file is indexed and that bed.idx file is in the same folder with the same file basename as the related bed file.")
+
         # Cravat associated
         args_group_cravat = arg_raw.add_argument_group("CRAVAT", "Associated with CRAVAT prioritization of variant calls.")
         args_group_cravat.add_argument("--cravat_annotation_header", metavar = "cravat_headers", dest = "str_cravat_headers", default = None, help = "Headers for each CRAVAT feature annotated to the VCF file (used in BCFtools).")
@@ -1482,4 +1522,5 @@ class RnaseqSnp(PipelineRunner.PipelineRunner):
 if __name__ == "__main__":
 
     # Need to rn, call the script
-    RnaseqSnp().func_run_pipeline()
+    #RnaseqSnp().func_run_pipeline()
+    RnaseqSnp().run()
