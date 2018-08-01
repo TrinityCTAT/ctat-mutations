@@ -51,7 +51,7 @@ python ctat_mutations.py \
     --left FLI1.left.fq \
     --right FLI1.right.fq \
     --threads 8 \
-    --cosmic_vcf CosmicCodingMuts_v72_grch37_updated_chr.vcf.gz \
+    --cosmic_vcf CosmicCodingMuts_v72_hg19_updated_chr.vcf.gz \
     --rediportal rediportal_hg19.txt \
     --radar radar_hg19_v2.tx
     --log log.txt \
