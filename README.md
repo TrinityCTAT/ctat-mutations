@@ -120,11 +120,18 @@ Make sure to append to your PATH the path the STAR aligner and SciEDPiper.
 Also, make sure Picard-Tools and GATK jars are available.
 
 
-# Resources:
+# Resources and Installation:
 
 Download the resource files for HG19 at
-https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources.tar.gz
+https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg19.tar.gz
 
+Download the resource files for HG38 at
+https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg38.tar.gz
+
+Once the resources are downloaded, unzip the \*.tar.gz file.
+```
+tar -xvf *.tar.gz
+```
 
 # Pipeline behavior
 
