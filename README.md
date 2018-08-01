@@ -128,9 +128,16 @@ https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg19.ta
 Download the resource files for HG38 at
 https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg38.tar.gz
 
-Once the resources are downloaded, unzip the \*.tar.gz file.
+Once the resources are downloaded, unzip the \*.tar.gz file and install COSMIC database (make sure that you have a registered COSMIC account : https://cancer.sanger.ac.uk/cosmic/myaccount ). 
 ```
-tar -xvf *.tar.gz
+# This can be done for both hg19 and hg38
+# Unzip *.tar.gz
+tar -xvf mutation_resources_hg19.tar.gz
+cd mutation_resources_hg19
+
+# Install COSMIC database
+# This will generate an output file : CosmicCodingMuts_v72_hg19_updated_chr.vcf
+python install_cosmic.py --userid email@example.com --password <your_cosmic_password> --genome_version hg19
 ```
 
 # Pipeline behavior
