@@ -72,7 +72,7 @@ The following arguments are optional and needed to turn on CRAVAT associated fun
 * --is_hg19
 
 The following arguments are optional and needed for RNA editing filtering:
-* --darned
+* --rediportal
 * --radar
 
 The following arguments are needed for some of the functionality involved in annotation and filtering:
