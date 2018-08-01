@@ -30,7 +30,7 @@ python ctat_mutations.py \
     --right {right_sample.fa} \
     --threads 8 \
     --cosmic_vcf {cosmic.vcf} \
-    --darned {darned.txt} \
+    --rediportal {rediportal.txt} \
     --radar {radar.txt} \
     --log log.txt \
     --tissue_type {tissue} \
@@ -52,7 +52,7 @@ python ctat_mutations.py \
     --right FLI1.right.fq \
     --threads 8 \
     --cosmic_vcf CosmicCodingMuts_v72_grch37_updated_chr.vcf.gz \
-    --darned darned_hg19.txt \
+    --rediportal rediportal_hg19.txt \
     --radar radar_hg19_v2.tx
     --log log.txt \
     --tissue_type Blood-Lymphocyte \
