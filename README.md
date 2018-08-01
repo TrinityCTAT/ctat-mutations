@@ -23,7 +23,7 @@ Use the following command:
 Note: values in {} will need to be updated with actual files / options.
 
 ```
-python rnaseq_mutation_pipeline.py \
+python ctat_mutations.py \
     --reference {reference_genome.fa} \
     --vcf {reference_genome.vcf} \
     --left {left_sample.fa} \
@@ -45,7 +45,7 @@ python rnaseq_mutation_pipeline.py \
 
 Using the demo data and the included demo resource files and assuming all files are in your current directory the command would be:
 ```
-python rnaseq_mutation_pipeline.py \
+python ctat_mutations.py \
     --reference Hg19_11.fa \
     --vcf dbsnp_FLI1.vcf \
     --left FLI1.left.fq \
