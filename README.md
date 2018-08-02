@@ -109,6 +109,9 @@ also be viable and are not supported.
 * R
   * R version 3.0.2 (2013-09-25) -- "Frisbee Sailing" (64-bit)
   * http://cran.r-project.org
+* SciEDPiper
+  * Commit a96c6ec199c4c97f86c4a9979bd18baa1759ae91
+  * https://github.com/SciEDPipeR/SciEDPipeR
 * STAR Aligner
   * 2.3.0
   * https://github.com/alexdobin/STAR
