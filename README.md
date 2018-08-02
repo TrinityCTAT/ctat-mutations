@@ -139,6 +139,17 @@ cd mutation_resources_hg19
 # This will generate an output file : CosmicCodingMuts_v72_hg19_updated_chr.vcf
 python install_cosmic.py --userid email@example.com --password <your_cosmic_password> --genome_version hg19
 ```
+# DBSNP annotations
+
+The dbsnp annotations in the resource bundle are postprocessed to generate a \*.gz file and an index file
+```
+# gzip the vcf file
+bgzip -c dbsnp.vcf > dbsnp.vcf.gz
+
+# Create index
+java -jar gatk.jar IndexFeatureFile -F dbsnp.vcf.gz
+
+```
 
 # Pipeline behavior
 
