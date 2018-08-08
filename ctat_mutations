@@ -6,8 +6,10 @@ import argparse
 import datetime
 import os,sys
 import ntpath
+import json
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"]))
 from Pipeliner import Pipeliner, Command, run_cmd
 
 import logging
@@ -101,9 +103,13 @@ class RnaseqSnp:
     SNP detection using RNA-Seq data.
     """
 
+
+
     def func_do_star_alignment(self,
                                args_call,
                                str_unique_id,
+                               index_dir,
+                               genome_fa,
                                f_index_only=False):
         """
         Manages commands for star alignment.
@@ -155,10 +161,10 @@ class RnaseqSnp:
                                      STR_STAR_JUNCTION)
 
         ## The index dir can be a made index or premade index.
-        str_index_dir = os.path.join(args_call.str_out_dir, STR_INDEX)
-        if(hasattr(args_call, "str_initial_index")
-           and args_call.str_initial_index):
-            str_index_dir = args_call.str_initial_index
+        # index_dir = os.path.join(args_call.str_out_dir, STR_INDEX)
+        #if(hasattr(args_call, "str_initial_index")
+        #   and args_call.str_initial_index):
+        #    index_dir = args_call.str_initial_index
 
         # Set limited memory modes
         # Update the limitGenomeGenerateRAM if more memory is requested
@@ -190,9 +196,9 @@ class RnaseqSnp:
            or not args_call.str_initial_index):
             str_index = " ".join(["STAR", "--runMode", STR_STAR_GENOME_GENERATE] +
                                   lstr_limited_index_mode + lstr_index_memory_size +
-                                  ["--genomeDir", str_index_dir,
+                                  ["--genomeDir", index_dir,
                                     "--outSAMmapqUnique", "60",
-                                   "--genomeFastaFiles", args_call.str_genome_fa,
+                                   "--genomeFastaFiles", genome_fa,
                                    "--runThreadN", str_num_threads])
             lcmd_commands.append(Command(str_index, "star_index.ok"))
            
@@ -214,7 +220,7 @@ class RnaseqSnp:
 
             # Map files
             str_star_align = " ".join(["STAR",
-                                       "--genomeDir", str_index_dir,
+                                       "--genomeDir", index_dir,
                                        "--runThreadN", str_num_threads,
                                        "--readFilesIn", str_left,
                                        str_right] + lstr_gzip + ["--outSAMtype",
@@ -238,6 +244,8 @@ class RnaseqSnp:
     def func_do_BWA_alignment(self,
                               args_call,
                               str_unique_id,
+                              index_dir,
+                              genome_fa,
                               f_index_only = False):
         """
         Manages the calls for aligning DNA-seq data with BWA.
@@ -266,19 +274,19 @@ class RnaseqSnp:
         ## Mapping and Dedupping
         ### BWA, make coordinate ordered bam
         #### Index reference
-        if f_index_only or not hasattr(args_call, "str_initial_index") or not args_call.str_initial_index:
-            str_bwa_index = "".join(["bwa index -a bwtsw ", args.str_genome_fa])
+        if f_index_only:
+            str_bwa_index = "".join(["bwa index -a bwtsw ", genome_fa])
             cmd_bwa_index = Command(str_bwa_index, "bwa_index.ok")
             
             if f_index_only:
-                return { INDEX_CMD: [cmd_bwa_index], INDEX_FOLDER: os.path.dirname(args.str_genome_fa) }
+                return { INDEX_CMD: [cmd_bwa_index], INDEX_FOLDER: os.path.dirname(genome_fa) }
             else:
                 lcmd_dna_mapping_commands.append(Command(str_bwa_index, "bwa_index.ok"))
 
         # Align both samples
         # bwa sample ref.fasta fwd.sai rev.sai fwd.fq rev.fq > mydata.sam
         str_bwa_sam = "".join(["bwa mem -M -R \"@RG\\tID:", str_unique_id,"\\tSM:", str_unique_id,"\" ",
-                                                                   args.str_genome_fa, " ", args.str_sample_file_left_fq, " ", args.str_sample_file_right_fq, " > ", str_sam])
+                                                                   genome_fa, " ", args.str_sample_file_left_fq, " ", args.str_sample_file_right_fq, " > ", str_sam])
         lcmd_dna_mapping_commands.append(Command(str_bwa_sam, "bwa_sam.ok"))
 
         # SAM to BAM
@@ -296,7 +304,8 @@ class RnaseqSnp:
 
     def func_do_recalibration_gatk(self, args_call, str_align_file,
                                    str_unique_id, str_project_dir, str_tmp_dir,
-                                   lstr_dependencies):
+                                   lstr_dependencies,genome_fa,vcf_file,
+                                   gatk_path,picard_path):
         """
         Manages the commands for the recalibration step in the GATK RNASEq mutation calling best practices.
 
@@ -317,7 +326,7 @@ class RnaseqSnp:
         """
         # Check for the known vcf file
         # If it does not exist, warn that the associated steps will not be ran.
-        if args_call.str_vcf_file is None:
+        if vcf_file is None:
             warnings.warn("".join(["\n\n\nWARNING, WARNING, WARNING, WARNING.\n",
                           "GATK Recalibration: A vcf file with known variants was not provided for realignment and recalibration steps.\n",
                            "These steps may perform better if such a vcf file is provided.\n\n\n"]))
@@ -342,21 +351,21 @@ class RnaseqSnp:
         # This is dynamically set and different parts of this pipeline segment are activated.
         str_return_bam = ""
         # Allows the known variants vcf file to be available or not.
-        lstr_known_vcf = [] if args_call.str_vcf_file is None else ["-known", args_call.str_vcf_file]
-        lstr_known_two_dash_vcf = [] if args_call.str_vcf_file is None else ["--known", args_call.str_vcf_file]
+        lstr_known_vcf = [] if vcf_file is None else ["-known", vcf_file]
+        lstr_known_two_dash_vcf = [] if vcf_file is None else ["--known", vcf_file]
         lcmd_gatk_recalibration_commands = []
         # Create commands
         # SAM to BAM and QC        
-        str_cur_command = "".join(["java -jar ", os.path.join(PLUGINS,"AddOrReplaceReadGroups.jar "),"I=", str_align_file,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"AddOrReplaceReadGroups.jar")," I=", str_align_file,
                                                                          " O=", str_sorted_bam, " SO=coordinate RGID=id RGLB=library RGPL=",
                                                                          args_call.str_sequencing_platform, " RGPU=machine RGSM=", str_unique_id])
 
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'bam_qc.ok')])
-        str_cur_command = "".join(["java -jar ", os.path.join(PLUGINS,"MarkDuplicates.jar")," I=", str_sorted_bam, " O=", str_dedupped_bam,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"MarkDuplicates.jar")," I=", str_sorted_bam, " O=", str_dedupped_bam,
                                                                            " CREATE_INDEX=true M=", str_qc_metrics])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'mark_duplicates.ok')])
 
-        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" SplitNCigarReads -R", args_call.str_genome_fa,
+        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" SplitNCigarReads -R", genome_fa,
                                                                                   "-I", str_dedupped_bam, "-O", str_split_bam,
                                                                                   "--read-validation-stringency LENIENT"])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'split_cigar_reads.ok')])
@@ -364,10 +373,10 @@ class RnaseqSnp:
         str_return_bai = str_split_bai
 
         # Recalibrate alignments
-        if not args_call.str_vcf_file is None:
+        if not vcf_file is None:
             str_cur_command = " ".join(["java -Xmx4g -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" BaseRecalibrator -I",
                                                                           str_split_bam,
-                                                                          "-R", args_call.str_genome_fa, "-O", str_recalibrated_alignment_file, "--known-sites", args_call.str_vcf_file])
+                                                                          "-R", genome_fa, "-O", str_recalibrated_alignment_file, "--known-sites", vcf_file])
             
             lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'base_recal.ok')])            
             str_cur_command = " ".join(["java -Xmx2g -jar ",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
@@ -385,7 +394,7 @@ class RnaseqSnp:
             # Optional plotting of recalibration
             if args_call.f_optional_recalibration_plot:                
                 str_cur_command = " ".join(["java -Xmx4g -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" AnalyzeCovariates -R",
-                                                                            args_call.str_genome_fa, "-bqsr", str_recalibrated_alignment_file,
+                                                                              genome_fa, "-bqsr", str_recalibrated_alignment_file,
                                                                             "-plots", str_recalibration_plots_pdf])
                 lcmd_gatk_recalibration_commands.append(Command(str_cur_command,'analyze_covariate.ok'))
 
@@ -399,7 +408,8 @@ class RnaseqSnp:
                                    str_input_bai,
                                    str_unique_id,
                                    str_project_dir,
-                                   str_tmp_dir):
+                                   str_tmp_dir,gatk_path,
+                                   genome_fa):
         """
         Creates the commands for the GATK RNASeq calling.
 
@@ -435,7 +445,7 @@ class RnaseqSnp:
         # Variant calling
         str_hap_call = " ".join(["java", "-jar", os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
                                  "HaplotypeCaller", "-R",
-                                 args_call.str_genome_fa, "-I", str_input_bam,
+                                 genome_fa, "-I", str_input_bam,
                                  "--recover-dangling-heads","true",
                                  "--dont-use-soft-clipped-bases","-stand-call-conf",
                                  "20.0",
@@ -450,7 +460,11 @@ class RnaseqSnp:
                                      str_unique_id,
                                      str_project_dir,
                                      str_tmp_dir,
-                                     lstr_dependencies):
+                                     lstr_dependencies,
+                                     genome_fa,
+                                     vcf_file,
+                                     gatk_path,
+                                     picard_path):
         """
         Creates the commands for the GATK variant calling pipeline.
 
@@ -484,7 +498,9 @@ class RnaseqSnp:
                                                 str_unique_id,
                                                 str_project_dir,
                                                 str_tmp_dir,
-                                                lstr_dependencies)
+                                                lstr_dependencies,
+                                                genome_fa,vcf_file,
+                                                gatk_path,picard_path)
         lcmd_gatk_variants_commands.extend(dict_recal[INDEX_CMD])
 
         # Do calling
@@ -493,7 +509,8 @@ class RnaseqSnp:
                                                       dict_recal[INDEX_INDEX],
                                                       str_unique_id,
                                                       str_project_dir,
-                                                      str_tmp_dir)
+                                                      str_tmp_dir,gatk_path,
+                                                      genome_fa)
         lcmd_gatk_variants_commands.extend(dict_rnaseq_gatk[INDEX_CMD] )
 
         return({INDEX_CMD:lcmd_gatk_variants_commands,
@@ -547,7 +564,7 @@ class RnaseqSnp:
 
         # DNA-seq best practices
         # java -jar SortSam.jar I=Input.sam O=output.bam SO=coordinate
-        str_cur_command = "".join(["java -jar ", os.path.join(PLUGINS,"SortSam.jar "),"SO=coordinate I=", str_align_file, " O=", str_sorted_bam])
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"SortSam.jar")," SO=coordinate I=", str_align_file, " O=", str_sorted_bam])
         cmd_sort_bam = Command(str_cur_command,'sort_sam.ok')
 
         # Create bai
@@ -555,10 +572,10 @@ class RnaseqSnp:
         cmd_sort_index_bam = Command(str_cur_command,'bai.ok')
 
         # java -jar MarkDuplicates.jar I=input.sam O=output.bam
-        str_cur_command = "".join(["java -jar ", os.path.join(PLUGINS,"MarkDuplicates.jar "),"I=", str_sorted_bam,
+        str_cur_command = "".join(["java -jar ",os.path.join(picard_path,"MarkDuplicates.jar")," I=", str_sorted_bam,
                                                                  " M=", str_dedup_metrics, " O=", str_dedup_bam])
         #cmd_dedup = Command(str_cur_command,'mark_duplicates.ok')
-        str_cur_command = "".join(["java -jar ", os.path.join(PLUGINS,"AddOrReplaceReadGroups.jar "),"I=", str_dedup_bam, " O=", str_replace_bam,
+        str_cur_command = "".join(["java -jar ",os.path.join(picard_path,"AddOrReplaceReadGroups.jar")," I=", str_dedup_bam, " O=", str_replace_bam,
                                                                   " RGCN=RGCN RGID=", str_unique_id, " RGLB=library RGDT=", datetime.date.today().isoformat()," RGPL=",
                                                                     args_call.str_sequencing_platform, " RGPU=machine RGSM=", str_unique_id, " CREATE_INDEX=TRUE"])
         cmd_replace = Command(str_cur_command,'add_replace.ok')
@@ -582,7 +599,7 @@ class RnaseqSnp:
         # Call mutations - Single File, variant only calling in DNA-seq.
         # https://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php
         # java -jar GenomeAnalysisTk.jar -T HaplotypeCaller -R reference/file.fasta -I recal.bam -stand_call_conf 30 -stand_emit_conf -o output.vcf
-        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" HaplotypeCaller -R", args_call.str_genome_fa,
+        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" HaplotypeCaller -R", genome_fa,
                                                                            "-I", str_recal_snp_bam, "-stand-call-conf 30.0 -O", str_raw_vcf])
         ls_cmds.extend(Command(str_cur_command,'haplo_call.ok')) 
 
@@ -593,7 +610,8 @@ class RnaseqSnp:
 
     def func_do_variant_calling_samtools(self, args_call, str_align_file,
                                          str_unique_id, str_project_dir,
-                                         str_tmp_dir, lstr_dependencies):
+                                         str_tmp_dir, lstr_dependencies,
+                                         genome_fa,vcf_file):
         """
         Creates the commands for the SamTools variant calling pipeline.
 
@@ -640,7 +658,11 @@ class RnaseqSnp:
         if args_call.f_recalibrate_sam:
             # Create commands for recalibration
             # Update files to recalibrated files
-            dict_recalibration = self.func_do_recalibration_gatk(args_call, str_bam_sorted, str_unique_id, str_project_dir, str_tmp_dir, lstr_dependencies)
+            dict_recalibration = self.func_do_recalibration_gatk(args_call, str_bam_sorted, 
+                                                                 str_unique_id, str_project_dir, 
+                                                                 str_tmp_dir, lstr_dependencies,
+                                                                 genome_fa,vcf_file,
+                                                                 gatk_path,picard_path)
             lcmd_samtools_variants_commands.extend(dict_recalibration[INDEX_CMD])
             str_bam_sorted = dict_recalibration[INDEX_FILE]
             str_bam_sorted_index = dict_recalibration[INDEX_INDEX]
@@ -654,7 +676,7 @@ class RnaseqSnp:
             lcmd_samtools_variants_commands.append(Command(str_cur_command,'depth.ok'))                    
 
         # Identify variants
-        str_samtools_calls = " ".join(["samtools mpileup -ugf", args_call.str_genome_fa, str_bam_sorted, "| bcftools call -mv -Ov >", str_variants_vcf])
+        str_samtools_calls = " ".join(["samtools mpileup -ugf", genome_fa, str_bam_sorted, "| bcftools call -mv -Ov >", str_variants_vcf])
         lcmd_samtools_variants_commands.append(Command(str_samtools_calls,'bam_sort.ok')) 
         return {INDEX_CMD:lcmd_samtools_variants_commands,
                 INDEX_FILE:str_variants_vcf,
@@ -713,7 +735,7 @@ class RnaseqSnp:
                 INDEX_FILE:str_filtered_variants_file}
 
     def func_do_filtering_gatk(self, args_call, str_variants_file,
-                               lstr_dependencies):
+                               lstr_dependencies,gatk_path,genome_fa):
         """
         Creates the commands for the gatk hard filtering.
         * args_call: Arguments for the pipeline
@@ -733,7 +755,7 @@ class RnaseqSnp:
         # Filter variants
         str_filter_command = " ".join(["java -jar",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
                                        "VariantFiltration -R",
-                                       args_call.str_genome_fa, "-V",
+                                       genome_fa, "-V",
                                        str_variants_file, "-window 35",
                                        "-cluster 3 --filter-name FS",
                                        "-filter \"FS > 30.0\"",
@@ -761,7 +783,9 @@ class RnaseqSnp:
         return { INDEX_CMD : [], INDEX_FILE : "" }
 
     def func_do_variant_filtering_cancer(self, args_call, str_variants_file,
-                                         str_project_dir, f_is_hg_38):
+                                         str_project_dir, f_is_hg_38,
+                                         cosmic_vcf,gatk_path,
+                                         genome_fa,cravat_header):
         """
 
         * args_call: Arguments for the pipeline
@@ -801,7 +825,7 @@ class RnaseqSnp:
 
 
         # Index / gz COSMIC db
-        dict_sample_csi = self.func_csi(args_parsed.str_cosmic_coding_vcf)
+        dict_sample_csi = self.func_csi(cosmic_vcf)
         str_annotated_vcf_file = dict_sample_csi[INDEX_FILE]
         str_csi_vcf_file = dict_sample_csi[INDEX_INDEX]
         lcmd_cancer_filter.extend(dict_sample_csi[INDEX_CMD])
@@ -814,10 +838,10 @@ class RnaseqSnp:
         # Adding the following annotations from COSMIC
         # If the VCF does not have an annotation in COSMIC then it is dropped
         # GENE, COSMIC_ID, TISSUE, TUMOR, FATHMM, SOMATIC
-        if args_call.str_cosmic_coding_vcf:
+        if cosmic_vcf:
             # Annotate cancer variants with COSMIC
             str_cancer_annotation_command = " ".join(["bcftools", "annotate", "--output-type", "z",
-                                                      "--annotations",args_call.str_cosmic_coding_vcf,
+                                                      "--annotations",cosmic_vcf,
                                                       "--columns", "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC",
                                                       "--output", str_cancer_mutations_unfiltered, str_vcf_to_filter])
             lcmd_cancer_filter.append(Command(str_cancer_annotation_command,'cosmic.ok'))
@@ -830,7 +854,7 @@ class RnaseqSnp:
         lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_before_cravat.ok'))
 
         # Annotate non-common with CRAVAT
-        str_cmd_make_cravat_tab = " ".join(["java -jar",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"), "VariantsToTable", "-R", args_call.str_genome_fa,"-V", str_cravat_filtered_groom_vcf,
+        str_cmd_make_cravat_tab = " ".join(["java -jar",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"), "VariantsToTable", "-R", genome_fa,"-V", str_cravat_filtered_groom_vcf,
                                            "-F", "CHROM", "-F", "POS", "-F", "REF", "-F", "ALT", "-F", "GENE",
                                            "-F", "DP", "-F", "QUAL", "-F", "MQ",
                                            "-F", "SAO", "-F", "NSF", "-F", "NSM", "-F", "NSN", "-F", "TUMOR", "-F", "TISSUE",
@@ -885,7 +909,7 @@ class RnaseqSnp:
                                             "annotate",
                                             "--annotations",
                                             str_cravat_detail_coding_updated,
-                                            "-h", args_call.str_cravat_headers,
+                                            "-h", cravat_header,
                                             "--columns",
                                             "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR\"",
                                             "--output-type",
@@ -899,7 +923,7 @@ class RnaseqSnp:
                                                "--annotations",
                                                str_cravat_detail_noncoding_updated,
                                                "-h",
-                                               args_call.str_cravat_headers,
+                                               cravat_header,
                                                "--columns",
                                                "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR\"",
                                                "--output-type",
@@ -963,6 +987,59 @@ class RnaseqSnp:
 
         """
         import warnings
+        
+        #Check if GATK present
+        gatk_path=os.getenv("GATK_HOME")
+        if not gatk_path:
+            exit("Error, missing path to GATK in $GATK_HOME.")
+        #Check if PICARD present
+        picard_path=os.getenv("PICARD_HOME")
+        if not picard_path:
+            exit("Error, missing path to PICARD in $PICARD_HOME.")
+        #Check if CTAT_GENOME_LIB present
+        ctat_genome_lib_path=args_parsed.genome_lib_dir
+        if not ctat_genome_lib_path:
+            exit("Error, missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
+
+        #Form paths from CTAT_GENOME_LIB
+        genome_fa=os.path.join(ctat_genome_lib_path,"ctat_genome_lib_build_dir",
+                               "ref_genome.fa")
+        if not os.path.exists(genome_fa):
+            genome_fa=args_parsed.str_genome_fa
+        index_dir=os.path.join(ctat_genome_lib_path,"ctat_genome_lib_build_dir",
+                                                "ref_genome.fa.star.idx")
+        if not os.path.exists(index_dir):
+            index_dir=args_parsed.str_initial_index
+        rediportal_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                                     "rediportal.bed")
+        if not os.path.exists(rediportal_bed):
+            rediportal_bed=args_parsed.str_rediportal_data
+        radar_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                                "radar.bed")
+        if not os.path.exists(radar_bed):
+            radar_bed=args_parsed.str_radar_data
+        vcf_file=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                               "dbsnp_138.vcf.gz")
+        if not os.path.exists(vcf_file):
+            vcf_file=args_parsed.str_vcf_file
+        ref_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                              "refGene.sort.bed")
+        if not os.path.exists(ref_bed):
+            ref_bed=args_parsed.str_bed
+        cravat_header=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                          "header","cravat_annotation.txt")
+        if not os.path.exists(cravat_header):
+            cravat_header=args_parsed.str_cravat_headers
+        properties=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                                 "properties.json")
+        if not os.path.exists(properties):
+            exit("Error, cannot find properties.json file in $CTAT_GENOME_LIB")
+
+        cosmic_vcf=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
+                                          "cosmic.vcf.gz") 
+        if not os.path.exists(cosmic_vcf):
+            cosmic_vcf=args_parsed.str_cosmic_coding_vcf
+
         # Reset args_parsed if validating with DNA-seq data
         ### Turning off DNA Seq functionality
         args_parsed.f_validate_by_dnaseq = False
@@ -1028,7 +1105,9 @@ class RnaseqSnp:
             # Handle indexing and alignment
             # Vary handling based on alignment type
             dict_align_info = dict_align_funcs[args_parsed.str_alignment_mode](args_call=args_parsed,
-                                                                               str_unique_id=str_sample_postfix)
+                                                                               str_unique_id=str_sample_postfix,
+                                                                               index_dir=index_dir,
+                                                                               genome_fa=genome_fa)
 
             # Run commands but indexing only
             lcmd_commands.extend(dict_align_info[INDEX_CMD])
@@ -1063,7 +1142,9 @@ class RnaseqSnp:
                                                     str_project_dir=args_parsed.str_out_dir,
                                                     str_tmp_dir=str_misc_dir,
                                                     lstr_dependencies=[dict_align_info[INDEX_FILE],
-                                                                       dict_align_info[INDEX_FILE]+".bai"])
+                                                                       dict_align_info[INDEX_FILE]+".bai"],
+                                                    genome_fa=genome_fa,vcf_file=vcf_file,
+                                                    gatk_path=gatk_path,picard_path=picard_path)
             #pipeliner.extend_commands(dict_ret_variant_calling[INDEX_CMD])
             lcmd_commands.extend(dict_ret_variant_calling[INDEX_CMD])
             str_bam_called_from = dict_ret_variant_calling[INDEX_BAM]
@@ -1074,7 +1155,8 @@ class RnaseqSnp:
             func_filtering = dict_filtering_funcs[args_parsed.str_variant_filter_mode]
             dict_ret_variant_filtration = func_filtering(args_call=args_parsed,
                                                          str_variants_file=dict_ret_variant_calling[INDEX_FILE],
-                                                         lstr_dependencies=[dict_ret_variant_calling[INDEX_FILE]])
+                                                         lstr_dependencies=[dict_ret_variant_calling[INDEX_FILE]],
+                                                         gatk_path=gatk_path,genome_fa=genome_fa)
             if len(dict_ret_variant_filtration[INDEX_CMD]):
                 lcmd_commands.extend(dict_ret_variant_filtration[INDEX_CMD])
                 str_annotated_vcf_file = dict_ret_variant_filtration[INDEX_FILE]
@@ -1101,18 +1183,15 @@ class RnaseqSnp:
 
 
                 # Filter RNA Editing
-                if args_parsed.str_rediportal_data or args_parsed.str_radar_data: 
-                    str_rna_edit_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_RNAedit.vcf")
-                    lstr_cmd_rna_editing_filter = ["filter_snps_rna_editing.py"]
-                    if args_parsed.str_radar_data:
-                        lstr_cmd_rna_editing_filter.extend(["--radar", args_parsed.str_radar_data])
-                    if args_parsed.str_rediportal_data:
-                        lstr_cmd_rna_editing_filter.extend(["--rediportal", args_parsed.str_rediportal_data])
-                    lstr_cmd_rna_editing_filter.extend([str_annotated_vcf_file, str_rna_edit_filtered_vcf])
-                    str_cmd_rna_editing_filter = " ".join(lstr_cmd_rna_editing_filter)
-                    lcmd_commands.append(Command(str_cmd_rna_editing_filter,'rna_edit.ok')) 
-                    # Switch over the annotated VCF to this RNA-Edited annotated VCF
-                    str_annotated_vcf_file = str_rna_edit_filtered_vcf
+                str_rna_edit_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_RNAedit.vcf")
+                lstr_cmd_rna_editing_filter = ["filter_snps_rna_editing.py"]
+                lstr_cmd_rna_editing_filter.extend(["--radar", radar_bed])
+                lstr_cmd_rna_editing_filter.extend(["--rediportal", rediportal_bed])
+                lstr_cmd_rna_editing_filter.extend([str_annotated_vcf_file, str_rna_edit_filtered_vcf])
+                str_cmd_rna_editing_filter = " ".join(lstr_cmd_rna_editing_filter)
+                lcmd_commands.append(Command(str_cmd_rna_editing_filter,'rna_edit.ok')) 
+                # Switch over the annotated VCF to this RNA-Edited annotated VCF
+                str_annotated_vcf_file = str_rna_edit_filtered_vcf
 
 
 
@@ -1124,10 +1203,10 @@ class RnaseqSnp:
                 lcmd_commands.extend(dict_sample_csi[INDEX_CMD])
 
                 # Tabix / gz DBSNP
-                dict_dbsnp_csi = self.func_csi(args_parsed.str_vcf_file,
+                dict_dbsnp_csi = self.func_csi(vcf_file,
                                           args_parsed.str_out_dir)
                 lcmd_commands.extend(dict_dbsnp_csi[INDEX_CMD])
-                str_compressed_dbsnp = args_parsed.str_vcf_file + ".gz"
+                str_compressed_dbsnp = vcf_file
                 str_csi_dbsnp = dict_dbsnp_csi[INDEX_INDEX]
 
                 # DBSNP annotation
@@ -1166,34 +1245,40 @@ class RnaseqSnp:
 
                 # Perform cancer filtering
                 f_cravat_hg38 = None
-                if args_parsed.str_email_contact is None or (not args_parsed.f_hg_19 and not args_parsed.f_hg_38):
-                    warnings.warn("CRAVAT analysis will not be ran. Please make sure to provide an email and indicate if hg38 or hg19 is being used.")
-                elif args_parsed.f_hg_38:
-                    f_cravat_hg38 = True
-                elif args_parsed.f_hg_19:
-                    f_cravat_hg38 = False
+                if args_parsed.str_email_contact is None:
+                    warnings.warn("CRAVAT analysis will not be ran. Please specify an email address registered with CRAVAT service")
+                with open(properties,"r") as pr:
+                    property_dict=json.load(pr)
+                gv=property_dict["Genome_version"]
+                if gv=="hg19":
+                    f_cravat_hg38=False
+                else: 
+                    f_cravat_hg38=True
                 cmd_filter_cancer = self.func_do_variant_filtering_cancer(args_call=args_parsed,
                                                                           str_variants_file=str_annotated_vcf_file,
                                                                           str_project_dir=args_parsed.str_out_dir,
-                                                                          f_is_hg_38=f_cravat_hg38)
+                                                                          f_is_hg_38=f_cravat_hg38,cosmic_vcf=cosmic_vcf,
+                                                                          gatk_path=gatk_path,
+                                                                          genome_fa=genome_fa,
+                                                                          cravat_header=cravat_header)
                 str_cancer_tab = cmd_filter_cancer[INDEX_FILE]
                 lcmd_commands.extend(cmd_filter_cancer[INDEX_CMD])
 
                 # Make JSON file for the inspector
-                if args_parsed.str_bed:
+                if ref_bed:
                     str_cmd_json_inspector = " ".join(["make_mutation_inspector_json.py",
                                                 "--sample", args_parsed.str_out_dir,
                                                 "--tab", str_cancer_tab,
                                                 "--bam", str_bam_called_from,
                                                 "--bam_index", str_bai_called_from,
-                                                "--bed", args_parsed.str_bed,
-                                                "--bed_index", args_parsed.str_bed + ".idx",
+                                                "--bed", ref_bed,
+                                                "--bed_index", ref_bed + ".idx",
                                                 str_json_inspector_file])
                     lcmd_commands.append(Command(str_cmd_json_inspector,'json_inspector.ok')) 
 
                     # Copy bed to output to make it an output for Galaxy and allow it to be used in the inspector.
-                    str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(args_parsed.str_bed))
-                    str_cmd_copy_bed = " ".join(["cp", args_parsed.str_bed, str_copied_bed])
+                    str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(ref_bed))
+                    str_cmd_copy_bed = " ".join(["cp", ref_bed, str_copied_bed])
                     lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
         ## Run pipeline
@@ -1293,25 +1378,24 @@ if __name__ == "__main__":
         args_parser = argparse.ArgumentParser(
             description = "Performs mutation detection in RNA-Seq"
             )
-        args_parser.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa", required = True, help = "Path to the reference genome to use in the analysis pipeline.")
-        args_parser.add_argument("--index", metavar = "Use_premade_index", dest = "str_initial_index", default = None, help = "The initial index is made only from the reference genome and can be shared. If premade, supply a path here to the index directory so that it is not rebuilt for every alignment. Please provide the full path.")
-        args_parser.add_argument( "--vcf", metavar = "Variant_calling_file_for_the_reference_genome", dest = "str_vcf_file", default = None, help = "Variant calling file for the reference genome.")
+        args_parser.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa", required = False, default="ref_genome.fa",help = "Path to the reference genome to use in the analysis pipeline.")
+        args_parser.add_argument("--index", metavar = "Use_premade_index", dest = "str_initial_index", default = "ref_genome.fa.star.idx", help = "The initial index is made only from the reference genome and can be shared. If premade, supply a path here to the index directory so that it is not rebuilt for every alignment. Please provide the full path.")
+        args_parser.add_argument( "--vcf", metavar = "Variant_calling_file_for_the_reference_genome", dest = "str_vcf_file", default = "dbsnp_138.vcf.gz", help = "Variant calling file for the reference genome.")
         args_parser.add_argument( "--left", metavar = "Left_sample_file", dest = "str_sample_file_left_fq", required = False, help = "Path to one of the two paired RNAseq samples (left)")
         args_parser.add_argument( "--right", metavar = "Right_sample_file", dest = "str_sample_file_right_fq", required = False, help = "Path to one of the two paired RNAseq samples (right)")
         args_parser.add_argument("--threads", metavar = "Process_threads", dest = "i_number_threads", type = int, default = 1, help = "The number of threads to use for multi-threaded steps.")
         args_parser.add_argument("--variant_filtering_mode", metavar = "Filter_mode", dest = "str_variant_filter_mode", default = STR_FILTERING_DEFAULT, choices = LSTR_VARIANT_FILTERING_CHOICES, help = "Specifies the variant filtering method.")
         args_parser.add_argument("--variant_call_mode", metavar = "Call_mode", dest = "str_variant_call_mode", default = STR_VARIANT_GATK, choices = LSTR_VARIANT_CALLING_CHOICES, help = "Specifies the variant calling method to use.")
-        args_parser.add_argument("--bed", metavar = "Reference BED file", dest = "str_bed", default = None, help = "Bed file for reference genome, required only if making the mutation inspector json. If given the json file will be made. Please make sure the bed file is indexed and that bed.idx file is in the same folder with the same file basename as the related bed file.")
+        args_parser.add_argument("--bed", metavar = "Reference BED file", dest = "str_bed", default="refGene.sort.bed", help = "Bed file for reference genome, required only if making the mutation inspector json. If given the json file will be made. Please make sure the bed file is indexed and that bed.idx file is in the same folder with the same file basename as the related bed file.")
         args_parser.add_argument("--plot", dest = "f_optional_recalibration_plot", default = False, action = "store_false", help = "Turns off plotting recalibration of alignments.")
-        args_parser.add_argument("--cosmic_vcf_gz", metavar="cosmic_reference_vcf", dest="str_cosmic_coding_vcf", default=None, action="store", help="Coding Cosmic Mutation VCF annotated with Phenotype Information and zipped using bgzip.")
-        args_parser.add_argument("--radar", metavar = "Radar_data", dest = "str_radar_data", default = None, help = "Radar data for RNA editing removal, if included will be used for RNA editing removal.")
-        args_parser.add_argument("--rediportal", metavar = "Rediportal_data", dest = "str_rediportal_data", default = None, help = "REDIPortal data for RNA editing removal, if included will be used for RNA editing removal.")
+        args_parser.add_argument("--cosmic_vcf_gz", metavar="cosmic_reference_vcf", dest="str_cosmic_coding_vcf", default="cosmic.vcf.gz", action="store", help="Coding Cosmic Mutation VCF annotated with Phenotype Information and zipped using bgzip.")
+        args_parser.add_argument("--radar", metavar = "Radar_data", dest = "str_radar_data", default = "radar.bed", help = "Radar data for RNA editing removal, if included will be used for RNA editing removal.")
+        args_parser.add_argument("--rediportal", metavar = "Rediportal_data", dest = "str_rediportal_data", default = "rediportal.bed", help = "REDIPortal data for RNA editing removal, if included will be used for RNA editing removal.")
+
         args_parser.add_argument("--tissue_type", metavar = "cravat_tissue", dest = "str_cravat_classifier", default = STR_CRAVAT_CLASSIFIER_DEFAULT, help = "Tissue type (used in CRAVAT variant prioritation). Supported classifiers can be found at http://www.cravat.us/help.jsp)")
         args_parser.add_argument("--email", metavar = "email_contact", dest = "str_email_contact", default = None, help = "Email used to notify of errors associated with cravat.")
         args_parser.add_argument("--wdl_compatible_run", dest = "f_wdl_run", action="store_true", help = "Cromwell/WDL requires execution to happen relative to an output directory of dynaically created without giving the directory path to the underlying tools/pipelines. This requires a pipeline to use relative paths which can be dangerous outside of Cromwell/WDL. This will ignore any output directory specified in the command line and force the output to be relative paths. DO NOT USE outside of Cromwell/WDL.")
-        args_parser.add_argument("--is_hg19", dest = "f_hg_19", action="store_true", help = "Indicates that Hg19 is being used.")
-        args_parser.add_argument("--is_hg38", dest = "f_hg_38", action="store_true", help = "Indicates that Hg38 is being used.")
-        args_parser.add_argument("--cravat_annotation_header", metavar = "cravat_headers", dest = "str_cravat_headers", default = None, help = "Headers for each CRAVAT feature annotated to the VCF file (used in BCFtools).")
+        args_parser.add_argument("--cravat_annotation_header", metavar = "cravat_headers", dest = "str_cravat_headers", default = "cravat_annotation.txt", help = "Headers for each CRAVAT feature annotated to the VCF file (used in BCFtools).")
         args_parser.add_argument("--log", dest="log_filename", required=True, help="log file")
         args_parser.add_argument("--out_dir", dest="str_out_dir", required=True, help="output directory")        
         args_parser.add_argument("--bam", metavar = "bam_file", dest = "str_bam_file", default = None, help = "Sample file in the form of a bam, if this is given NO alignment will be performed; the alignment mode command line will be ignored; let and right sample files will be ignored. Normal pipeline processing will pick up directly after alignment in the pipeline with the supplied bam.")
@@ -1325,17 +1409,14 @@ if __name__ == "__main__":
         args_parser.add_argument("--sequencing_platform", metavar = "Sequencing Platform", dest = "str_sequencing_platform", default = "ILLUMINA", choices = LSTR_SEQ_CHOICES, help = "The sequencing platform used to generate the samples choices include " + " ".join(LSTR_SEQ_CHOICES) + ".")
 
         # Resources
-        args_parser.add_argument("--vcf_snps", metavar="Reference_VCF_of_SNPs", dest="str_snp_vcf", default=None, help="The reference VCF including only SNP entries, if not given, will be generated from the file given with --vcf")
+        args_parser.add_argument("--genome_lib_dir",dest="genome_lib_dir", type=str, default=os.environ.get('CTAT_GENOME_LIB'),help="genome lib directory - see http://FusionFilter.github.io for details.  Uses env var CTAT_GENOME_LIB as default") 
+        # args_parser.add_argument("--vcf_snps", metavar="Reference_VCF_of_SNPs", dest="str_snp_vcf", default=None, help="The reference VCF including only SNP entries, if not given, will be generated from the file given with --vcf")
 
         # Cravat associated
         args_parser.add_argument("--skip_cravat", dest = "f_skip_cravat", action="store_true", default = False, help = "Skips CRAVAT services.")
         args_parsed = args_parser.parse_args()
 
-        #Check if GATK present
-        gatk_path = os.getenv("GATK_HOME")
-        if not gatk_path:
-            exit("Error, missing path to GATK in $GATK_HOME.")
- 
+
         ## Make Checkpoints directory
         checkpoints_dir = os.path.join(args_parsed.str_out_dir,"chckpts_dir")
         checkpoints_dir = os.path.abspath(checkpoints_dir)
