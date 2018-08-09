@@ -16,6 +16,7 @@ import argparse
 import subprocess
 import gzip
 import glob
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--CosmicCodingMuts", required = True ,help="CosmicCodingMut VCF file")
@@ -27,26 +28,36 @@ args=parser.parse_args()
 
 csv.field_size_limit(sys.maxsize)
 
+#Check for Picard env
 picard_path=os.environ.get("PICARD_HOME")
 
 if not picard_path:
     sys.exit("Set $PICARD_HOME to your picard software")
 
+#Check for Genome lib
 genome_lib_dir = args.genome_lib_dir
 if genome_lib_dir is None:
     raise RuntimeError("Error, must specify --genome_lib_dir or set env var CTAT_GENOME_LIB")      
 genome_lib_dir = os.path.abspath(genome_lib_dir)
 
-compressed_mutation_lib=glob.glob(os.path.join(genome_lib_dir,"mutation_lib.*.tar.gz"))
+#Search for compressed mutation lib
+compressed_mutation_lib=glob.glob(os.path.join(genome_lib_dir,
+                                     "mutation_lib.*.tar.gz"))
 
+#Uncompressing ctat_mutation_lib
 ctat_mutation_lib=os.path.join(genome_lib_dir,"ctat_mutation_lib")
 if not os.path.exists(ctat_mutation_lib):
     if compressed_mutation_lib:
+        print "Uncompressing mutation lib in genome_lib_dir\n"
         subprocess.call(["tar","-xzvf",compressed_mutation_lib[0],"-C",genome_lib_dir])
-    
+    else:
+        raise RuntimeError("Cannot find mutation lib in CTAT_GENOME_LIB")
 
+#Generating ref_genome.dict in ctat_genome_lib_build_dir
+#if not present
 ref_dict=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.dict")
 if not os.path.exists(ref_dict): 
+    print "Generating "+ ref_dict
     create_seq_dict=os.path.join(picard_path,"CreateSequenceDictionary.jar")
     ref_fa=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.fa")
     subprocess.call(["java","-jar",create_seq_dict,
@@ -56,6 +67,8 @@ if not os.path.exists(ref_dict):
 
 if os.path.exists(ref_dict):
     print "ref dict created for gatk use in pipe"
+else:
+    raise RuntimeError("Error, ref dict could not be generated with picard")
 
 ##Add lines to header
 add_header_lines = [
@@ -66,7 +79,6 @@ add_header_lines = [
 '##INFO=<ID=SOMATIC,Type=String,Description="Information on whether the sample was reported to be Confirmed Somatic. \'Confirmed somatic\'=if the mutation has been confimed to be somatic in the experiment by sequencing both the tumour and a matched normal from the same patient, \'Previously Observed\'=when the mutation has been reported as somatic previously but not in current paper, \'variant of unknown origin\'=when the mutation is known to be somatic but the tumour was sequenced without a matched normal">\n',
 '##INFO=<ID=PUBMED_COSMIC,Type=String,Description="The PUBMED ID for the paper that the sample was noted in COSMIC.">\n'
 ]
-
 
 #GENE,STRAND,CDS,AA,CNT
 #COSMIC_ID,TISSUE,TUMOR,FATHMM,SOMATIC,PUBMED_COSMIC,GENE,STRAND,GENE,STRAND,CDS,AA,CNT
