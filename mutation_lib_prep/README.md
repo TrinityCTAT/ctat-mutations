@@ -19,7 +19,7 @@ OR
 2. Download the [ctat mutation resource for hg38](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg38.tar.gz) 
 
 3. Uncompress GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
-
+    
     tar -xvf GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
 
 4. Move mutation_lib.hg38.tar.gz into GRCh38_v27_CTAT_lib_Feb092018/
@@ -49,10 +49,14 @@ bgzip -c dbsnp.vcf > dbsnp.vcf.gz
 java -jar gatk.jar IndexFeatureFile -F dbsnp.vcf.gz
 
 ##### REDIportal annotations
-For hg19, the dataset for REDIportal annotation was downloaded from http://srv00.recas.ba.infn.it/atlas/download.html  
+For hg19, the dataset for REDIportal annotation was downloaded from http://srv00.recas.ba.infn.it/atlas/download.html 
+
 For hg38 conversion, we used [LiftOver](http://genome.ucsc.edu/cgi-bin/hgLiftOver)
+
 Convert the hg19 dataset to bed format:
+
 awk '{print $1 "\t" ($2 - 1) "\t" $2}' rediportal.txt > rediportal_hg37.bed
+
 Use LiftOver
 
 ##### RADAR annotations
