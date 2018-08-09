@@ -1,3 +1,5 @@
+## Genome installation and integartion
+
 Two genome versions available hg19 and hg38. Follow 4 steps below depending on version you choose:
 
 1. Download [hg19 CTAT_GENOME_LIB](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz)
@@ -36,6 +38,23 @@ Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (
     --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
   
 
+## Annotation files
 
+##### DBSNP annotations
+The dbsnp annotations in the resource bundle are postprocessed to generate a *.gz file and an index file
+##### gzip the vcf file
+bgzip -c dbsnp.vcf > dbsnp.vcf.gz
 
+##### Create index
+java -jar gatk.jar IndexFeatureFile -F dbsnp.vcf.gz
 
+##### REDIportal annotations
+For hg19, the dataset for REDIportal annotation was downloaded from http://srv00.recas.ba.infn.it/atlas/download.html  
+For hg38 conversion, we used [LiftOver](http://genome.ucsc.edu/cgi-bin/hgLiftOver)
+Convert the hg19 dataset to bed format:
+awk '{print $1 "\t" ($2 - 1) "\t" $2}' rediportal.txt > rediportal_hg37.bed
+Use LiftOver
+
+##### RADAR annotations
+The RADAR annotations were downloaded for [Hg19](http://lilab.stanford.edu/GokulR/database/Human_AG_all_hg19_v2.txt)
+and [Hg38](https://s3.amazonaws.com/biodata/annotation/RADAR/hg38/RADAR.bed.gz)
