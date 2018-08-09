@@ -9,7 +9,6 @@ import ntpath
 import json
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"]))
 from Pipeliner import Pipeliner, Command, run_cmd
 
 import logging
@@ -811,7 +810,7 @@ class RnaseqSnp:
         str_vcf_base = os.path.join(str_project_dir, STR_MISC_DIR, os.path.basename(os.path.splitext(str_variants_file)[0]))
         str_cancer_mutations_unfiltered = os.path.join(str_project_dir, STR_MISC_DIR, C_STR_CANCER_ANNOTATED_VCF)
         str_cancer_mutations_filtered = self.func_switch_ext(str_vcf_base, "_cosmic_filtered.vcf")
-        str_cravat_annotated_coding_vcf = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravate_annotated_coding.vcf.gz")
+        str_cravat_annotated_coding_vcf = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_coding.vcf.gz")
         str_cravat_annotated_all_vcf = str_project_dir + os.path.sep + "annotated_min_filtered.vcf.gz"
         str_cravat_filtered_groom_vcf = str_project_dir + os.path.sep + C_STR_CANCER_VCF
         str_cancer_tab = str_project_dir + os.path.sep + C_STR_CANCER_TAB
@@ -863,7 +862,7 @@ class RnaseqSnp:
         if (not f_is_hg_38 is None) and (not args_call.f_skip_cravat):
             # Update the output target vcf file given these steps are ran.
             str_return_vcf = str_cravat_filtered_groom_vcf
-            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravate_annotated_filtered.vcf")
+            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_filtered.vcf")
             str_cmd_make_cravat_tab = " ".join([str_cmd_make_cravat_tab,
                                                 "-F", "CHASM_PVALUE",
                                                 "-F", "CHASM_FDR",
@@ -884,8 +883,8 @@ class RnaseqSnp:
             # MV files needed from the CRAVAT dir to the current working dir.
             str_coding_variant_result = str_extracted_cravat_dir+os.path.sep+"*"+os.path.sep+"Variant.Result.tsv"
             str_non_coding_variant_result = str_extracted_cravat_dir+os.path.sep+"*"+os.path.sep+"Variant_Non-coding.Result.tsv"
-            str_move_cravate_files = " ".join(["bash -c \"cp", "{"+str_coding_variant_result+","+str_non_coding_variant_result+"}", str_extracted_cravat_dir+"\""])
-            lcmd_cancer_filter.append(Command(str_move_cravate_files,'mv_cravat.ok'))
+            str_move_cravat_files = " ".join(["bash -c \"cp", "{"+str_coding_variant_result+","+str_non_coding_variant_result+"}", str_extracted_cravat_dir+"\""])
+            lcmd_cancer_filter.append(Command(str_move_cravat_files,'mv_cravat.ok'))
 
             # Groom CRAVAT output tab for it does not upset BCFtools.
             str_groom_cravat_tab_coding = " ".join(["groom_cravat_annotation.py", str_cravat_detail_coding, str_cravat_detail_coding_updated])
@@ -1011,11 +1010,11 @@ class RnaseqSnp:
         if not os.path.exists(index_dir):
             index_dir=args_parsed.str_initial_index
         rediportal_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
-                                                     "rediportal.bed")
+                                                     "rediportal.txt")
         if not os.path.exists(rediportal_bed):
             rediportal_bed=args_parsed.str_rediportal_data
         radar_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
-                                                "radar.bed")
+                                                "radar.txt")
         if not os.path.exists(radar_bed):
             radar_bed=args_parsed.str_radar_data
         vcf_file=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",

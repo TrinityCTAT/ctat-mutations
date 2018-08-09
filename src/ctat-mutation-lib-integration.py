@@ -21,7 +21,7 @@ parser.add_argument("--CosmicCodingMuts", required = True ,help="CosmicCodingMut
 parser.add_argument("--CosmicMutantExport" ,required = True ,help="CosmicMutantExport TSV file")
 parser.add_argument("--genome_lib_dir" ,dest="genome_lib_dir", type=str,
                                         default=os.environ.get('CTAT_GENOME_LIB'),
-                                        help="genome lib directory - see http://FusionFilter.github.io for details.  Uses env var CTAT_GENOME_LIB as default"))
+                                        help="genome lib directory - see http://FusionFilter.github.io for details. Uses env var CTAT_GENOME_LIB as default"))
 args=parser.parse_args()
 
 csv.field_size_limit(sys.maxsize)
@@ -43,7 +43,7 @@ for file_gtf in version_traslation:
 ctat_mutation_lib=os.path.join(genome_lib_dir,"ctat_mutation_lib")
 if not os.path.exists(ctat_mutation_lib):
     compressed_mutation_lib=os.path.join(genome_lib_dir,"mutation_lib."+genome_version+".tar.gz")
-    subprocess.call(["tar","-zcvf",compressed_mutation_lib,"ctat_mutation_lib/"])
+    subprocess.call(["tar","-xzvf",compressed_mutation_lib,"-C",genome_lib_dir])
     
 
 if not picard_path:
@@ -54,7 +54,8 @@ else:
     ref_dict=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.dict")
     subprocess.call(["java","-jar",create_seq_dict,
                      "R=",ref_fa,
-                     "O=",ref_dict])
+                     "O=",ref_dict,
+                     "VALIDATION_STRINGENCY=LENIENT"])
 
 if os.path.exists(ref_dict):
     print "ref dict created for gatk use in pipe"
@@ -86,7 +87,6 @@ with gzip.open(args.CosmicMutantExport,"r") as mt:
                     "STRAND="+row.get("Mutation strand",""),
                     "CDS="+row.get("Mutation CDS",""),
                     "AA="+row.get("Mutation AA","")]
-
         info=";".join(info_items)
         mutant_dict_necessary_info[row["Mutation ID"]]=info
 
