@@ -1,181 +1,41 @@
-# Overview
+Two genome versions available hg19 and hg38. Follow 4 steps below depending on version you choose:
 
-Mutation detection in RNA-Seq highlights the GATK Best Practices in RNA-Seq variant calling, several sources of variant annotation, and filtering based on CRAVAT.
+1. Download [hg19 CTAT_GENOME_LIB](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz)
 
-# Public and Free Galaxy Instance
+2. Download [ctat mutation resource for hg19](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg19.tar.gz)
 
-This tool, as well as others, is installed at Indiana University on a publically available Galaxy instance free to use for cancer research. Please register and use this service (https://galaxy.ncgas-trinity.indiana.edu/user/login). To run the tool locally continue reading.
+3. Uncompress GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz
 
-# Quick Start
+    tar -xvf GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz
 
-Download the resource files found at https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources.tar.gz
+4. Move mutation_lib.hg19.tar.gz into GRCh37_v19_CTAT_lib_Feb092018/
 
-Download demo data at https://data.broadinstitute.org/Trinity/CTAT/mutation/demo_data.tar.gz
+OR
 
-You will need the following files ( found in the resource bundle ):
-* A reference genome ( fasta )
-* A vcf file of all know variants for your reference genome ( vcf, for example a dbSNP vcf )
-* 2 paired RNASeq samples ( fasta or fasta.qz)
+1. Download the [hg38 CTAT_GENOME_LIB](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz)
 
-Either put the rnaseq_mutation_pipeline in your path or go to its directory.
+2. Download the [ctat mutation resource for hg38](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg38.tar.gz) 
 
-Use the following command:
-Note: values in {} will need to be updated with actual files / options.
+3. Uncompress GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
 
-```
-python ctat_mutations.py \
-    --reference {reference_genome.fa} \
-    --vcf {reference_genome.vcf} \
-    --left {left_sample.fa} \
-    --right {right_sample.fa} \
-    --threads 8 \
-    --cosmic_vcf {cosmic.vcf} \
-    --rediportal {rediportal.txt} \
-    --radar {radar.txt} \
-    --log log.txt \
-    --tissue_type {tissue} \
-    --email {your@email.com} \
-    --cravat_annotation_header { Trinity_CTAT/mutation/headers/cravat_annotation.txt } \
-    --is_hg19 \
-    --out_dir rnaseq_mut_out \
-    --plot \
-    --index {star_index} \
-    --bed {reference.bed}
-```
+    tar -xvf GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
 
-Using the demo data and the included demo resource files and assuming all files are in your current directory the command would be:
-```
-python ctat_mutations.py \
-    --reference Hg19_11.fa \
-    --vcf dbsnp_FLI1.vcf \
-    --left FLI1.left.fq \
-    --right FLI1.right.fq \
-    --threads 8 \
-    --cosmic_vcf CosmicCodingMuts_v72_hg19_updated_chr.vcf.gz \
-    --rediportal rediportal_hg19.txt \
-    --radar radar_hg19_v2.tx
-    --log log.txt \
-    --tissue_type Blood-Lymphocyte \
-    --email change@email.com \
-    --cravat_annotation_header cravat_annotation.txt \
-    --is_hg19 \
-    --out_dir rnaseq_mut_out \
-    --plot \
-    --index Hg19.fa_star_index \
-    --bed hg19.refGene.sort.bed
-```
+4. Move mutation_lib.hg38.tar.gz into GRCh38_v27_CTAT_lib_Feb092018/
 
-The following arguments are optional and needed to turn on CRAVAT associated functionality:
-* --tissue_type
-* --email
-* --cravat_annotation_header
-* --is_hg19
+Next download [COSMIC resources](https://cancer.sanger.ac.uk/cosmic/download) required in this directory. Depending on the version of genome you need you can install either [COSMIC's hg38](https://cancer.sanger.ac.uk/cosmic/download?genome=38) or [COSMIC's hg19](https://cancer.sanger.ac.uk/cosmic/download?genome=37). You will need to download 2 sets of files: COSMIC Mutation Data (CosmicMutantExport.tsv.gz) and COSMIC Coding Mutation VCF File (CosmicCodingMuts.vcf.gz). Please note, for download to succeed you will need to [register and login](https://cancer.sanger.ac.uk/cosmic/login) to their service. 
 
-The following arguments are optional and needed for RNA editing filtering:
-* --rediportal
-* --radar
+Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (hg38 or hg19), proceed with mutation lib instegration step which will integrate the mutation resource with CTAT_GENOME_LIB. You will find this script in ctat-mutations repo in 'src' directory.
 
-The following arguments are needed for some of the functionality involved in annotation and filtering:
-* --cosmic_vcf
-* (Please download from http://cancer.sanger.ac.uk/cosmic, bgzip, and make sure Chr nomenclature matches).
-* --vcf
+    #Keep Picard in PICARD_HOME environmental variable like so
+    export PICARD_HOME=/path/to/picard
 
-# Requirements
-
-The following software is required before running the RNA-Seq variant calling pipeline. Please look below for the supported versions. PLEASE use the supported versions of the tools, other versions are not supported and may not work:
-
-# Current versions
-
-At the time of writing this documentation the following versions of software
-are being used successfully. Other versions of the software dependencies may
-also be viable and are not supported.
-
-* GATK
-  * GenomeAnalysisTK-3.1-1-g07a4bf8
-  * http://www.broadinstitute.org/gatk
-* Java
-  * java version "1.7.0_51"
-  * Java(TM) SE Runtime Environment (build 1.7.0_51-b13)
-  * Java HotSpot(TM) 64-Bit Server VM (build 24.51-b03, mixed mode)
-* PICARD tools
-  * AddOrReplaceReadGroups.jar
-    * Version: 1.764(96ec474b689a429463e04256383babd1f62efd88_1410735622)
-  * MarkDUplicates.jar
-    * Version: 1.764(96ec474b689a429463e04256383babd1f62efd88_1410735622)
-  * http://broadinstitute.github.io/picard
-* Python
-  * Python 2.7.1 (r271:86832, Apr 17 2012, 22:46:32) 
-  * [GCC 4.4.3] on linux2
-* R
-  * R version 3.0.2 (2013-09-25) -- "Frisbee Sailing" (64-bit)
-  * http://cran.r-project.org
-* STAR Aligner
-  * 2.3.0
-  * https://github.com/alexdobin/STAR
-
-Make sure to append to your PATH the path the STAR aligner and SciEDPiper.
-Also, make sure Picard-Tools and GATK jars are available.
+    #Integrate CTAT mutations lib with CTAT genome library
+    python ctat-mutation-lib-integration.py \
+    --CosmicMutantExport CosmicMutantExport.tsv.gz \
+    --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
+    --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
+  
 
 
-# Resources and Installation:
-
-Download the resource files for HG19 at
-https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg19.tar.gz
-
-Download the resource files for HG38 at
-https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_resources_hg38.tar.gz
-
-Once the resources are downloaded, unzip the \*.tar.gz file and install COSMIC database (make sure that you have a registered COSMIC account : https://cancer.sanger.ac.uk/cosmic/myaccount ). 
-```
-# This can be done for both hg19 and hg38
-# Unzip *.tar.gz
-tar -xvf mutation_resources_hg19.tar.gz
-cd mutation_resources_hg19
-
-# Install COSMIC database
-# This will generate an output file : CosmicCodingMuts_v72_hg19_updated_chr.vcf
-python install_cosmic.py --userid email@example.com --password <your_cosmic_password> --genome_version hg19
-```
-# DBSNP annotations
-
-The dbsnp annotations in the resource bundle are postprocessed to generate a \*.gz file and an index file
-```
-# gzip the vcf file
-bgzip -c dbsnp.vcf > dbsnp.vcf.gz
-
-# Create index
-java -jar gatk.jar IndexFeatureFile -F dbsnp.vcf.gz
-
-```
-
-# Pipeline behavior
-
-Note that if an error occurs on a command, the pipeline should not produce files that would have resulted 
-from that command, so no partial files should be created in the pipeline. As well, if the pipeline was stopped
-midway for some reason, when ran again with the same settings, the pipeline will pick-up where it left off.
-
-There is an option to run the pipeline with a clean command line argument. This is not a default behavior.
-If used, when an intermediary file is made in the pipeline that is not an input file and not a final result,
-it is only kept until it is no longer needed for commands and then it is deleted. 
-This keeps the footprint of the run down.
-
-If any of these behaviors are not true, please let me know ttickle@broadinstitute.org
 
 
-# Gzipped files
-
-The pipeline recognizes the .gz extension and any commands using this will automatically have the .gz file unzipped and piped in for
-use making any command compatible with zipped files. Please use them space footprints.
-
-
-# Updating paths
-
-Several jars are used in this pipeline. If you need, you may supply the path of any command. This occurs with the -u/update command .
-
-
-# Argument Help
-
-More specific help with command line arguments can be found with the following
-commands:
-
-python rnaseq_mutation_pipeline.py --help
