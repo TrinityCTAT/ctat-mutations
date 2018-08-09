@@ -15,6 +15,7 @@ import csv
 import argparse
 import subprocess
 import gzip
+import glob
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--CosmicCodingMuts", required = True ,help="CosmicCodingMut VCF file")
@@ -28,30 +29,26 @@ csv.field_size_limit(sys.maxsize)
 
 picard_path=os.environ.get("PICARD_HOME")
 
+if not picard_path:
+    sys.exit("Set $PICARD_HOME to your picard software")
+
 genome_lib_dir = args.genome_lib_dir
 if genome_lib_dir is None:
     raise RuntimeError("Error, must specify --genome_lib_dir or set env var CTAT_GENOME_LIB")      
 genome_lib_dir = os.path.abspath(genome_lib_dir)
 
-version_traslation={"gencode.v19.annotation.gtf":"hg19",
-                    "gencode.v27.annotation.gtf":"hg38"}
-
-for file_gtf in version_traslation:
-     if os.path.exists(os.path.join(genome_lib_dir,file_gtf)):
-         genome_version=version_traslation[file_gtf]
+compressed_mutation_lib=glob.glob(os.path.join(genome_lib_dir,"mutation_lib.*.tar.gz"))
 
 ctat_mutation_lib=os.path.join(genome_lib_dir,"ctat_mutation_lib")
 if not os.path.exists(ctat_mutation_lib):
-    compressed_mutation_lib=os.path.join(genome_lib_dir,"mutation_lib."+genome_version+".tar.gz")
-    subprocess.call(["tar","-xzvf",compressed_mutation_lib,"-C",genome_lib_dir])
+    if compressed_mutation_lib:
+        subprocess.call(["tar","-xzvf",compressed_mutation_lib[0],"-C",genome_lib_dir])
     
 
-if not picard_path:
-    sys.exit("Set $PICARD_HOME to your picard software")
-else:
+ref_dict=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.dict")
+if not os.path.exists(ref_dict): 
     create_seq_dict=os.path.join(picard_path,"CreateSequenceDictionary.jar")
     ref_fa=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.fa")
-    ref_dict=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.dict")
     subprocess.call(["java","-jar",create_seq_dict,
                      "R=",ref_fa,
                      "O=",ref_dict,
