@@ -1,4 +1,4 @@
-## Genome installation and integartion
+### Genome installation and integartion
 
 Two genome versions available hg19 and hg38. Follow 4 steps below depending on version you choose:
 
@@ -38,8 +38,9 @@ Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (
     --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
     --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
   
+Now you are all set to run the pipeline
 
-## Annotation files
+### A word about how annotation files were obtained and pre-processed 
 
 ##### DBSNP annotations
 The dbsnp annotations in the resource bundle are postprocessed to generate a *.gz file and an index file
