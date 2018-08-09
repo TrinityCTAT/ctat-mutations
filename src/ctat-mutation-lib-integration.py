@@ -21,7 +21,7 @@ parser.add_argument("--CosmicCodingMuts", required = True ,help="CosmicCodingMut
 parser.add_argument("--CosmicMutantExport" ,required = True ,help="CosmicMutantExport TSV file")
 parser.add_argument("--genome_lib_dir" ,dest="genome_lib_dir", type=str,
                                         default=os.environ.get('CTAT_GENOME_LIB'),
-                                        help="genome lib directory - see http://FusionFilter.github.io for details. Uses env var CTAT_GENOME_LIB as default"))
+                                        help="genome lib directory - see http://FusionFilter.github.io for details. Uses env var CTAT_GENOME_LIB as default")
 args=parser.parse_args()
 
 csv.field_size_limit(sys.maxsize)
