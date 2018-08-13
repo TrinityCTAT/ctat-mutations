@@ -57,8 +57,7 @@ For hg38 conversion, we used [LiftOver](http://genome.ucsc.edu/cgi-bin/hgLiftOve
 
 Convert the hg19 dataset to bed format:
 
-awk '{print $1 "\t" ($2 - 1) "\t" $2}' rediportal.txt > rediportal_hg37.bed
-
+awk '{print $1 "\t" $2 "\t" ($2+1) "\t" $3 "\t" $4 "\t"  $5  "\t"  $6  }' rediportal.txt > rediportal_hg19_all_cols.bed
 Use LiftOver
 
 ##### RADAR annotations
