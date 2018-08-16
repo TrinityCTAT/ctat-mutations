@@ -33,7 +33,7 @@ Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (
     export PICARD_HOME=/path/to/picard
 
     #Integrate CTAT mutations lib with CTAT genome library
-    python ctat-mutation-lib-integration.py \
+    python ctat-mutations/mutation_lib_prep/ctat-mutation-lib-integration.py \
     --CosmicMutantExport CosmicMutantExport.tsv.gz \
     --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
     --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
