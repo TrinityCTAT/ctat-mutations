@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+
 
 import argparse
 import datetime
 import os,sys
 import ntpath
 import json
+import glob
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -35,6 +39,9 @@ logger.addHandler(ch)
 
 
 # Constants
+
+SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
+
 # Keys for alignment return (dicts)
 INDEX_CMD = "cmd"
 INDEX_FILE = "out_file"
@@ -355,16 +362,18 @@ class RnaseqSnp:
         lcmd_gatk_recalibration_commands = []
         # Create commands
         # SAM to BAM and QC        
-        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"AddOrReplaceReadGroups.jar")," I=", str_align_file,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " AddOrReplaceReadGroups", " I=", str_align_file,
                                                                          " O=", str_sorted_bam, " SO=coordinate RGID=id RGLB=library RGPL=",
                                                                          args_call.str_sequencing_platform, " RGPU=machine RGSM=", str_unique_id])
 
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'bam_qc.ok')])
-        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"MarkDuplicates.jar")," I=", str_sorted_bam, " O=", str_dedupped_bam,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " MarkDuplicates"," I=", str_sorted_bam, " O=", str_dedupped_bam,
                                                                            " CREATE_INDEX=true M=", str_qc_metrics])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'mark_duplicates.ok')])
 
-        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" SplitNCigarReads -R", genome_fa,
+
+        
+        str_cur_command = " ".join(["java -jar "+ gatk_path +" SplitNCigarReads -R", genome_fa,
                                                                                   "-I", str_dedupped_bam, "-O", str_split_bam,
                                                                                   "--read-validation-stringency LENIENT"])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'split_cigar_reads.ok')])
@@ -373,17 +382,17 @@ class RnaseqSnp:
 
         # Recalibrate alignments
         if not vcf_file is None:
-            str_cur_command = " ".join(["java -Xmx4g -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" BaseRecalibrator -I",
+            str_cur_command = " ".join(["java -Xmx4g -jar "+ gatk_path +" BaseRecalibrator -I",
                                                                           str_split_bam,
                                                                           "-R", genome_fa, "-O", str_recalibrated_alignment_file, "--known-sites", vcf_file])
             
             lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'base_recal.ok')])            
-            str_cur_command = " ".join(["java -Xmx2g -jar ",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
-                                                                           " PrintReads", "-O", str_recalibrated_bam_2, "-I",
-                                                                           str_split_bam])
+            str_cur_command = " ".join(["java -Xmx2g -jar ", gatk_path,
+                                        " PrintReads", "-O", str_recalibrated_bam_2, "-I",
+                                        str_split_bam])
             lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'printreads.ok')]) 
 
-            str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" ApplyBQSR",
+            str_cur_command = " ".join(["java -jar "+ gatk_path+" ApplyBQSR",
                                                     "-I", str_recalibrated_bam_2, "-O", str_recalibrated_bam,
                                                     "-bqsr", str_recalibrated_alignment_file])
             lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'apply_bqsr.ok')])             
@@ -392,7 +401,7 @@ class RnaseqSnp:
 
             # Optional plotting of recalibration
             if args_call.f_optional_recalibration_plot:                
-                str_cur_command = " ".join(["java -Xmx4g -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" AnalyzeCovariates -R",
+                str_cur_command = " ".join(["java -Xmx4g -jar "+ gatk_path+" AnalyzeCovariates -R",
                                                                               genome_fa, "-bqsr", str_recalibrated_alignment_file,
                                                                             "-plots", str_recalibration_plots_pdf])
                 lcmd_gatk_recalibration_commands.append(Command(str_cur_command,'analyze_covariate.ok'))
@@ -442,7 +451,7 @@ class RnaseqSnp:
             lcmd_gatk_rna_calling.append(str_depth,'dep.ok')
 
         # Variant calling
-        str_hap_call = " ".join(["java", "-jar", os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
+        str_hap_call = " ".join(["java", "-jar", gatk_path,
                                  "HaplotypeCaller", "-R",
                                  genome_fa, "-I", str_input_bam,
                                  "--recover-dangling-heads","true",
@@ -584,7 +593,7 @@ class RnaseqSnp:
         
         # Optional plotting of recalibration
         if args_call.f_optional_recalibration_plot:
-            str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" AnalyzeCovariates ",
+            str_cur_command = " ".join(["java -jar "+ gatk_path+" AnalyzeCovariates ",
                                             "-before", str_recal_table, "-after", str_recal_table_2,
                                             "-plots", str_recal_plot])
             ls_cmds.append([Command(str_cur_command,'analyze_covar.ok')]) 
@@ -598,8 +607,8 @@ class RnaseqSnp:
         # Call mutations - Single File, variant only calling in DNA-seq.
         # https://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php
         # java -jar GenomeAnalysisTk.jar -T HaplotypeCaller -R reference/file.fasta -I recal.bam -stand_call_conf 30 -stand_emit_conf -o output.vcf
-        str_cur_command = " ".join(["java -jar "+ os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar")+" HaplotypeCaller -R", genome_fa,
-                                                                           "-I", str_recal_snp_bam, "-stand-call-conf 30.0 -O", str_raw_vcf])
+        str_cur_command = " ".join(["java -jar "+ gatk_path+" HaplotypeCaller -R", genome_fa,
+                                    "-I", str_recal_snp_bam, "-stand-call-conf 30.0 -O", str_raw_vcf])
         ls_cmds.extend(Command(str_cur_command,'haplo_call.ok')) 
 
         return {INDEX_CMD:ls_cmds,
@@ -752,7 +761,7 @@ class RnaseqSnp:
                                                   C_STR_INIT_FILTER)
         str_filtered_variants_index_file = str_filtered_variants_file + ".csi"
         # Filter variants
-        str_filter_command = " ".join(["java -jar",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"),
+        str_filter_command = " ".join(["java -jar",gatk_path,
                                        "VariantFiltration -R",
                                        genome_fa, "-V",
                                        str_variants_file, "-window 35",
@@ -847,13 +856,13 @@ class RnaseqSnp:
             str_vcf_to_filter = str_cancer_mutations_unfiltered
 
         # Filter variant before CRAVAT
-        str_cancer_filter_command = " ".join(["filter_vcf_for_cancer.py",
+        str_cancer_filter_command = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer.py"]),
                                               str_vcf_to_filter,
                                               str_cancer_mutations_filtered])
         lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_before_cravat.ok'))
 
         # Annotate non-common with CRAVAT
-        str_cmd_make_cravat_tab = " ".join(["java -jar",os.path.join(gatk_path,"gatk-package-4.0.1.2-local.jar"), "VariantsToTable", "-R", genome_fa,"-V", str_cravat_filtered_groom_vcf,
+        str_cmd_make_cravat_tab = " ".join(["java -jar",gatk_path, "VariantsToTable", "-R", genome_fa,"-V", str_cravat_filtered_groom_vcf,
                                            "-F", "CHROM", "-F", "POS", "-F", "REF", "-F", "ALT", "-F", "GENE",
                                            "-F", "DP", "-F", "QUAL", "-F", "MQ",
                                            "-F", "SAO", "-F", "NSF", "-F", "NSM", "-F", "NSN", "-F", "TUMOR", "-F", "TISSUE",
@@ -871,11 +880,12 @@ class RnaseqSnp:
 
             str_cravat_result_dir_zip = str_cravat_result_dir + ".zip"
             lstr_hg_38 = ["--is_hg19"] if not f_is_hg_38 else []
-            str_cravat_cmd = " ".join(["annotate_with_cravat.py", "--classifier", args_call.str_cravat_classifier] + lstr_hg_38 +
+            str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
+                                       "--classifier", args_call.str_cravat_classifier] + lstr_hg_38 +
                                       ["--email", args_call.str_email_contact, "--max_attempts", str(I_CRAVAT_ATTEMPTS),
-                                      "--wait", str(I_CRAVAT_WAIT), str_cancer_mutations_filtered, str_cravat_result_dir])
+                                       "--wait", str(I_CRAVAT_WAIT), str_cancer_mutations_filtered, str_cravat_result_dir])
             lcmd_cancer_filter.append(Command(str_cravat_cmd,'annotate_cravat.ok'))
-
+            
             ## Unzip
             str_unzip_cravat_cmd = " ".join(["unzip", "-d", str_extracted_cravat_dir, str_cravat_result_dir_zip])
             lcmd_cancer_filter.append(Command(str_unzip_cravat_cmd,'unzip.ok')) 
@@ -887,8 +897,11 @@ class RnaseqSnp:
             lcmd_cancer_filter.append(Command(str_move_cravat_files,'mv_cravat.ok'))
 
             # Groom CRAVAT output tab for it does not upset BCFtools.
-            str_groom_cravat_tab_coding = " ".join(["groom_cravat_annotation.py", str_cravat_detail_coding, str_cravat_detail_coding_updated])
-            str_groom_cravat_tab_non_coding = " ".join(["groom_cravat_annotation.py", str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
+            str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
+                                                    str_cravat_detail_coding, str_cravat_detail_coding_updated])
+
+            str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
+                                                        str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
             cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
             cmd_groom_cravat_tab_noncoding = Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok')
             lcmd_cancer_filter.extend([cmd_groom_cravat_tab_coding, cmd_groom_cravat_tab_noncoding])
@@ -932,13 +945,13 @@ class RnaseqSnp:
                                                str_cravat_annotated_coding_vcf])
             lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
             # Filter based on Predictions
-            str_cmd_filter_predictions = " ".join(["filter_vcf_for_predictions.py",
+            str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                    str_cravat_annotated_all_vcf,
                                                    str_pred_filtered_vcf])
             lcmd_cancer_filter.append(Command(str_cmd_filter_predictions,'filter_predictions.ok'))
 
         # Groom before filter
-        str_cmd_groom_cancer_filtered = " ".join(["groom_vcf.py",
+        str_cmd_groom_cancer_filtered = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                                   str_pred_filtered_vcf,
                                                   str_cravat_filtered_groom_vcf])
         lcmd_cancer_filter.append(Command(str_cmd_groom_cancer_filtered,'groom_filter.ok'))
@@ -988,9 +1001,16 @@ class RnaseqSnp:
         import warnings
         
         #Check if GATK present
-        gatk_path=os.getenv("GATK_HOME")
-        if not gatk_path:
+        gatk_home=os.getenv("GATK_HOME")
+        if not gatk_home:
             exit("Error, missing path to GATK in $GATK_HOME.")
+
+        # identify gatk4_jar file
+        gatk4_jar = glob.glob(os.path.join(gatk_home, "gatk-package-4.*-local.jar"))
+        if len(gatk4_jar) != 1:
+            raise RuntimeError("Error, cannot locate single gatk-package-4.*-local.jar in {}".format(gatk_home))
+        gatk_path = os.path.abspath(gatk4_jar[0])
+        
         #Check if PICARD present
         picard_path=os.getenv("PICARD_HOME")
         if not picard_path:
@@ -1001,12 +1021,10 @@ class RnaseqSnp:
             exit("Error, missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
 
         #Form paths from CTAT_GENOME_LIB
-        genome_fa=os.path.join(ctat_genome_lib_path,"ctat_genome_lib_build_dir",
-                               "ref_genome.fa")
+        genome_fa=os.path.join(ctat_genome_lib_path, "ref_genome.fa")
         if not os.path.exists(genome_fa):
             genome_fa=args_parsed.str_genome_fa
-        index_dir=os.path.join(ctat_genome_lib_path,"ctat_genome_lib_build_dir",
-                                                "ref_genome.fa.star.idx")
+        index_dir=os.path.join(ctat_genome_lib_path,"ref_genome.fa.star.idx")
         if not os.path.exists(index_dir):
             index_dir=args_parsed.str_initial_index
         rediportal_bed=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
@@ -1167,7 +1185,7 @@ class RnaseqSnp:
                 str_clean_vcf = os.path.join(str_misc_dir,
                                              self.func_switch_ext(os.path.basename(str_annotated_vcf_file),
                                              "_clean.vcf"))
-                str_clean_vcf_cmd = " ".join(["groom_vcf.py",
+                str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                               str_annotated_vcf_file,
                                               str_clean_vcf])
                 lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
@@ -1176,7 +1194,8 @@ class RnaseqSnp:
 
                 # Filter results to just SNPs
                 str_snp_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_snp.vcf")
-                str_cmd_filter_snps = " ".join(["reduce_vcf_to_snps.py", str_annotated_vcf_file, str_snp_filtered_vcf])
+                str_cmd_filter_snps = " ".join([os.path.sep.join([SCRIPTDIR, "reduce_vcf_to_snps.py"]),
+                                                str_annotated_vcf_file, str_snp_filtered_vcf])
                 lcmd_commands.append(Command(str_cmd_filter_snps,'filter_only_snps.ok'))
                 str_annotated_vcf_file = str_snp_filtered_vcf
 
@@ -1241,7 +1260,8 @@ class RnaseqSnp:
 
                 # Update the SNPeff style annotations to the simple info column feature style
                 str_snp_eff_updated_file = self.func_switch_ext(str_annotated_vcf_file, "_updated.vcf")
-                str_snp_eff_update_cmd = " ".join(["update_snpeff_annotations.py", str_annotated_vcf_file, str_snp_eff_updated_file])
+                str_snp_eff_update_cmd = " ".join([os.path.sep.join([SCRIPTDIR,"update_snpeff_annotations.py"]),
+                                                   str_annotated_vcf_file, str_snp_eff_updated_file])
                 lcmd_commands.append(Command(str_snp_eff_update_cmd,'snpeff_simple.ok'))
                 str_annotated_vcf_file = str_snp_eff_updated_file
 
@@ -1268,7 +1288,7 @@ class RnaseqSnp:
 
                 # Make JSON file for the inspector
                 if ref_bed:
-                    str_cmd_json_inspector = " ".join(["make_mutation_inspector_json.py",
+                    str_cmd_json_inspector = " ".join([ os.path.sep.join([SCRIPTDIR, "make_mutation_inspector_json.py"]),
                                                 "--sample", args_parsed.str_out_dir,
                                                 "--tab", str_cancer_tab,
                                                 "--bam", str_bam_called_from,
