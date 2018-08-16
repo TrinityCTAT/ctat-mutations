@@ -55,15 +55,17 @@ if not os.path.exists(ctat_mutation_lib):
 
 #Generating ref_genome.dict in ctat_genome_lib_build_dir
 #if not present
-ref_dict=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.dict")
+ref_dict=os.path.join(genome_lib_dir,"ref_genome.dict")
 if not os.path.exists(ref_dict): 
     print "Generating "+ ref_dict
-    create_seq_dict=os.path.join(picard_path,"CreateSequenceDictionary.jar")
-    ref_fa=os.path.join(genome_lib_dir,"ctat_genome_lib_build_dir","ref_genome.fa")
-    subprocess.call(["java","-jar",create_seq_dict,
-                     "R=",ref_fa,
-                     "O=",ref_dict,
-                     "VALIDATION_STRINGENCY=LENIENT"])
+    picard_jar = os.path.join(picard_path,"picard.jar")
+    ref_fa=os.path.join(genome_lib_dir,"ref_genome.fa")
+    cmd = ["java", "-jar", picard_jar,
+           "CreateSequenceDictionary",
+           "R=",ref_fa,
+           "O=",ref_dict,
+           "VALIDATION_STRINGENCY=LENIENT"]
+    subprocess.check_call(cmd)
 
 if os.path.exists(ref_dict):
     print "ref dict created for gatk use in pipe"
