@@ -34,11 +34,11 @@ Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (
 
     #Integrate CTAT mutations lib with CTAT genome library
     python ctat-mutations/mutation_lib_prep/ctat-mutation-lib-integration.py \
-    --CosmicMutantExport CosmicMutantExport.tsv.gz \
-    --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
-    --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
+         --CosmicMutantExport CosmicMutantExport.tsv.gz \
+         --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
+         --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
   
-Now you are all set to run the pipeline
+Now you are all set to run the ctat-mutations pipeline
 
 ### A word about how annotation files were obtained and pre-processed 
 
