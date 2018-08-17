@@ -8,7 +8,7 @@ from __future__ import (absolute_import, division,
 ## Comments
 CHR_COMMENT = "#"
 STR_INFO = "##INFO="
-STR_VCF_DELIMITER = "\t"
+STR_VCF_DELIMITER = str("\t")
 STR_FILTER = "##FILTER="
 STR_DESCRIPTION = "Description"
 STR_ID = "ID"
