@@ -17,8 +17,7 @@ from Pipeliner import Pipeliner, Command, run_cmd
 
 import logging
 FORMAT = "%(asctime)-15s %(levelname)s %(module)s.%(name)s.%(funcName)s at %(lineno)d :\n\t%(message)s\n"
-global logger
-logger = logging.getLogger()
+logger = logging.getLogger('ctat_mutations')
 logging.basicConfig(filename='CTAT_mutations.log', format=FORMAT, filemode='w', level=logging.DEBUG)
 
 # add a new Handler to print all INFO and above messages to stdout
