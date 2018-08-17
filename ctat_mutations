@@ -1249,11 +1249,14 @@ class RnaseqSnp:
                                                  " ", str_annotated_vcf_file])
                 lcmd_commands.append(Command(str_annotate_command,'dbsnp.ok'))
                 # SNPeff java -jar /seq/regev_genome_portal/SOFTWARE/snpEff/snpEff.jar -nostats -noLof -no-downstream -no-upstream hg19 variants.vcf > new.vcf
+                with open(properties,"r") as pr:
+                    property_dict=json.load(pr)
+                gv=property_dict["Genome_version"]
                 str_snp_eff_annotated = self.func_switch_ext(str_annotated_vcf_file, "_snpeff.vcf")
                 str_snp_eff_cmd = " ".join(["bgzip -cd", str_annotated_vcf_file,
                                             "|", "java -jar ", os.path.join(PLUGINS,"snpEff.jar "),"-nostats",
                                             "-noLof -no-downstream -no-upstream",
-                                            "hg19", ">", str_snp_eff_annotated])
+                                            gv, ">", str_snp_eff_annotated])
                 lcmd_commands.append(Command(str_snp_eff_cmd,'snp_eff.ok'))
                 str_annotated_vcf_file = str_snp_eff_annotated
 
@@ -1268,9 +1271,6 @@ class RnaseqSnp:
                 f_cravat_hg38 = None
                 if args_parsed.str_email_contact is None:
                     warnings.warn("CRAVAT analysis will not be ran. Please specify an email address registered with CRAVAT service")
-                with open(properties,"r") as pr:
-                    property_dict=json.load(pr)
-                gv=property_dict["Genome_version"]
                 if gv=="hg19":
                     f_cravat_hg38=False
                 else: 
