@@ -1176,7 +1176,7 @@ class RnaseqSnp:
                                                     str_tmp_dir=str_misc_dir,
                                                     lstr_dependencies=[dict_align_info[INDEX_FILE],
                                                                        dict_align_info[INDEX_FILE]+".bai"],
-                                                    genome_fa=genome_fa,vcf_file=vcf_file,
+                                                    genome_fa=genome_fa,vcf_file=dbsnp_vcf_file,
                                                     gatk_path=gatk_path,picard_path=picard_path)
             #pipeliner.extend_commands(dict_ret_variant_calling[INDEX_CMD])
             lcmd_commands.extend(dict_ret_variant_calling[INDEX_CMD])
@@ -1237,10 +1237,10 @@ class RnaseqSnp:
             lcmd_commands.extend(dict_sample_csi[INDEX_CMD])
 
             # Tabix / gz DBSNP
-            dict_dbsnp_csi = self.func_csi(vcf_file,
+            dict_dbsnp_csi = self.func_csi(dbsnp_vcf_file,
                                       args_parsed.str_out_dir)
             lcmd_commands.extend(dict_dbsnp_csi[INDEX_CMD])
-            str_compressed_dbsnp = vcf_file
+            str_compressed_dbsnp = dbsnp_vcf_file
             str_csi_dbsnp = dict_dbsnp_csi[INDEX_INDEX]
 
             # DBSNP annotation
