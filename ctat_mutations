@@ -130,6 +130,7 @@ class RnaseqSnp:
                    alignment folder
                : dict
         """
+
         # STAR key words and staticly named files
         STR_STAR_GENOME_GENERATE = "genomeGenerate"
         STR_INDEX = "_".join(["star_index", str_unique_id])
@@ -165,12 +166,6 @@ class RnaseqSnp:
         str_output_SJ = os.path.join(str_misc_dir,
                                      STR_STAR_JUNCTION)
 
-        ## The index dir can be a made index or premade index.
-        # index_dir = os.path.join(args_call.str_out_dir, STR_INDEX)
-        #if(hasattr(args_call, "str_initial_index")
-        #   and args_call.str_initial_index):
-        #    index_dir = args_call.str_initial_index
-
         # Set limited memory modes
         # Update the limitGenomeGenerateRAM if more memory is requested
         lstr_index_memory_size = []
@@ -197,8 +192,9 @@ class RnaseqSnp:
         lcmd_commands = []
 
         # If the premade index is not given then generate
-        if(not hasattr(args_call, "str_initial_index")
-           or not args_call.str_initial_index):
+        if index_dir is None:
+            index_dir = genome_fa + ".star.idx"
+            
             str_index = " ".join(["STAR", "--runMode", STR_STAR_GENOME_GENERATE] +
                                   lstr_limited_index_mode + lstr_index_memory_size +
                                   ["--genomeDir", index_dir,
@@ -1030,10 +1026,9 @@ class RnaseqSnp:
 
         # star index
         index_dir = os.path.join(ctat_genome_lib_path,"ref_genome.fa.star.idx")
-
-        if args_parsed.str_initial_index is not None:
-            index_dir = args_parsed.str_initial_index
-            
+        if args_parsed.str_index_dir is not None:
+            index_dir = args_parsed.str_index_dir
+        
         # rediportal
         rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
         
@@ -1440,7 +1435,7 @@ def make_menu():
                            required = False, default=None,
                            help = "Path to the reference genome to use in the analysis pipeline.")
     
-    optional.add_argument("--index", metavar = "Use_premade_index", dest = "str_initial_index",
+    optional.add_argument("--index", metavar = "Use_premade_index", dest = "str_index_dir",
                           required = False, default = None,
                           help = "The initial index is made only from the reference genome and can be shared. If premade, supply a path here to the index directory so that it is not rebuilt for every alignment. Please provide the full path.")
     
