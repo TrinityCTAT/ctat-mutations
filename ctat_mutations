@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__))
 from Pipeliner import Pipeliner, Command, run_cmd
 
 import logging
-FORMAT = FORMAT = "%(asctime)-15s: %(message)s"
+FORMAT = "%(asctime)-15s: %(levelname)s %(module)s.%(name)s.%(funcName)s %(message)s"
 logger = logging.getLogger('ctat_mutations')
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
@@ -691,6 +691,35 @@ class RnaseqSnp:
                INDEX_BAM:"",
                INDEX_INDEX:""}
 
+
+    def func_do_variant_calling_use_vcf(self, args_call,
+                                     str_align_file,
+                                     str_unique_id,
+                                     str_project_dir,
+                                     str_tmp_dir,
+                                     lstr_dependencies,
+                                     genome_fa,
+                                     vcf_file,
+                                     gatk_path,
+                                     picard_path):
+        
+        """
+        use a vcf provided as a script parameter.  For more rapid testing of downstream operations only...
+        """
+
+        lcmd_index = []
+
+        # symlink the vcf to the proj dir
+        target_vcf_file = os.path.sep.join([str_project_dir, "variants.vcf"])
+        lcmd_index.append(Command("ln -s {} {}".format(args_call.use_vcf_file, target_vcf_file), "symlink_use_vcf.ok"))
+        lcmd_index.append(Command("ln -s {} {}".format(args_call.use_vcf_file + ".idx", target_vcf_file + ".idx"), "symlink_use_vcf_idx.ok"))
+
+        return{INDEX_CMD:lcmd_index,
+               INDEX_FILE: target_vcf_file ,
+               INDEX_BAM: args_call.str_bam_file,
+               INDEX_INDEX: target_vcf_file + ".idx" }
+    
+
     def func_do_filtering_bcftools(self, args_call, str_variants_file,
                                    lstr_dependencies):
         """
@@ -1023,18 +1052,6 @@ class RnaseqSnp:
         if args_parsed.str_index_dir is not None:
             index_dir = args_parsed.str_index_dir
         
-        # rediportal
-        rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
-        
-        if args_parsed.str_rediportal_data_file is not None:
-            rediportal_bed = args_parsed.str_rediportal_data_file
-
-        # radar
-        radar_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "radar.txt")
-
-        if args_parsed.str_radar_data_file is not None:
-            radar_bed = args_parsed.str_radar_data_file
-            
         # dbsnp vcf
         dbsnp_vcf_file = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "dbsnp_138.vcf.gz")
         if args_parsed.dbsnp_vcf_file is not None:
@@ -1074,6 +1091,12 @@ class RnaseqSnp:
            warnings.warn(str_error)
            exit(7)
 
+        # set full paths in case of relative path settings
+        if args_parsed.str_bam_file:
+            args_parsed.str_bam_file = os.path.abspath(args_parsed.str_bam_file)
+        if args_parsed.use_vcf_file:
+            args_parsed.use_vcf_file = os.path.abspath(args_parsed.use_vcf_file)
+        
         # Constants
         # If not using a premade index and indexing only, do not update the
         # name of the index dir with the sample name. Does not need to be
@@ -1095,7 +1118,8 @@ class RnaseqSnp:
         dict_calling_funcs = {STR_DNASEQ_VALIDATION:self.func_call_dnaseq_like_rnaseq,
                               STR_VARIANT_GATK:self.func_do_variant_calling_gatk,
                               STR_VARIANT_SAMTOOLS:self.func_do_variant_calling_samtools,
-                              STR_VARIANT_NONE:self.func_do_variant_calling_none }
+                              STR_VARIANT_NONE:self.func_do_variant_calling_none,
+                              "STR_VARIANT_USE_VCF":self.func_do_variant_calling_use_vcf}
 
         # Vary variant filtration
         dict_filtering_funcs = {STR_FILTERING_BCFTOOLS:self.func_do_filtering_bcftools,
@@ -1157,7 +1181,13 @@ class RnaseqSnp:
             str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
 
             # Add variant calling commands
-            func_calling = dict_calling_funcs[args_parsed.str_variant_call_mode]
+            func_calling = dict_calling_funcs[args_parsed.str_variant_call_mode] # get function for variant calling dependent on method
+            
+            ## under testing mode...
+            if args_parsed.str_bam_file and args_parsed.use_vcf_file:
+                # use provided bam and vcf file.
+                func_calling = dict_calling_funcs["STR_VARIANT_USE_VCF"]
+            
             dict_ret_variant_calling = func_calling(args_call=args_parsed,
                                                     str_align_file=dict_align_info[INDEX_FILE],
                                                     str_unique_id=str_sample_postfix,
@@ -1165,9 +1195,11 @@ class RnaseqSnp:
                                                     str_tmp_dir=str_misc_dir,
                                                     lstr_dependencies=[dict_align_info[INDEX_FILE],
                                                                        dict_align_info[INDEX_FILE]+".bai"],
-                                                    genome_fa=genome_fa,vcf_file=dbsnp_vcf_file,
-                                                    gatk_path=gatk_path,picard_path=picard_path)
-            #pipeliner.extend_commands(dict_ret_variant_calling[INDEX_CMD])
+                                                    genome_fa=genome_fa,
+                                                    vcf_file=dbsnp_vcf_file,
+                                                    gatk_path=gatk_path,
+                                                    picard_path=picard_path)
+                        
             lcmd_commands.extend(dict_ret_variant_calling[INDEX_CMD])
             str_bam_called_from = dict_ret_variant_calling[INDEX_BAM]
             str_bai_called_from = dict_ret_variant_calling[INDEX_INDEX]
@@ -1203,19 +1235,29 @@ class RnaseqSnp:
 
 
             # Filter RNA Editing
-            if args_parsed.use_rediportal_flag or args_parsed.use_radar_flag:
+            if not args_parsed.no_filter_rna_editing:
+                
+                # rediportal
+                rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
+
+                # radar
+                radar_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "radar.txt")
+                
                 str_rna_edit_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_RNAedit.vcf")
-                lstr_cmd_rna_editing_filter = ["filter_snps_rna_editing.py"]
-                if args_parsed.use_radar_flag:
-                    lstr_cmd_rna_editing_filter.extend(["--radar", radar_bed])
-                if args_parsed.use_rediportal_flag:
-                    lstr_cmd_rna_editing_filter.extend(["--rediportal", rediportal_bed])
+
+                lstr_cmd_rna_editing_filter = [os.path.sep.join([SCRIPTDIR, "filter_snps_rna_editing.py"])]
+
+                lstr_cmd_rna_editing_filter.extend(["--radar", radar_bed])
+                lstr_cmd_rna_editing_filter.extend(["--rediportal", rediportal_bed])
+                
                 lstr_cmd_rna_editing_filter.extend([str_annotated_vcf_file, str_rna_edit_filtered_vcf])
                 str_cmd_rna_editing_filter = " ".join(lstr_cmd_rna_editing_filter)
                 lcmd_commands.append(Command(str_cmd_rna_editing_filter,'rna_edit.ok')) 
+
                 # Switch over the annotated VCF to this RNA-Edited annotated VCF
                 str_annotated_vcf_file = str_rna_edit_filtered_vcf
 
+                # end of rna-editing section
 
 
             # Tabix / gz file sample
@@ -1456,21 +1498,10 @@ def make_menu():
     optional.add_argument("--cosmic_vcf_gz", metavar="cosmic_reference_vcf", dest="str_cosmic_vcf",
                           default=None,
                           help="Coding Cosmic Mutation VCF annotated with Phenotype Information and zipped using bgzip.")
-    
-    optional.add_argument("--radar", dest = "use_radar_flag", action="store_true",
-                          help = "If included filering based on Radar annotations will be turned on.")
-    
-    optional.add_argument("--radar_file", metavar = "Radar_data_file", dest = "str_radar_data_file",
-                          default = None,
-                          help = "Radar data for RNA editing removal, if included will be used for RNA editing removal.")
-    
-    optional.add_argument("--rediportal", dest = "use_rediportal_flag",action="store_true",
-                          help = "If included filering based on Rediportal annotations will be turned on.")
-    
-    optional.add_argument("--rediportal_file", metavar = "Rediportal_data_file",
-                          dest = "str_rediportal_data_file",default = "rediportal.bed",
-                          help = "REDIPortal data for RNA editing removal, if included will be used for RNA editing removal.")
-    
+
+    optional.add_argument("--no_filter_rna_editing", action="store_true",
+                          help="if enabled, turns off filtering based on known rna-editing sites from radar and rediportal")
+
     optional.add_argument("--tissue_type", metavar = "cravat_tissue", dest = "str_cravat_classifier",
                           default = STR_CRAVAT_CLASSIFIER_DEFAULT,
                           help = "Tissue type (used in CRAVAT variant prioritation). Supported classifiers can be found at http://www.cravat.us/help.jsp)")
@@ -1485,9 +1516,6 @@ def make_menu():
                           dest = "str_cravat_headers", required=False, default = None,
                           help = "Headers for each CRAVAT feature annotated to the VCF file (used in BCFtools).")
     
-    optional.add_argument("--log", dest="log_filename", default="ctat_mutations.log", help="log file, by default written to output directory")
-    
-    
     optional.add_argument("--bam", metavar = "bam_file", dest = "str_bam_file", default = None,
                           help = "Sample file in the form of a bam, if this is given NO alignment will be performed; the alignment mode command line will be ignored; let and right sample files will be ignored. Normal pipeline processing will pick up directly after alignment in the pipeline with the supplied bam.")
     
@@ -1501,6 +1529,8 @@ def make_menu():
     optional.add_argument("--star_memory", metavar = "Star_memory", dest = "str_star_memory_limit",
                           default = None,
                           help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
+
+    optional.add_argument("--debug", action="store_true", help="sets debug mode for logger")
     
     #################
     # GATK associated
@@ -1528,6 +1558,10 @@ def make_menu():
     optional.add_argument("--skip_cravat", dest = "f_skip_cravat", action="store_true", default = False,
                           help = "Skips CRAVAT services.")
     
+
+
+    args_parser.add_argument('--use_vcf', dest="use_vcf_file", type=str, default=None,  help=argparse.SUPPRESS) # for testing purposes only.
+    
     
     return args_parser
 
@@ -1537,13 +1571,20 @@ if __name__ == "__main__":
     args_parser = make_menu()
     
     args_parsed = args_parser.parse_args()
-    
+
+    if args_parsed.debug:
+        logger.setLevel(logging.DEBUG)
     
     ## Make Checkpoints directory
     checkpoints_dir = os.path.join(args_parsed.str_out_dir,"chckpts_dir")
     checkpoints_dir = os.path.abspath(checkpoints_dir)
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
+
+    str_misc_dir = os.path.join(args_parsed.str_out_dir, STR_MISC_DIR)
+    if not os.path.exists(str_misc_dir):
+        os.mkdir(str_misc_dir)
+    
     ## Construct pipeline
     pipeliner = Pipeliner(checkpoints_dir)
 
