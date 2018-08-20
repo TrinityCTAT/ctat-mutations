@@ -16,15 +16,9 @@ sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__))
 from Pipeliner import Pipeliner, Command, run_cmd
 
 import logging
-FORMAT = "%(asctime)-15s %(levelname)s %(module)s.%(name)s.%(funcName)s at %(lineno)d :\n\t%(message)s\n"
+FORMAT = FORMAT = "%(asctime)-15s: %(message)s"
 logger = logging.getLogger('ctat_mutations')
-logging.basicConfig(filename='CTAT_mutations.log', format=FORMAT, filemode='w', level=logging.DEBUG)
-
-# add a new Handler to print all INFO and above messages to stdout
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-logger.addHandler(ch)
-
+logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 """
    _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
@@ -1404,7 +1398,6 @@ class RnaseqSnp:
 
 
 
-
 def make_menu():
 
     ## Input Arguments
@@ -1551,7 +1544,6 @@ if __name__ == "__main__":
     checkpoints_dir = os.path.abspath(checkpoints_dir)
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
-        
     ## Construct pipeline
     pipeliner = Pipeliner(checkpoints_dir)
 
