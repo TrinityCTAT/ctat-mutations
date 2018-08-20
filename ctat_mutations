@@ -20,12 +20,6 @@ FORMAT = FORMAT = "%(asctime)-15s: %(message)s"
 logger = logging.getLogger('ctat_mutations')
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
-# add a new Handler to print all INFO and above messages to stdout
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-logger.addHandler(ch)
-
-
 """
    _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
   / ____|__   __|/\|__   __|          |  \/  | |  | |__   __|/\|__   __|_   _/ __ \| \ | |
