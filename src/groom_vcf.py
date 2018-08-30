@@ -1,10 +1,14 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
 
 # Constants
 ## Comments
 CHR_COMMENT = "#"
 STR_INFO = "##INFO="
-STR_VCF_DELIMITER = "\t"
+STR_VCF_DELIMITER = str("\t")
 STR_FILTER = "##FILTER="
 STR_DESCRIPTION = "Description"
 STR_ID = "ID"
@@ -52,8 +56,8 @@ if args.str_input_file:
                     # COSMIC does not include number in the id so we have to add one
                     # the most liberal one for String is ".", which we use here.
                     if not(len(lstr_line) == 1):
-                        print "Error, expected one token in the comment received more."
-                        print str(lstr_line)
+                        print("Error, expected one token in the comment received more.")
+                        print(str(lstr_line))
                         exit(101)
 
                     # Pull off header type info
@@ -80,9 +84,9 @@ if args.str_input_file:
                                 dict_header_token[STR_NUMBER] = "."
                         for str_required_info in LSTR_REQUIRED_INFO_FIELDS:
                             if not str_required_info in dict_header_token:
-                                print "INFO fields require the following fields " + ",".join(LSTR_REQUIRED_INFO_FIELDS)
-                                print "This INFO line is missing fields"
-                                print STR_VCF_DELIMITER.join(lstr_line)
+                                print("INFO fields require the following fields " + ",".join(LSTR_REQUIRED_INFO_FIELDS))
+                                print("This INFO line is missing fields")
+                                print(STR_VCF_DELIMITER.join(lstr_line))
                                 exit(102)
                         # Order and write tokens
                         str_header_token = ",".join(["=".join([str_key,dict_header_token[str_key]]) for str_key in LSTR_REQUIRED_INFO_FIELDS])
@@ -93,9 +97,9 @@ if args.str_input_file:
                     if str_header_type == STR_FILTER:
                         for str_required_filter in LSTR_REQUIRED_FILTER_FIELDS:
                             if not str_required_filter in dict_header_token:
-                                print "FILTER fields require the following fields " + ",".join(LSTR_REQUIRED_FILTER_FIELDS)
-                                print "This FILTER line is missing fields"
-                                print STR_VCF_DELIMITER.join(lstr_line)
+                                print("FILTER fields require the following fields " + ",".join(LSTR_REQUIRED_FILTER_FIELDS))
+                                print("This FILTER line is missing fields")
+                                print(STR_VCF_DELIMITER.join(lstr_line))
                                 exit(103)
                         # Order and write tokens
                         lstr_token_order = LSTR_REQUIRED_FILTER_FIELDS
