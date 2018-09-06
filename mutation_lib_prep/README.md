@@ -29,7 +29,7 @@ Next download [COSMIC resources](https://cancer.sanger.ac.uk/cosmic/download) re
 
 ### Step 3: Mutation lib integration
 
-Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (hg38 or hg19), proceed with mutation lib integration step which will integrate the mutation resource with CTAT_GENOME_LIB (This corresponds to GRCh37_v19_CTAT_lib_Feb092018 or GRCh38_v27_CTAT_lib_Feb092018 downloaded in Step 1). You will find this script in ctat-mutations repo in 'src' directory.
+Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (hg38 or hg19), proceed with mutation lib integration step which will integrate the mutation resource with CTAT_GENOME_LIB (This corresponds to "GRCh37_v19_CTAT_lib_Feb092018" or "GRCh38_v27_CTAT_lib_Feb092018" downloaded in Step 1). You will find this script in ctat-mutations repo in 'src' directory.
 
     #Keep Picard in PICARD_HOME environmental variable like so
     export PICARD_HOME=/path/to/picard
