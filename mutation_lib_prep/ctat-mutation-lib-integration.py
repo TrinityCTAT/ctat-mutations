@@ -20,7 +20,6 @@ import argparse
 import subprocess
 import gzip
 import glob
-import pandas as pd
 import logging
 
 
