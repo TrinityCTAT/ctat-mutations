@@ -1,53 +1,6 @@
-### Step 1: Genome installation and integartion
+# ctat-mutations mutation lib prep
 
-Two genome versions available hg19 and hg38. Follow 4 steps below depending on version you choose:
-
-#### Hg19 setup
-
-1. Download [GRCh37_v19_CTAT_lib_Feb092018](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz)
-
-2. Download [ctat mutation resource for hg19](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg19.tar.gz)
-
-3. Uncompress GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz
-
-    tar -xvf GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz
-
-4. Move mutation_lib.hg19.tar.gz into GRCh37_v19_CTAT_lib_Feb092018/
-
-OR
-
-#### Hg38 setup
-
-1. Download [GRCh38_v27_CTAT_lib_Feb092018](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz)
-
-2. Download [ctat mutation resource for hg38](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg38.tar.gz) 
-
-3. Uncompress GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
-    
-    tar -xvf GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz
-
-4. Move mutation_lib.hg38.tar.gz into GRCh38_v27_CTAT_lib_Feb092018/
-
-### Step 2: Download Cosmic Resources
-
-Due to licensing requirements, we cannot simply provide Cosmic data resources as part of our mutation lib. You'll need to obtain them separately, but it's fairly straightforward to do, and is free for academics.
-
-Next download [COSMIC resources](https://cancer.sanger.ac.uk/cosmic/download) required in this directory. Depending on the version of genome you need you can install either [COSMIC's hg38](https://cancer.sanger.ac.uk/cosmic/download?genome=38) or [COSMIC's hg19](https://cancer.sanger.ac.uk/cosmic/download?genome=37). You will need to download 2 sets of files: COSMIC Mutation Data (CosmicMutantExport.tsv.gz) and COSMIC Coding Mutation VCF File (CosmicCodingMuts.vcf.gz). Please note, for download to succeed you will need to [register and login](https://cancer.sanger.ac.uk/cosmic/login) to their service. 
-
-### Step 3: Mutation lib integration
-
-Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (hg38 or hg19), proceed with mutation lib integration step which will integrate the mutation resource with CTAT_GENOME_LIB (This corresponds to "GRCh37_v19_CTAT_lib_Feb092018" or "GRCh38_v27_CTAT_lib_Feb092018" downloaded in Step 1). You will find this script in ctat-mutations repo in 'src' directory.
-
-    #Keep Picard in PICARD_HOME environmental variable like so
-    export PICARD_HOME=/path/to/picard
-
-    #Integrate CTAT mutations lib with CTAT genome library
-    python ctat-mutations/mutation_lib_prep/ctat-mutation-lib-integration.py \
-         --CosmicMutantExport CosmicMutantExport.tsv.gz \
-         --CosmicCodingMuts CosmicCodingMuts.vcf.gz \
-         --genome_lib_dir GRCh37_v19_CTAT_lib_Feb092018/ # OR GRCh38_v27_CTAT_lib_Feb092018/
-  
-Now you are all set to run the ctat-mutations pipeline
+Instructions for building the CTAT mutation lib are available [here](https://github.com/NCIP/ctat-mutations/wiki/CTAT-mutations-installation)
 
 ### A word about how annotation files were obtained and pre-processed 
 
