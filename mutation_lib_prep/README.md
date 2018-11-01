@@ -2,6 +2,8 @@
 
 Two genome versions available hg19 and hg38. Follow 4 steps below depending on version you choose:
 
+#### Hg19 setup
+
 1. Download [GRCh37_v19_CTAT_lib_Feb092018](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh37_v19_CTAT_lib_Feb092018.plug-n-play.tar.gz)
 
 2. Download [ctat mutation resource for hg19](https://data.broadinstitute.org/Trinity/CTAT/mutation/mutation_lib.hg19.tar.gz)
@@ -13,6 +15,8 @@ Two genome versions available hg19 and hg38. Follow 4 steps below depending on v
 4. Move mutation_lib.hg19.tar.gz into GRCh37_v19_CTAT_lib_Feb092018/
 
 OR
+
+#### Hg38 setup
 
 1. Download [GRCh38_v27_CTAT_lib_Feb092018](https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/GRCh38_v27_CTAT_lib_Feb092018.plug-n-play.tar.gz)
 
