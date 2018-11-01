@@ -28,7 +28,10 @@ OR
 
 4. Move mutation_lib.hg38.tar.gz into GRCh38_v27_CTAT_lib_Feb092018/
 
-### Step 2: Cosmic files download
+### Step 2: Download Cosmic Resources
+
+Due to licensing requirements, we cannot simply provide Cosmic data resources as part of our mutation lib. You'll need to obtain them separately, but it's fairly straightforward to do, and is free for academics.
+
 Next download [COSMIC resources](https://cancer.sanger.ac.uk/cosmic/download) required in this directory. Depending on the version of genome you need you can install either [COSMIC's hg38](https://cancer.sanger.ac.uk/cosmic/download?genome=38) or [COSMIC's hg19](https://cancer.sanger.ac.uk/cosmic/download?genome=37). You will need to download 2 sets of files: COSMIC Mutation Data (CosmicMutantExport.tsv.gz) and COSMIC Coding Mutation VCF File (CosmicCodingMuts.vcf.gz). Please note, for download to succeed you will need to [register and login](https://cancer.sanger.ac.uk/cosmic/login) to their service. 
 
 ### Step 3: Mutation lib integration
