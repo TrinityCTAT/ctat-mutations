@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python # -*- coding: utf-8 -*-
 
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
@@ -34,6 +33,7 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 # Constants
 
 SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
+VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv.js-reports"])
 
 # Keys for alignment return (dicts)
 INDEX_CMD = "cmd"
@@ -1346,6 +1346,21 @@ class RnaseqSnp:
                 str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(ref_bed))
                 str_cmd_copy_bed = " ".join(["cp", ref_bed, str_copied_bed])
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
+
+                html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
+                str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"create_variant_report.py"]),
+                                                            os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                                            genome_fa,
+                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
+                                                            "--flanking", "1000",
+                                                            "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
+                                                            "--tracks", str_bam_called_from+","+ref_bed+".gz",
+                                                            "--output", html_out])
+                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
+
+
+
+
 
         ## Run pipeline
         return(lcmd_commands)
