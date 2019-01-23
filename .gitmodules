@@ -1,0 +1,3 @@
+[submodule "igv.js-reports"]
+	path = igv.js-reports
+	url = https://github.com/igvteam/igv.js-reports.git
