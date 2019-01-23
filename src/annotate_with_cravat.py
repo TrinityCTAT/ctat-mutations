@@ -13,7 +13,7 @@ import json
 import os
 import requests
 import time
-import urllib
+import urllib.request
 
 # Constants
 str_response_job_id = "jobid"
@@ -55,7 +55,7 @@ def func_check_job(str_json_id):
 
     # Send file over to service
     response_check_job = requests.get("http://www.cravat.us/CRAVAT/rest/service/status", params={ str_response_job_id: str_json_id })
-    return response_check_job.json()
+    return(response_check_job.json())
 
 def func_download_cravat_result(str_cravat_url, str_download_location):
     """
@@ -69,11 +69,11 @@ def func_download_cravat_result(str_cravat_url, str_download_location):
 
     # Download Cravat result
     try:
-        urllib.urlretrieve(str_cravat_url, str_download_location)
-        return True
+        urllib.request.urlretrieve(str_cravat_url, str_download_location)
+        return(True)
     except IOError:
-        print "annotate_with_cravat::Error in retrieving results. " + str(IOError)
-        return False
+        print("annotate_with_cravat::Error in retrieving results. " + str(IOError))
+        return(False)
 
 def func_get_cravat_response(str_json_id, i_max_attempts, i_wait):
     """
@@ -87,26 +87,26 @@ def func_get_cravat_response(str_json_id, i_max_attempts, i_wait):
              : int
     """
 
-    for x_attempt in xrange(i_max_attempts):
-        print "annotate_with_cravat::Attempting to get CRAVAT response. Attempt " + str(x_attempt + 1)
+    for x_attempt in range(i_max_attempts):
+        print("annotate_with_cravat::Attempting to get CRAVAT response. Attempt " + str(x_attempt + 1))
         time.sleep(i_wait)
         response_json = func_check_job(str_json_id)
         if not response_json:
-            print "annotate_with_cravat::Error did not get a response from CRAVAT"
+            print("annotate_with_cravat::Error did not get a response from CRAVAT")
             return(None)
         str_success = str(response_json.get(str_response_status, None))
         if (not str_success) or (str_success in lstr_response_fail):
-            print " ".join(["annotate_with_cravat::Error was not successful in getting info from CRAVAT.",
+            print (" ".join(["annotate_with_cravat::Error was not successful in getting info from CRAVAT.",
                               "Job id =" + str(str_json_id) + ".",
                               "Success =" + str(str_success) + ".",
-                              response_json.get(str_response_log, "")])
+                              response_json.get(str_response_log, "")]))
             return(None)
         if str_success == str_response_pass:
-            print "annotate_with_cravat:: Reponse URL on success: " + str(response_json)
+            print("annotate_with_cravat:: Reponse URL on success: " + str(response_json))
             return response_json.get(str_response_url, None)
-    print " ".join(["annotate_with_cravat::Error gave up on CRAVAT after " + str(i_max_attempts * i_wait) + " seconds.",
+    print(" ".join(["annotate_with_cravat::Error gave up on CRAVAT after " + str(i_max_attempts * i_wait) + " seconds.",
                       "Job id =" + str(str_json_id) + ".",
-                      "Success =" + str(str_success) + "."])
+                      "Success =" + str(str_success) + "."]))
     return(None)
 
 
@@ -140,10 +140,10 @@ def func_request_cravat_service(str_vcf_path, str_analysis,
     response_cravat = requests.post("http://cravat.us/CRAVAT/rest/service/submit",
                                     files={"inputfile": open(str_vcf_path)},
                                     data=pyld_request)
-    print response_cravat
+    print(response_cravat)
     json_response = response_cravat.json()
     # Get return (job id)
-    return json_response.get(str_response_job_id, None)
+    return(json_response.get(str_response_job_id, None))
 
 # Ensure the extention to the output directory is zip
 if not os.path.splitext(args_call.str_output_dir)[1] == ".zip":
@@ -156,8 +156,8 @@ str_job_id = func_request_cravat_service(args_call.str_input_file,
                                           args_call.f_hg_19,
                                           args_call.str_email)
 if not str_job_id:
-    print " ".join(["annotate_with_cravat::Error Job id not found.",
-                    "Job id =" + str(str_job_id)])
+    print(" ".join(["annotate_with_cravat::Error Job id not found.",
+                    "Job id =" + str(str_job_id)]))
     exit(100)
 
 # Wait for result
@@ -165,20 +165,20 @@ str_download_url = func_get_cravat_response(str_job_id,
                                             args_call.i_max_attempts,
                                             args_call.i_wait)
 if not str_download_url:
-    print " ".join(["annotate_with_cravat::Error did no",
+    print(" ".join(["annotate_with_cravat::Error did no",
                     "recieve valid URL download.",
                     "Job id =" + str(str_job_id) + ".",
-                    "URL =" + str(str_download_url) + "."])
+                    "URL =" + str(str_download_url) + "."]))
     exit(101)
 
 # Get zip file
 f_success = func_download_cravat_result(str_download_url,
                                         args_call.str_output_dir)
-print "annotate_with_cravat:: Success = " + str(f_success)
+print("annotate_with_cravat:: Success = " + str(f_success))
 if not f_success:
-    print " ".join(["annotate_with_cravat::Error,",
+    print(" ".join(["annotate_with_cravat::Error,",
                     "could not download data in URL.",
                     "Job id =" + str(str_job_id) + ".",
                     "URL =" + str(str_download_url) + ".",
-                    "Download =" + str(args_call.str_output_dir) + "."])
+                    "Download =" + str(args_call.str_output_dir) + "."]))
     exit(102)
