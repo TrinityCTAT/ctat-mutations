@@ -60,7 +60,7 @@ def func_split_token(str_token):
 
 # Get handle
 str_input_ext = os.path.splitext(args.str_input_file)[1]
-hndl_vcf = gzip.open(args.str_input_file, "rb") if str_input_ext == ".gz" else open(args.str_input_file, "rb")
+hndl_vcf = gzip.open(args.str_input_file, "rt") if str_input_ext == ".gz" else open(args.str_input_file, "r")
 
 # Read in vcf file
 if args.str_input_file:

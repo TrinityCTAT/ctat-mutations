@@ -56,7 +56,7 @@ def func_split_token(str_token):
 
 # Get handle
 str_input_ext = os.path.splitext(args.str_input_file)[1]
-hndl_vcf = gzip.open(args.str_input_file, "rb") if str_input_ext == ".gz" else open(args.str_input_file, "rb")
+hndl_vcf = gzip.open(args.str_input_file, "rt") if str_input_ext == ".gz" else open(args.str_input_file, "rb")
 
 # Read in vcf file
 if args.str_input_file:
@@ -74,7 +74,7 @@ if args.str_input_file:
             # Parse INFO tokens
             dict_info_tokens = dict([func_split_token(str_token) for str_token
                                     in lstr_line[I_INFO_INDEX].split(CHR_INFO_DELIMITER)])
-            print dict_info_tokens
+            print(dict_info_tokens)
             # Keep everything that is a COSMIC ID at this point.
             # Otherwise require CRAVAT or VEST to have an annotation.
             if STR_CHASM_FDR in dict_info_tokens:
