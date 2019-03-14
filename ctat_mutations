@@ -30,6 +30,8 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 """                                                                                          
 
+VERSION = "__BLEEDING_EDGE__"
+
 
 # Constants
 
@@ -1480,8 +1482,7 @@ def make_menu():
     ## Optional arguments
     
     optional = args_parser.add_argument_group('optional arguments')
-    
-    
+
     optional.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa",
                            required = False, default=None,
                            help = "Path to the reference genome to use in the analysis pipeline.")
@@ -1547,6 +1548,8 @@ def make_menu():
                           help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
 
     optional.add_argument("--debug", action="store_true", help="sets debug mode for logger")
+
+    optional.add_argument("--version", action="store_true", default=False, help="show version info")
     
     #################
     # GATK associated
@@ -1583,6 +1586,12 @@ def make_menu():
 
 
 if __name__ == "__main__":
+    
+    if '--version' in sys.argv:
+        ## note, cannot use arg parsing module here since other settings are required.
+        ## KISS, just use the arg list.
+        sys.stderr.write("\n\tctat_mutations version: {}\n\n".format(VERSION))
+        sys.exit(0)
     
     args_parser = make_menu()
     
