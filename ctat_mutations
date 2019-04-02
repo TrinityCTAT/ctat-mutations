@@ -12,6 +12,7 @@ import ntpath
 import json
 import glob
 import urllib.request # ctat-mutations requires this non-built-in python module.
+import igv_reports # needed for making html reports.
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -1381,15 +1382,15 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
-                str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"create_variant_report.py"]),
-                                                            os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                                            genome_fa,
-                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
-                                                            "--flanking", "1000",
-                                                            "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
-                                                            "--tracks", str_bam_called_from+","+ref_bed+".gz",
-                                                            "--output", html_out])
-                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
+                str_cmd_html = " ".join(["create_report",
+                                         os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                         genome_fa,
+                                         #"--ideogram", examples/variants/cytoBandIdeo.txt,
+                                         "--flanking", "1000",
+                                         "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
+                                         "--tracks", str_bam_called_from+","+ref_bed+".gz",
+                                         "--output", html_out])
+                lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
 
 
 
