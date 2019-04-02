@@ -11,6 +11,8 @@ import os,sys
 import ntpath
 import json
 import glob
+import urllib.request # ctat-mutations requires this non-built-in python module.
+import igv_reports # needed for making html reports.
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -29,6 +31,8 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
   \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
 
 """                                                                                          
+
+VERSION = "__BLEEDING_EDGE__"
 
 
 # Constants
@@ -1378,15 +1382,15 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
-                str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"create_variant_report.py"]),
-                                                            os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                                            genome_fa,
-                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
-                                                            "--flanking", "1000",
-                                                            "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
-                                                            "--tracks", str_bam_called_from+","+ref_bed+".gz",
-                                                            "--output", html_out])
-                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
+                str_cmd_html = " ".join(["create_report",
+                                         os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                         genome_fa,
+                                         #"--ideogram", examples/variants/cytoBandIdeo.txt,
+                                         "--flanking", "1000",
+                                         "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
+                                         "--tracks", str_bam_called_from+","+ref_bed+".gz",
+                                         "--output", html_out])
+                lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
 
 
 
@@ -1509,8 +1513,7 @@ def make_menu():
     ## Optional arguments
     
     optional = args_parser.add_argument_group('optional arguments')
-    
-    
+
     optional.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa",
                            required = False, default=None,
                            help = "Path to the reference genome to use in the analysis pipeline.")
@@ -1576,6 +1579,8 @@ def make_menu():
                           help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
 
     optional.add_argument("--debug", action="store_true", help="sets debug mode for logger")
+
+    optional.add_argument("--version", action="store_true", default=False, help="show version info")
     
     #################
     # GATK associated
@@ -1619,6 +1624,12 @@ def make_menu():
 
 
 if __name__ == "__main__":
+    
+    if '--version' in sys.argv:
+        ## note, cannot use arg parsing module here since other settings are required.
+        ## KISS, just use the arg list.
+        sys.stderr.write("\n\tctat_mutations version: {}\n\n".format(VERSION))
+        sys.exit(0)
     
     args_parser = make_menu()
     
