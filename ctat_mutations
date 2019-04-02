@@ -65,6 +65,11 @@ STR_VARIANT_SAMTOOLS = "SAM"
 STR_VARIANT_NONE = "NONE"
 LSTR_VARIANT_CALLING_CHOICES = [STR_VARIANT_GATK,
                                 STR_VARIANT_NONE]
+# variant calling methods 
+STR_GATK_HC = "HaplotypeCaller"
+STR_GATK_M2 = "Mutect2"
+LSTR_VARIANT_METHOD_CHOICES = [STR_GATK_HC,
+                                STR_GATK_M2]
 
 # Choices for variant filtering
 STR_FILTERING_BCFTOOLS = "BCFTOOLS"
@@ -444,15 +449,26 @@ class RnaseqSnp:
             lcmd_gatk_rna_calling.append(str_depth,'dep.ok')
 
         # Variant calling
-        str_hap_call = " ".join(["java", "-jar", gatk_path,
-                                 "HaplotypeCaller", "-R",
-                                 genome_fa, "-I", str_input_bam,
-                                 "--recover-dangling-heads","true",
-                                 "--dont-use-soft-clipped-bases","-stand-call-conf",
-                                 "20.0",
-                                 "-O", str_variants_file])
-        lcmd_gatk_rna_calling.append(Command(str_hap_call,'hap_call.ok'))         
-
+        if args_call.str_variant_call_method == STR_GATK_HC:
+            str_hap_call = " ".join(["java", "-jar", gatk_path,
+                                     "HaplotypeCaller", "-R",
+                                     genome_fa, "-I", str_input_bam,
+                                     "--recover-dangling-heads","true",
+                                     "--dont-use-soft-clipped-bases","-stand-call-conf",
+                                     "20.0",
+                                     "-O", str_variants_file])
+            lcmd_gatk_rna_calling.append(Command(str_hap_call,'hap_call.ok'))
+          
+        else:
+            str_m2_call = " ".join(["java", "-jar", gatk_path,
+                                     "Mutect2", "-R",
+                                     genome_fa, "-I", str_input_bam,
+                                     "--dont-use-soft-clipped-bases",
+                                     "-stand-call-conf","20.0",
+                                     "-A", "ReferenceBases", "-A", "QualByDepth", 
+                                     "-A", "FisherStrand", "-A", "ChromosomeCounts",
+                                     "-O", str_variants_file])
+            lcmd_gatk_rna_calling.append(Command(str_m2_call,'Mutect2_call.ok'))
         return {INDEX_CMD:lcmd_gatk_rna_calling,
                 INDEX_FILE:str_variants_file}
 
@@ -783,15 +799,22 @@ class RnaseqSnp:
                                                   C_STR_INIT_FILTER)
         str_filtered_variants_index_file = str_filtered_variants_file + ".csi"
         # Filter variants
-        str_filter_command = " ".join(["java -jar",gatk_path,
-                                       "VariantFiltration -R",
-                                       genome_fa, "-V",
-                                       str_variants_file, "-window 35",
-                                       "-cluster 3 --filter-name FS",
-                                       "-filter \"FS > 30.0\"",
-                                       "--filter-name QD","-filter \"QD < 2.0\"",
-                                       "-O", str_filtered_variants_file])
-        cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
+        if args_call.str_variant_call_method == STR_GATK_HC:
+            str_filter_command = " ".join(["java -jar",gatk_path,
+                                           "VariantFiltration -R",
+                                           genome_fa, "-V",
+                                           str_variants_file, "-window 35",
+                                           "-cluster 3 --filter-name FS",
+                                           "-filter \"FS > 30.0\"",
+                                           "--filter-name QD","-filter \"QD < 2.0\"",
+                                           "-O", str_filtered_variants_file])
+            cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
+        else:
+            str_filter_command = " ".join(["java -jar",gatk_path,
+                                           "FilterMutectCalls",
+                                           "-V", str_variants_file,
+                                           "-O", str_filtered_variants_file])
+            cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
 
         return{INDEX_CMD: [cmd_variant_filtration],
                INDEX_FILE: str_filtered_variants_file}
@@ -1094,6 +1117,12 @@ class RnaseqSnp:
                                 "only mode (which does no mutation calling)."])
            warnings.warn(str_error)
            exit(7)
+
+        # if( args_parsed.str_variant_call_method == STR_GATK_M2
+        #         and args_parsed.str_sample_name == None):
+        #    str_error = "".join(["Need to supply a sample name in order to run Mutect2."])
+        #    exit(str_error)
+
 
         # set full paths in case of relative path settings
         if args_parsed.str_bam_file:
@@ -1567,7 +1596,14 @@ def make_menu():
     gatk_args_group.add_argument("--sequencing_platform", metavar = "Sequencing Platform",
                                  dest = "str_sequencing_platform", default = "ILLUMINA", choices = LSTR_SEQ_CHOICES,
                                  help = "The sequencing platform used to generate the samples choices include " + " ".join(LSTR_SEQ_CHOICES) + ".")
-    
+
+    gatk_args_group.add_argument("--variant_calling_method", metavar = "Sequencing Platform",
+                                 dest = "str_sequencing_platform", default = "ILLUMINA", choices = LSTR_SEQ_CHOICES,
+                                 help = "The sequencing platform used to generate the samples choices include " + " ".join(LSTR_SEQ_CHOICES) + ".")
+
+    gatk_args_group.add_argument("--variant_call_method", metavar = "Variant Call Method", dest = "str_variant_call_method",
+                                 default = STR_GATK_HC, choices = LSTR_VARIANT_METHOD_CHOICES,
+                                 help = "Specifies the variant calling method to use.")
     # Resources
     optional.add_argument("--genome_lib_dir",dest="genome_lib_dir", type=str,
                           default=os.environ.get('CTAT_GENOME_LIB'),
@@ -1616,7 +1652,9 @@ if __name__ == "__main__":
 
     # Need to rn, call the script
     lcmd_cmds = RnaseqSnp().build_pipeline_cmds(args_parsed)
+    print(lcmd_cmds)
     for cmd in lcmd_cmds:
+        print(cmd)
         pipeliner.add_commands([cmd])
     pipeliner.run()
 
