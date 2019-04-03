@@ -40,6 +40,15 @@ Once you have downloaded CosmicMutantExport.tsv.gz AND CosmicCodingMuts.vcf.gz (
   
 Now you are all set to run the ctat-mutations pipeline
 
+## refGene.sorted.bed
+
+~/GITHUB/CTAT_MUTATIONS/ctat-mutations/mutation_lib_prep/gencode_gtf_to_bed.pl $CTAT_GENOME_LIB/ref_annot.gtf > refGene.bed
+
+
+
+
+
+
 ### A word about how annotation files were obtained and pre-processed 
 
 ##### DBSNP annotations
