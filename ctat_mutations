@@ -1388,7 +1388,7 @@ class RnaseqSnp:
                                          genome_fa,
                                          #"--ideogram", examples/variants/cytoBandIdeo.txt,
                                          "--flanking", "1000",
-                                         "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
+                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC ",
                                          "--tracks", str_bam_called_from+","+ref_bed+".gz",
                                          "--output", html_out])
                 lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
