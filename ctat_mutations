@@ -1651,10 +1651,9 @@ if __name__ == "__main__":
 
     # Need to rn, call the script
     lcmd_cmds = RnaseqSnp().build_pipeline_cmds(args_parsed)
-    print(lcmd_cmds)
     for cmd in lcmd_cmds:
-        print(cmd)
         pipeliner.add_commands([cmd])
-    pipeliner.run()
 
+    pipeliner.run()
+    
     sys.exit(0)
