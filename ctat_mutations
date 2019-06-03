@@ -38,7 +38,7 @@ VERSION = "__BLEEDING_EDGE__"
 # Constants
 
 SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
-VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv.js-reports"])
+VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv_reports"])
 
 # Keys for alignment return (dicts)
 INDEX_CMD = "cmd"
@@ -1382,6 +1382,7 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
+
                 str_cmd_html = " ".join(["create_report",
                                          os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
                                          genome_fa,
@@ -1391,9 +1392,6 @@ class RnaseqSnp:
                                          "--tracks", str_bam_called_from+","+ref_bed+".gz",
                                          "--output", html_out])
                 lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
-
-
-
 
 
         ## Run pipeline
