@@ -36,9 +36,9 @@ VERSION = "__BLEEDING_EDGE__"
 
 
 # Constants
+BASEDIR = os.path.dirname(os.path.realpath(__file__))
+SCRIPTDIR = os.path.sep.join(BASEDIR, "src"])
 
-SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
-VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv_reports"])
 
 # Keys for alignment return (dicts)
 INDEX_CMD = "cmd"
@@ -95,6 +95,7 @@ I_CRAVAT_ATTEMPTS = 180
 I_CRAVAT_WAIT = 60
 STR_CRAVAT_CLASSIFIER_DEFAULT = "Other"
 STR_FDR_CUTTOFF = "0.3"
+STR_CRAVAT_HEADER_INFO = os.path.join(BASEDIR, "meta/cravat_annotation.txt")
 
 # Directory structure
 STR_MISC_DIR = "misc"
@@ -103,7 +104,6 @@ STR_MISC_DIR = "misc"
 C_STR_MUTATION_INSPECTOR = "mutation_inspector.json"
 
 #jar files directory
-BASEDIR = os.path.dirname(os.path.realpath(__file__))
 PLUGINS_DIR = "plugins"
 PLUGINS = os.path.join(BASEDIR,PLUGINS_DIR)
 
@@ -1104,8 +1104,8 @@ class RnaseqSnp:
             ref_bed = args_parsed.str_ref_bed
 
         # cravat header
-        cravat_header = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
-                                     "header","cravat_annotation.txt")
+        cravat_header = STR_CRAVAT_HEADER_INFO
+        
         if args_parsed.str_cravat_headers is not None:
             cravat_header = args_parsed.str_cravat_headers
 
@@ -1401,7 +1401,7 @@ class RnaseqSnp:
                                          genome_fa,
                                          #"--ideogram", examples/variants/cytoBandIdeo.txt,
                                          "--flanking", "1000",
-                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR",
+                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
                                          "--tracks", str_bam_called_from + " " + ref_bed + ".gz",
                                          "--output", html_out])
                 lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
