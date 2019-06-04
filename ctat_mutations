@@ -1388,12 +1388,12 @@ class RnaseqSnp:
                                          genome_fa,
                                          #"--ideogram", examples/variants/cytoBandIdeo.txt,
                                          "--flanking", "1000",
-                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC ",
-                                         "--tracks", str_bam_called_from+","+ref_bed+".gz",
+                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR",
+                                         "--tracks", str_bam_called_from + " " + ref_bed + ".gz",
                                          "--output", html_out])
                 lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
-
-
+                
+                
         ## Run pipeline
         return(lcmd_commands)
 
