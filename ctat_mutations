@@ -37,7 +37,7 @@ VERSION = "__BLEEDING_EDGE__"
 
 # Constants
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
-SCRIPTDIR = os.path.sep.join(BASEDIR, "src"])
+SCRIPTDIR = os.path.sep.join([BASEDIR, "src"])
 
 
 # Keys for alignment return (dicts)
