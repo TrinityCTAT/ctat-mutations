@@ -946,11 +946,18 @@ class RnaseqSnp:
             str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                     str_cravat_detail_coding, str_cravat_detail_coding_updated])
 
+            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+            
+
             str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                         str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
-            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+
+            
             cmd_groom_cravat_tab_noncoding = Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok')
+
             lcmd_cancer_filter.extend([cmd_groom_cravat_tab_coding, cmd_groom_cravat_tab_noncoding])
+
+
 
             # Tabix index the CRAVAT tsv files
             dict_tabix = self.func_tabix(str_cravat_detail_coding_updated, str_output_dir = os.path.join(str_project_dir, STR_MISC_DIR), str_tabix = "-s 1 -b 2 -e 2 -S 12")
@@ -972,7 +979,7 @@ class RnaseqSnp:
                                             str_cravat_detail_coding_updated,
                                             "-h", cravat_header,
                                             "--columns",
-                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,Protein 3D variant\"",
+                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT\"",
                                             "--output-type",
                                             "z",
                                             "--output",

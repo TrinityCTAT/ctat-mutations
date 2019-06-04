@@ -16,11 +16,16 @@ STR_VEST_PVALUE = "VEST p-value"
 STR_VEST_PVALUE_UPDATE = "VEST_PVALUE"
 STR_VEST_FDR = "VEST FDR"
 STR_VEST_FDR_UPDATE = "VEST_FDR"
+STR_MUPIT = "Protein 3D variant"
+STR_MUPIT_UPDATE = "MuPIT"
+
 
 import argparse
 import csv
 
-prsr_arguments = argparse.ArgumentParser( prog = "groom_cravat_annotation.py", description = "Formats Cravat annotation files so they are easily used with bcftools. Also sorta by coordinate order.", formatter_class = argparse.ArgumentDefaultsHelpFormatter )
+prsr_arguments = argparse.ArgumentParser( prog = "groom_cravat_annotation.py",
+                                          description = "Formats Cravat annotation files so they are easily used with bcftools. Also sorta by coordinate order.",
+                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter )
 prsr_arguments.add_argument( "str_input_file", help = "Input tab file." )
 prsr_arguments.add_argument( "str_output_file", help = "Output groomed tab file." )
 args = prsr_arguments.parse_args()
@@ -72,11 +77,14 @@ if args.str_input_file:
           i_chasm_fdr = lstr_line.index( STR_CHASM_FDR ) if STR_CHASM_FDR in lstr_line else -1
           i_vest_pvalue = lstr_line.index( STR_VEST_PVALUE ) if STR_VEST_PVALUE in lstr_line else -1
           i_vest_fdr = lstr_line.index( STR_VEST_FDR ) if STR_VEST_FDR in lstr_line else -1
-          lstr_header_order = [ i_chrom_index, i_pos_index, i_chasm_pvalue, i_chasm_fdr, i_vest_pvalue, i_vest_fdr ]
+          i_mupit = lstr_line.index( STR_MUPIT ) if STR_MUPIT in lstr_line else -1
+
+          lstr_header_order = [ i_chrom_index, i_pos_index, i_chasm_pvalue, i_chasm_fdr, i_vest_pvalue, i_vest_fdr, i_mupit ]
 
           # Sort for sorting
           lstr_comments.append( STR_TAB_DELIMITER.join([ STR_CHROM_UPDATE, STR_POS_UPDATE, STR_CHASM_PVALUE_UPDATE,
-                                                    STR_CHASM_FDR_UPDATE, STR_VEST_PVALUE_UPDATE, STR_VEST_FDR_UPDATE ]) )
+                                                         STR_CHASM_FDR_UPDATE, STR_VEST_PVALUE_UPDATE, STR_VEST_FDR_UPDATE,
+                                                         STR_MUPIT_UPDATE]) )
           continue
 
         # Check to see if this is not a good run

@@ -24,6 +24,10 @@ cravat_GRCh38:
 	../src/annotate_with_cravat.py --classifier Other --email noreply@domain.com --max_attempts 180 --wait 60 __misc_data/variants.GRCh38.vcf example.GRCh38.cravat_response.txt
 
 
+cravat_groom:
+	../src/groom_cravat_annotation.py __misc_data/cravat.Variant.Result.tsv example.cravat.groomed
+
+
 clean:
 	rm -rf ./example.*
 
