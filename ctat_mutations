@@ -72,8 +72,14 @@ LSTR_VARIANT_FILTERING_CHOICES = [STR_FILTERING_HC_REGULAR,
                                   STR_FILTERING_HC_CNN,
                                   STR_FILTERING_MUTECT2_REGULAR,
                                   STR_FILTERING_MUTECT2_LROM,
-                                  STR_FILTERING_BCFTOOLS
+                                  STR_FILTERING_BCFTOOLS,
                                   STR_FILTERING_NONE]
+
+STR_FILTERING_GATK = [STR_FILTERING_HC_REGULAR,
+                                  STR_FILTERING_HC_CNN,
+                                  STR_FILTERING_MUTECT2_REGULAR,
+                                  STR_FILTERING_MUTECT2_LROM
+                   ]
 
 # File names required for filtering
 C_STR_INIT_FILTER = "variants_initial_filtering.vcf"
@@ -510,7 +516,7 @@ class RnaseqSnp:
                                        "|| (AC<2 && %QUAL<15)\"",
                                        str_variants_file])
         cmd_variant_filtration = Command(str_filter_command,'bcf_filter.ok')
-        lcmd_filter.extend(cmd_variant_filtration)
+        lcmd_filter.append(cmd_variant_filtration)
         
         # Filter out clusters of SNPs
         str_custom_filter_command = " ".join(["filter_variant_clusters.py",
@@ -518,7 +524,7 @@ class RnaseqSnp:
                                               str_standard_variants_file,
                                               str_filtered_variants_file])
         cmd_secondary_filters = Command(str_custom_filter_command,'filter_var.ok')
-        lcmd_filter.extend(cmd_secondary_filters)
+        lcmd_filter.append(cmd_secondary_filters)
 
         return lcmd_filter, str_filtered_variants_file
 
@@ -551,8 +557,9 @@ class RnaseqSnp:
                                            "-filter \"FS > 30.0\"",
                                            "--filter-name QD","-filter \"QD < 2.0\"",
                                            "-O", str_filtered_variants_file])
+            
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
         ## Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants
         elif args_call.str_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_CNN:
@@ -575,7 +582,7 @@ class RnaseqSnp:
                                      "--inference-batch-size 8",
                                      "-O", str_score_file])
             cmd_variant_filtration.append(Command(str_CNNScoreVariants_call,'CNNScoreVariants.ok'))
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
             
 
             str_trenche_file = os.path.join(args_call.str_out_dir, "trenche.vcf")
@@ -591,7 +598,7 @@ class RnaseqSnp:
                                            "--invalidate-previous-filters",
                                            "-O", str_trenche_file])
             cmd_variant_filtration.append(Command(str_tranche_command,'tranche_filter.ok'))
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
             
             str_filter_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
@@ -601,7 +608,7 @@ class RnaseqSnp:
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
             cmd_variant_filtration.append(Command(str_filter_command,'variant_cnn_filter.ok'))
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
         ## Mutect2 and FilterMutectCalls    
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_REGULAR:
@@ -611,7 +618,7 @@ class RnaseqSnp:
                                            "-V", str_variants_file,
                                            "-O", str_filtered_variants_file])
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
         ## Mutect2 and LROM
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_LROM:
@@ -630,7 +637,7 @@ class RnaseqSnp:
                                      "-I", f1r2_output,
                                      "-O", LROM_output])
             cmd_variant_filtration = Command(str_LROM_call,'LearnReadOrientationModel.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
             str_pileup_call = " ".join(["java", "-jar", gatk_path,
                                      "GetPileupSummaries",
@@ -639,7 +646,7 @@ class RnaseqSnp:
                                      "-L", common_exac,
                                      "-O ", pileups_output])
             cmd_variant_filtration = Command(str_pileup_call,'PileupSummaries.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
             str_CalculateContamination_call = " ".join(["java", "-jar", gatk_path,
                                      "CalculateContamination",
@@ -647,7 +654,7 @@ class RnaseqSnp:
                                      "-O", contamination_output,
                                      "--tumor-segmentation", segments_output])
             cmd_variant_filtration = Command(str_CalculateContamination_call,'CalculateContamination.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
             str_mutFilter_command = " ".join(["java -jar",gatk_path,
                                            "FilterMutectCalls",
@@ -658,7 +665,7 @@ class RnaseqSnp:
                                            "--ob-priors", LROM_output,
                                            "-O", mutFilter_output])
             cmd_variant_filtration = Command(str_mutFilter_command,'pre_FilterMutectCalls.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
             str_filter_mut_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
@@ -668,7 +675,7 @@ class RnaseqSnp:
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file]) 
             cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
-            lcmd_filter.extend(cmd_variant_filtration)
+            lcmd_filter.append(cmd_variant_filtration)
 
         
         return lcmd_filter, str_filtered_variants_file
@@ -1059,7 +1066,7 @@ class RnaseqSnp:
                 filter_cmd, str_filtered_variants_file = self.func_do_filtering_bcftools(args_call=args_parsed,
                                                              str_variants_file=str_variant_file)
 
-            elif args_parsed.str_variant_filter_mode == STR_FILTERING_GATK:
+            elif args_parsed.str_variant_filter_mode in STR_FILTERING_GATK:
                 filter_cmd, str_filtered_variants_file = self.func_do_filtering_gatk(args_call=args_parsed,
                                                                                      str_variants_file=str_variant_file,
                                                                                      str_input_bam = str_return_bam,
