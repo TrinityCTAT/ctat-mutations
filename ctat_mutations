@@ -11,6 +11,8 @@ import os,sys
 import ntpath
 import json
 import glob
+import urllib.request # ctat-mutations requires this non-built-in python module.
+import igv_reports # needed for making html reports.
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -30,11 +32,13 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 """                                                                                          
 
+VERSION = "__BLEEDING_EDGE__"
+
 
 # Constants
+BASEDIR = os.path.dirname(os.path.realpath(__file__))
+SCRIPTDIR = os.path.sep.join([BASEDIR, "src"])
 
-SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
-VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv.js-reports"])
 
 # Keys for alignment return (dicts)
 INDEX_CMD = "cmd"
@@ -86,6 +90,7 @@ I_CRAVAT_ATTEMPTS = 180
 I_CRAVAT_WAIT = 60
 STR_CRAVAT_CLASSIFIER_DEFAULT = "Other"
 STR_FDR_CUTTOFF = "0.3"
+STR_CRAVAT_HEADER_INFO = os.path.join(BASEDIR, "meta/cravat_annotation.txt")
 
 # Directory structure
 STR_MISC_DIR = "misc"
@@ -94,7 +99,6 @@ STR_MISC_DIR = "misc"
 C_STR_MUTATION_INSPECTOR = "mutation_inspector.json"
 
 #jar files directory
-BASEDIR = os.path.dirname(os.path.realpath(__file__))
 PLUGINS_DIR = "plugins"
 PLUGINS = os.path.join(BASEDIR,PLUGINS_DIR)
 
@@ -919,18 +923,28 @@ class RnaseqSnp:
             str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                     str_cravat_detail_coding, str_cravat_detail_coding_updated])
 
+            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+            
+
             str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                         str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
-            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+
+            
             cmd_groom_cravat_tab_noncoding = Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok')
+
             lcmd_cancer_filter.extend([cmd_groom_cravat_tab_coding, cmd_groom_cravat_tab_noncoding])
+
+
 
             # Tabix index the CRAVAT tsv files
             dict_tabix = self.func_tabix(str_cravat_detail_coding_updated, str_output_dir = os.path.join(str_project_dir, STR_MISC_DIR), str_tabix = "-s 1 -b 2 -e 2 -S 12")
             lcmd_cancer_filter.extend(dict_tabix[INDEX_CMD])
+
             str_cravat_detail_coding_updated = str_cravat_detail_coding_updated +".gz"
             dict_tabix = self.func_tabix(str_cravat_detail_noncoding_updated, str_output_dir = os.path.join(str_project_dir, STR_MISC_DIR), str_tabix = "-s 1 -b 2 -e 2 -S 12")
+
             lcmd_cancer_filter.extend(dict_tabix[INDEX_CMD])
+
             str_cravat_detail_noncoding_updated = str_cravat_detail_noncoding_updated +".gz"
 
             ## Annotate and VCF file with TAB data.
@@ -942,13 +956,15 @@ class RnaseqSnp:
                                             str_cravat_detail_coding_updated,
                                             "-h", cravat_header,
                                             "--columns",
-                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR\"",
+                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT\"",
                                             "--output-type",
                                             "z",
                                             "--output",
                                             str_cravat_annotated_coding_vcf,
                                             str_cancer_mutations_filtered])
+            
             lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
+
             str_annotate_noncoding = " ".join(["bcftools",
                                                "annotate",
                                                "--annotations",
@@ -963,6 +979,7 @@ class RnaseqSnp:
                                                str_cravat_annotated_all_vcf,
                                                str_cravat_annotated_coding_vcf])
             lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
+
             # Filter based on Predictions
             str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                    str_cravat_annotated_all_vcf,
@@ -1064,8 +1081,8 @@ class RnaseqSnp:
             ref_bed = args_parsed.str_ref_bed
 
         # cravat header
-        cravat_header = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
-                                     "header","cravat_annotation.txt")
+        cravat_header = STR_CRAVAT_HEADER_INFO
+        
         if args_parsed.str_cravat_headers is not None:
             cravat_header = args_parsed.str_cravat_headers
 
@@ -1349,20 +1366,18 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
-                str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"create_variant_report.py"]),
-                                                            os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                                            genome_fa,
-                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
-                                                            "--flanking", "1000",
-                                                            "--infoColumns", "GENE,TISSUE,TUMOR,COSMIC_ID,GENE,SOMATIC",
-                                                            "--tracks", str_bam_called_from+","+ref_bed+".gz",
-                                                            "--output", html_out])
-                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
 
-
-
-
-
+                str_cmd_html = " ".join(["create_report",
+                                         os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                         genome_fa,
+                                         #"--ideogram", examples/variants/cytoBandIdeo.txt,
+                                         "--flanking", "1000",
+                                         "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                         "--tracks", str_bam_called_from + " " + ref_bed + ".gz",
+                                         "--output", html_out])
+                lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
+                
+                
         ## Run pipeline
         return(lcmd_commands)
 
@@ -1480,8 +1495,7 @@ def make_menu():
     ## Optional arguments
     
     optional = args_parser.add_argument_group('optional arguments')
-    
-    
+
     optional.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa",
                            required = False, default=None,
                            help = "Path to the reference genome to use in the analysis pipeline.")
@@ -1547,6 +1561,8 @@ def make_menu():
                           help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
 
     optional.add_argument("--debug", action="store_true", help="sets debug mode for logger")
+
+    optional.add_argument("--version", action="store_true", default=False, help="show version info")
     
     #################
     # GATK associated
@@ -1584,6 +1600,12 @@ def make_menu():
 
 if __name__ == "__main__":
     
+    if '--version' in sys.argv:
+        ## note, cannot use arg parsing module here since other settings are required.
+        ## KISS, just use the arg list.
+        sys.stderr.write("\n\tctat_mutations version: {}\n\n".format(VERSION))
+        sys.exit(0)
+    
     args_parser = make_menu()
     
     args_parsed = args_parser.parse_args()
@@ -1608,6 +1630,7 @@ if __name__ == "__main__":
     lcmd_cmds = RnaseqSnp().build_pipeline_cmds(args_parsed)
     for cmd in lcmd_cmds:
         pipeliner.add_commands([cmd])
-    pipeliner.run()
 
+    pipeliner.run()
+    
     sys.exit(0)
