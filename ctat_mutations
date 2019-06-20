@@ -10,6 +10,8 @@ import os,sys
 import ntpath
 import json
 import glob
+import urllib.request # ctat-mutations requires this non-built-in python module.
+import igv_reports # needed for making html reports.
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -24,6 +26,7 @@ SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"
 ## path to igv_reports installation
 VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv_reports"]) 
 
+VERSION = "__BLEEDING_EDGE__"
 # Directory structure
 STR_MISC_DIR = "misc"
 
@@ -96,6 +99,7 @@ STR_CRAVAT_CLASSIFIER_DEFAULT = "Other"
 I_CRAVAT_ATTEMPTS = 180
 I_CRAVAT_WAIT = 60
 STR_FDR_CUTTOFF = "0.3"
+STR_CRAVAT_HEADER_INFO = os.path.join(BASEDIR, "meta/cravat_annotation.txt")
 
 # File name for igvreports
 # Mutation Inspector file
@@ -306,8 +310,7 @@ class RnaseqSnp:
                                             "-bqsr", str_recalibrated_alignment_file,
                                             "-plots", str_recalibration_plots_pdf])
                 lcmd_gatk_recalibration_commands.append(Command(str_cur_command,'analyze_covariate.ok'))
-        
-        return lcmd_gatk_recalibration_commands, str_return_bam, str_return_bai
+                
 
     def Variant_Calling_SAMTOOLS(self, args_call,
                                  str_align_file,
@@ -547,6 +550,7 @@ class RnaseqSnp:
         str_filtered_variants_file = os.path.join(args_call.str_out_dir,
                                                   C_STR_INIT_FILTER)
         # Filter variants
+
         ## Haplotype caller - VariantFiltration
         if args_call.str_gatk_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
             str_filter_command = " ".join(["java -jar",gatk_path,
@@ -785,11 +789,18 @@ class RnaseqSnp:
             str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                     str_cravat_detail_coding, str_cravat_detail_coding_updated])
 
+            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+            
+
             str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                         str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
-            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
+
+            
             cmd_groom_cravat_tab_noncoding = Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok')
+
             lcmd_cancer_filter.extend([cmd_groom_cravat_tab_coding, cmd_groom_cravat_tab_noncoding])
+
+
 
             # Tabix index the CRAVAT tsv files
             tabix_cmd = self.func_tabix(str_cravat_detail_coding_updated, str_output_dir = os.path.join(str_project_dir, STR_MISC_DIR))
@@ -808,13 +819,15 @@ class RnaseqSnp:
                                             str_cravat_detail_coding_updated,
                                             "-h", cravat_header,
                                             "--columns",
-                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR\"",
+                                            "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT\"",
                                             "--output-type",
                                             "z",
                                             "--output",
                                             str_cravat_annotated_coding_vcf,
                                             str_cancer_mutations_filtered])
+            
             lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
+
             str_annotate_noncoding = " ".join(["bcftools",
                                                "annotate",
                                                "--annotations",
@@ -829,6 +842,7 @@ class RnaseqSnp:
                                                str_cravat_annotated_all_vcf,
                                                str_cravat_annotated_coding_vcf])
             lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
+
             # Filter based on Predictions
             str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                    str_cravat_annotated_all_vcf,
@@ -1239,15 +1253,16 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
+                
                 str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"report.py"]),
                                                             os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
                                                             genome_fa,
-                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
                                                             "--flanking", "1000",
-                                                            "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC",
+                                                            "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
                                                             "--tracks", str_return_bam+" "+ref_bed+".gz",
                                                             "--output", html_out])
-                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
+                
+                lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
 
             ## Run pipeline
             return lcmd_commands
@@ -1361,6 +1376,7 @@ def make_menu():
     optional.add_argument("--genome_lib_dir",dest="genome_lib_dir", type=str,
                           default=os.environ.get('CTAT_GENOME_LIB'),
                           help="genome lib directory - see http://FusionFilter.github.io for details.  Uses env var CTAT_GENOME_LIB as default")
+
     optional.add_argument( "--reference", metavar = "Reference_genome", dest = "str_genome_fa",
                            required = False, default=None,
                            help = "Path to the reference genome to use in the analysis pipeline.")
@@ -1391,6 +1407,8 @@ def make_menu():
     optional.add_argument("--variant_call_mode", metavar = "call_mode", dest = "str_variant_call_mode",
                           default = STR_VARIANT_GATK, choices = LSTR_VARIANT_CALLING_CHOICES,
                           help = "Specifies the variant calling method to use.")
+
+    optional.add_argument("--version", action="store_true", default=False, help="show version info")
 
     gatk_args_group = args_parser.add_argument_group('GATK associated optional args')
     
@@ -1446,6 +1464,12 @@ def make_menu():
 
 if __name__ == "__main__":
     
+    if '--version' in sys.argv:
+        ## note, cannot use arg parsing module here since other settings are required.
+        ## KISS, just use the arg list.
+        sys.stderr.write("\n\tctat_mutations version: {}\n\n".format(VERSION))
+        sys.exit(0)
+    
     args_parser = make_menu()
     
     args_parsed = args_parser.parse_args()
@@ -1471,6 +1495,7 @@ if __name__ == "__main__":
 
     for cmd in lcmd_cmds:
         pipeliner.add_commands([cmd])
-    pipeliner.run()
 
+    pipeliner.run()
+    
     sys.exit(0)

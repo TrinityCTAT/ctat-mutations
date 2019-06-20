@@ -2,6 +2,16 @@
 
 Instructions for building the CTAT mutation lib are available [here](https://github.com/NCIP/ctat-mutations/wiki/CTAT-mutations-installation)
 
+## refGene.sorted.bed
+
+    ~/GITHUB/CTAT_MUTATIONS/ctat-mutations/mutation_lib_prep/gencode_gtf_to_bed.pl $CTAT_GENOME_LIB/ref_annot.gtf > refGene.bed
+
+    cat refGene.bed | sort -k 1,1 -k2,2g -k3,3g > refGene.sort.bed
+
+    bgzip refGene.sort.bed
+
+    tabix refGene.sort.bed.gz
+
 ### A word about how annotation files were obtained and pre-processed 
 
 ##### DBSNP annotations
