@@ -10,6 +10,18 @@ import os,sys
 import ntpath
 import json
 import glob
+import urllib.request
+import igv_reports
+"""
+   _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
+  / ____|__   __|/\|__   __|          |  \/  | |  | |__   __|/\|__   __|_   _/ __ \| \ | |
+ | |       | |  /  \  | |     ______  | \  / | |  | |  | |  /  \  | |    | || |  | |  \| |
+ | |       | | / /\ \ | |    |______| | |\/| | |  | |  | | / /\ \ | |    | || |  | | . ` |
+ | |____   | |/ ____ \| |             | |  | | |__| |  | |/ ____ \| |   _| || |__| | |\  |
+  \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
+"""
+
+VERSION = "__BLEEDING_EDGE__"
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd
@@ -22,7 +34,7 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
 
 ## path to igv_reports installation
-VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv_reports"]) 
+# VIZDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "igv_reports"]) 
 
 # Directory structure
 STR_MISC_DIR = "misc"
@@ -38,12 +50,10 @@ STR_STAR_LOG_FINAL = "Log.final.out"
 STR_STAR_OUTPUT_BAM = "Aligned.sortedByCoord.out.bam"
 STR_STAR_PROGRESS = "Log.progress.out"
 
-# Variant Calling modes - GATK, SAMTOOLS or NONE
+# Variant Calling modes - GATK or NONE
 STR_VARIANT_GATK = "GATK"
-STR_VARIANT_SAMTOOLS = "SAMTOOLS"
 STR_VARIANT_NONE = "NONE"
 LSTR_VARIANT_CALLING_CHOICES = [STR_VARIANT_GATK,
-                                STR_VARIANT_SAMTOOLS,
                                 STR_VARIANT_NONE]
 
 # PICARD platforms
@@ -308,7 +318,7 @@ class RnaseqSnp:
                 lcmd_gatk_recalibration_commands.append(Command(str_cur_command,'analyze_covariate.ok'))
         
         return lcmd_gatk_recalibration_commands, str_return_bam, str_return_bai
-
+    '''
     def Variant_Calling_SAMTOOLS(self, args_call,
                                  str_align_file,
                                  str_unique_id,
@@ -390,7 +400,7 @@ class RnaseqSnp:
         lcmd_samtools_variants_commands.append(Command(str_samtools_calls,'bam_sort.ok')) 
         
         return lcmd_samtools_variants_commands
-
+    '''
 
     def Variant_Calling_GATK(self, args_call,
                              str_align_file,
@@ -451,7 +461,7 @@ class RnaseqSnp:
                                      "-O", str_variants_file])
             lcmd_gatk_rna_calling.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
             
-        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2:
+        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and not args_call.str_germline_resource:
             str_m2_call = " ".join(["java", "-jar",
                                     gatk_path,
                                     "Mutect2", "-R",
@@ -487,7 +497,7 @@ class RnaseqSnp:
         lcmd_index.append(Command("ln -s {} {}".format(args_call.use_vcf_file + ".idx", target_vcf_file + ".idx"), "symlink_use_vcf_idx.ok"))
 
         return lcmd_index, target_vcf_file
-
+    '''
     def func_do_filtering_bcftools(self, args_call, str_variants_file):
         """
         Creates the commands for the bcftools hard filtering
@@ -528,7 +538,7 @@ class RnaseqSnp:
 
         return lcmd_filter, str_filtered_variants_file
 
-
+    '''
     def func_do_filtering_gatk(self, args_call, str_variants_file, str_input_bam, gatk_path, genome_fa):
         """
         Creates the commands for the gatk hard filtering.
@@ -547,7 +557,9 @@ class RnaseqSnp:
         str_filtered_variants_file = os.path.join(args_call.str_out_dir,
                                                   C_STR_INIT_FILTER)
         # Filter variants
-        ## Haplotype caller - VariantFiltration
+        ##########################################################
+        ####### 1. Haplotype caller - VariantFiltration ##########
+        ##########################################################
         if args_call.str_gatk_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
             str_filter_command = " ".join(["java -jar",gatk_path,
                                            "VariantFiltration -R",
@@ -560,8 +572,10 @@ class RnaseqSnp:
             
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
-
-        ## Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants
+        
+        ####################################################################################
+        ### 2. Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants ##
+        ####################################################################################
         elif args_call.str_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_CNN:
 
             ## Resource files
@@ -610,7 +624,10 @@ class RnaseqSnp:
             cmd_variant_filtration.append(Command(str_filter_command,'variant_cnn_filter.ok'))
             lcmd_filter.append(cmd_variant_filtration)
 
-        ## Mutect2 and FilterMutectCalls    
+
+        ##########################################################
+        ###########  3. Mutect2 and FilterMutectCalls  ###########
+        ##########################################################
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_REGULAR:
             str_filter_command = " ".join(["java -jar",gatk_path,
                                            "FilterMutectCalls -R",
@@ -620,7 +637,9 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
 
-        ## Mutect2 and LROM
+        ##########################################################
+        ################ 4. Mutect2 and LROM #####################
+        ##########################################################
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_LROM:
             f1r2_output = os.path.join(args_call.str_out_dir,"f1r2.tar.gz")
             LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
@@ -663,10 +682,10 @@ class RnaseqSnp:
                                            "--tumor-segmentation", segments_output,
                                            "--contamination-table", contamination_output,
                                            "--ob-priors", LROM_output,
-                                           "-O", mutFilter_output])
-            cmd_variant_filtration = Command(str_mutFilter_command,'pre_FilterMutectCalls.ok')
+                                           "-O",str_filtered_variants_file])# mutFilter_output])
+            cmd_variant_filtration = Command(str_mutFilter_command,'FilterMutectCalls.ok')
             lcmd_filter.append(cmd_variant_filtration)
-
+            
             str_filter_mut_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
@@ -676,7 +695,7 @@ class RnaseqSnp:
                                             "-O", str_filtered_variants_file]) 
             cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
-
+            
         
         return lcmd_filter, str_filtered_variants_file
 
@@ -1023,6 +1042,7 @@ class RnaseqSnp:
             lcmd_commands.extend(refine_mapping_cmd)
             
             ## Variant Calling
+            '''
             if args_parsed.str_variant_call_mode == STR_VARIANT_SAMTOOLS:
                 variant_calling_cmd, str_variant_file = self.Variant_Calling_SAMTOOLS(args_call = args_parsed,
                                                                              str_align_file = str_align_file,
@@ -1034,9 +1054,9 @@ class RnaseqSnp:
                                                                              gatk_path=gatk_path,
                                                                              picard_path=picard_path)
 
-
+            '''
                 
-            elif args_parsed.str_variant_call_mode == STR_VARIANT_GATK:
+            if args_parsed.str_variant_call_mode == STR_VARIANT_GATK:
                 variant_calling_cmd, str_variant_file = self.Variant_Calling_GATK(args_call = args_parsed,
                                                                              str_align_file = str_align_file,
                                                                              str_unique_id = str_sample_postfix,
@@ -1061,12 +1081,12 @@ class RnaseqSnp:
             lcmd_commands.extend(variant_calling_cmd)
 
             ## Variant Filtering - BCFTOOLS, HC, MUTECT2, NONE
-
+            '''
             if args_parsed.str_variant_filter_mode == STR_FILTERING_BCFTOOLS:
                 filter_cmd, str_filtered_variants_file = self.func_do_filtering_bcftools(args_call=args_parsed,
                                                              str_variants_file=str_variant_file)
-
-            elif args_parsed.str_variant_filter_mode in STR_FILTERING_GATK:
+            '''
+            if args_parsed.str_variant_filter_mode in STR_FILTERING_GATK:
                 filter_cmd, str_filtered_variants_file = self.func_do_filtering_gatk(args_call=args_parsed,
                                                                                      str_variants_file=str_variant_file,
                                                                                      str_input_bam = str_return_bam,
@@ -1239,15 +1259,14 @@ class RnaseqSnp:
                 lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
-                str_cmd_html = " ".join([ "python",os.path.sep.join([VIZDIR,"report.py"]),
-                                                            os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                                            genome_fa,
-                                                            #"--ideogram", examples/variants/cytoBandIdeo.txt,
-                                                            "--flanking", "1000",
-                                                            "--info-columns", "GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
-                                                            "--tracks", str_return_bam+" "+ref_bed+".gz",
-                                                            "--output", html_out])
-                lcmd_commands.append(Command(str_cmd_html, 'html_viz.ok'))
+                str_cmd_html = " ".join([ "report",
+                                           os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                           genome_fa,
+					   "--flanking", "1000",
+                                           "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                           "--tracks", str_return_bam+" "+ref_bed+".gz",
+					   "--output", html_out])
+                lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
 
             ## Run pipeline
             return lcmd_commands
