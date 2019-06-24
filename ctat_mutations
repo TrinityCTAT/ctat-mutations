@@ -669,7 +669,7 @@ class RnaseqSnp:
                                                 "-F", "VEST_FDR"])
 
             str_cravat_result_dir_zip = str_cravat_result_dir + ".zip"
-            lstr_hg_38 = ["--is_hg19",'True'] if not f_is_hg_38 else []
+            lstr_hg_38 = ["--is_hg19"] if not f_is_hg_38 else []
             str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
                                        "--classifier", args_call.str_cravat_classifier] + lstr_hg_38 +
                                       ["--email", args_call.str_email_contact, "--max_attempts", str(I_CRAVAT_ATTEMPTS),
