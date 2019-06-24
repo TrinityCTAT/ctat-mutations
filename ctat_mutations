@@ -103,13 +103,15 @@ STR_CRAVAT_CLASSIFIER_DEFAULT = "Other"
 I_CRAVAT_ATTEMPTS = 180
 I_CRAVAT_WAIT = 60
 STR_FDR_CUTTOFF = "0.3"
+
+BASEDIR = os.path.dirname(os.path.realpath(__file__))
 STR_CRAVAT_HEADER_INFO = os.path.join(BASEDIR, "meta/cravat_annotation.txt")
 
 # Mutation Inspector file
 C_STR_MUTATION_INSPECTOR = "mutation_inspector.json"
 
 ## PLUGINS for SNPeff
-BASEDIR = os.path.dirname(os.path.realpath(__file__))
+
 PLUGINS_DIR = "plugins"
 PLUGINS = os.path.join(BASEDIR,PLUGINS_DIR)
 
