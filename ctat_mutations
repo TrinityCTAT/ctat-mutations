@@ -471,7 +471,7 @@ class RnaseqSnp:
                                      "--transfer-batch-size 8",
                                      "--inference-batch-size 8",
                                      "-O", str_score_file])
-            cmd_variant_filtration.append(Command(str_CNNScoreVariants_call,'CNNScoreVariants.ok'))
+            cmd_variant_filtration = Command(str_CNNScoreVariants_call,'CNNScoreVariants.ok')
             lcmd_filter.append(cmd_variant_filtration)
             
 
@@ -487,7 +487,7 @@ class RnaseqSnp:
                                            "--indel-tranche 95.0",
                                            "--invalidate-previous-filters",
                                            "-O", str_trenche_file])
-            cmd_variant_filtration.append(Command(str_tranche_command,'tranche_filter.ok'))
+            cmd_variant_filtration = Command(str_tranche_command,'tranche_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
             
             str_filter_command = " ".join(["java -jar",gatk_path,
@@ -497,7 +497,7 @@ class RnaseqSnp:
                                             "-select-type SNP",
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
-            cmd_variant_filtration.append(Command(str_filter_command,'variant_cnn_filter.ok'))
+            cmd_variant_filtration = Command(str_filter_command,'variant_cnn_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
 
         ## We will remove one of 3/4 depending on the benchmarking
