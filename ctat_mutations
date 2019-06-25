@@ -444,9 +444,20 @@ class RnaseqSnp:
                                            "-cluster 3 --filter-name FS",
                                            "-filter \"FS > 30.0\"",
                                            "--filter-name QD","-filter \"QD < 2.0\"",
-                                           "-O", str_filtered_variants_file])
+                                           "-O", str_hc_filter_output])
             
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
+            lcmd_filter.append(cmd_variant_filtration)
+
+
+            str_filter_command = " ".join(["java -jar",gatk_path,
+                                            "SelectVariants",
+                                            "-R", genome_fa,
+                                            "-V", str_hc_filter_output,
+                                            "-select-type SNP",
+                                            "--exclude-filtered",
+                                            "-O", str_filtered_variants_file])
+            cmd_variant_filtration = Command(str_filter_command,'variant_select.ok')
             lcmd_filter.append(cmd_variant_filtration)
         
         ####################################################################################
