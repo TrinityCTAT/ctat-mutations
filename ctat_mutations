@@ -85,8 +85,7 @@ LSTR_VARIANT_FILTERING_CHOICES = [STR_FILTERING_HC_REGULAR,
 STR_FILTERING_GATK = [STR_FILTERING_HC_REGULAR,
                                   STR_FILTERING_HC_CNN,
                                   STR_FILTERING_MUTECT2_REGULAR,
-                                  STR_FILTERING_MUTECT2_LROM
-                   ]
+                                  STR_FILTERING_MUTECT2_LROM]
 
 # File names required for filtering
 C_STR_INIT_FILTER = "variants_initial_filtering.vcf"
@@ -524,6 +523,7 @@ class RnaseqSnp:
                                            "-V", str_variants_file,
                                            "-O", mutFilter_output])
             cmd_variant_filtration = Command(str_filter_command,'FilterMutectCalls.ok')
+            lcmd_filter.append(cmd_variant_filtration)
 
             str_filter_mut_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
@@ -535,7 +535,7 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
             lcmd_filter.append(cmd_variant_filtration)
             
-            lcmd_filter.append(cmd_variant_filtration)
+            
 
         ##########################################################
         ################ 4. Mutect2 and LROM #####################
