@@ -437,6 +437,7 @@ class RnaseqSnp:
         ####### 1. Haplotype caller - VariantFiltration ##########
         ##########################################################
         if args_call.str_gatk_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
+            mutFilter_output = os.path.join(args_call.str_out_dir,"preFilterHCCalls.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                            "VariantFiltration -R",
                                            genome_fa, "-V",
@@ -516,6 +517,7 @@ class RnaseqSnp:
         ###########  3. Mutect2 and FilterMutectCalls  ###########
         ##########################################################
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_REGULAR:
+            mutFilter_output = os.path.join(args_call.str_out_dir,"preFilterMutectCalls.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                            "FilterMutectCalls -R",
                                            genome_fa,
