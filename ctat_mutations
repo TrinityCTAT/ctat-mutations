@@ -543,7 +543,7 @@ class RnaseqSnp:
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_LROM:
             f1r2_output = os.path.join(args_call.str_out_dir,"f1r2.tar.gz")
             LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
-            test_lib = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib")
+            test_lib = os.path.join(args_call.genome_lib_dir,"ctat_mutation_lib")
             common_exac = os.path.join(test_lib, "small_exac_common_3_b37.vcf.gz")
             pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
             contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
