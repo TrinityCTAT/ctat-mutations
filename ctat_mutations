@@ -575,7 +575,7 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_CalculateContamination_call,'CalculateContamination.ok')
             lcmd_filter.append(cmd_variant_filtration)
 
-            str_mutFilter_command = " ".join(["java -jar",gatk_path,g
+            str_mutFilter_command = " ".join(["java -jar",gatk_path,
                                            "FilterMutectCalls",
                                            "-R", genome_fa,
                                            "-V", str_variants_file,
