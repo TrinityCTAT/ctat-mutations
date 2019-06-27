@@ -375,7 +375,7 @@ class RnaseqSnp:
                                      "--germline-resource", gnomad,
                                      "--f1r2-tar-gz", f1r2_output,
                                      "-O", str_variants_file])
-            lcmd_gatk_rna_calling.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
+            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
             
         elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and not args_call.str_germline_resource:
             str_m2_call = " ".join(["java", "-jar",
@@ -388,7 +388,7 @@ class RnaseqSnp:
                                     "-A", "ReferenceBases", "-A", "QualByDepth",
                                     "-A", "FisherStrand", "-A", "ChromosomeCounts",
                                     "-O", str_variants_file])
-            lcmd_gatk_rna_calling.append(Command(str_m2_call,'Mutect2_call.ok'))
+            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call.ok'))
         
         return lcmd_gatk_variants_commands, str_variants_file
             
@@ -575,7 +575,7 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_CalculateContamination_call,'CalculateContamination.ok')
             lcmd_filter.append(cmd_variant_filtration)
 
-            str_mutFilter_command = " ".join(["java -jar",gatk_path,
+            str_mutFilter_command = " ".join(["java -jar",gatk_path,g
                                            "FilterMutectCalls",
                                            "-R", genome_fa,
                                            "-V", str_variants_file,
