@@ -331,12 +331,12 @@ class RnaseqSnp:
         else:
             ## do parallel processing by chromosome:
 
-            parallel_HC_cmds = self.generate_parallel_gatk_cmds(args_call = args_call,
-                                                                gatk_core_cmd = gatk_HaplotypeCaller_core_cmd,
-                                                                genome_fa = genome_fa,
-                                                                final_output_vcf_file = str_variants_file,
-                                                                gatk_path = gatk_path,
-                                                                str_tmp_dir = str_tmp_dir)
+            parallel_HC_cmds = self.generate_parallel_gatk_HC_cmds(args_call = args_call,
+                                                                   gatk_core_cmd = gatk_HaplotypeCaller_core_cmd,
+                                                                   genome_fa = genome_fa,
+                                                                        final_output_vcf_file = str_variants_file,
+                                                                   gatk_path = gatk_path,
+                                                                   str_tmp_dir = str_tmp_dir)
                                                                 
             
             lcmd_gatk_variants_commands.extend(parallel_HC_cmds)
@@ -503,14 +503,14 @@ class RnaseqSnp:
             # 1. get pileup summaries
             pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
             str_pileup_call = " ".join(["java", "-jar", gatk_path,
-                                     "GetPileupSummaries",
-                                     "-I ", str_input_bam,
-                                     "-V", common_exac,
-                                     "-L", common_exac,
-                                     "-O ", pileups_output])
+                                        "GetPileupSummaries",
+                                        "-I ", str_align_bam_file,
+                                        "-V", str_germline_resource,
+                                        "-L", str_germline_resource,
+                                        "-O ", pileups_output])
             cmd_variant_filtration = Command(str_pileup_call,'PileupSummaries.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-
+            
             # 2. calc tumor contamination
             contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
             segments_output = os.path.join(args_call.str_out_dir,"segments.table")
@@ -562,7 +562,7 @@ class RnaseqSnp:
                                     "-R", genome_fa,
                                     "-I", str_align_bam_file,
                                     "--dont-use-soft-clipped-bases",
-                                    "-stand-call-conf","20.0",
+                                    #"-stand-call-conf","20.0",  # removed as option in latest mutect2?
                                     "-A", "ReferenceBases",
                                     "-A", "QualByDepth",
                                     "-A", "FisherStrand",
@@ -652,6 +652,16 @@ class RnaseqSnp:
         lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_filter_before_cravat.ok'))
 
         str_pred_filtered_vcf = str_cancer_mutations_filtered # file that gets returned (or first modified by cravat below)
+
+        #########################################################################################
+        #### Treat this annotated filtered file as a primary resource, pre-Cravat prioritization.
+
+        annotated_filtered_variants_file = os.path.join(str_project_dir, "variants.annotated_and_filtered.vcf")
+        lcmd_cancer_filter.append(Command("cp {} {}".format(str_pred_filtered_vcf, annotated_filtered_variants_file), "cp_annot_filt_var_file.ok"))
+
+        lcmd_index, str_annotated_vcf_gz = self.func_gz(annotated_filtered_variants_file, str_project_dir)
+        lcmd_cancer_filter.extend(lcmd_index)
+        
         
         if (not args_call.f_skip_cravat):
             # Annotate non-common with CRAVAT
@@ -1143,12 +1153,12 @@ class RnaseqSnp:
 
             # Index and bgzip vcf
             lcmd_index, str_annotated_vcf_gz = self.func_gz(str_annotated_vcf_file,
-                                                            args_parsed.str_out_dir)
+                                                            str_misc_dir)
             lcmd_commands.extend(lcmd_index)
             lcmd_index, str_annotated_vcf_csi = self.func_csi(str_annotated_vcf_gz,
-                                                              args_parsed.str_out_dir)
+                                                              str_misc_dir)
             lcmd_commands.extend(lcmd_index)
-
+            
 
             ########################################
             ## CRAVAT annotations of cancer variants
@@ -1264,41 +1274,28 @@ class RnaseqSnp:
           return lcmd_tabix
 
 
-    def generate_parallel_gatk_cmds(self,
-                                  args_call,
-                                  gatk_core_cmd,
-                                  genome_fa,
-                                  final_output_vcf_file,
-                                  gatk_path,
-                                  str_tmp_dir):
-
+    def generate_parallel_gatk_HC_cmds(self,
+                                       args_call,
+                                       gatk_core_cmd,
+                                       genome_fa,
+                                       final_output_vcf_file,
+                                       gatk_path,
+                                       str_tmp_dir):
+        
         ## make interval files.
         interval_vcf_files = list()
         interval_gatk_cmds = list()
 
-        genome_fai_file = "{}.fai".format(genome_fa)
-        if not os.path.exists(genome_fai_file):
-            raise RuntimeError("Error, cannot locate expected file: {}".format(genome_fai_file))
+        chromosome_interval_file_pairs = self.make_chr_interval_files(genome_fa, str_tmp_dir)
 
-        with open(genome_fai_file) as fh:
-            for line in fh:
-                vals = line.split("\t")
-                chromosome = vals[0]
-                chr_length = vals[1]
-                
-                interval_file = os.path.sep.join([str_tmp_dir, "{}.intervals".format(chromosome)])
-                ofh = open(interval_file, 'w')
-                ofh.write("{}:1-{}\n".format(chromosome, chr_length))
-                ofh.close()
-                
+        for (chromosome, interval_file) in chromosome_interval_file_pairs:
+                            
                 interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
                 interval_gatk_cmd = gatk_core_cmd + " -L {} -O {}".format(interval_file, interval_vcf_file)
                 
                 interval_vcf_files.append(interval_vcf_file)
                 interval_gatk_cmds.append(interval_gatk_cmd)
-                
-
-
+        
         ret_cmds_list = list()
         parallel_cmd_obj = ParallelCommandList(cmdlist=interval_gatk_cmds,
                                                checkpoint="gatk.interval.cmds.ok",
@@ -1316,6 +1313,35 @@ class RnaseqSnp:
 
         return ret_cmds_list
     
+
+    def make_chr_interval_files(self, genome_fa, str_tmp_dir):
+
+        chromosomes = list()
+        interval_files = list()
+                
+        genome_fai_file = "{}.fai".format(genome_fa)
+        if not os.path.exists(genome_fai_file):
+            raise RuntimeError("Error, cannot locate expected file: {}".format(genome_fai_file))
+
+        with open(genome_fai_file) as fh:
+            for line in fh:
+                vals = line.split("\t")
+                chromosome = vals[0]
+                chr_length = vals[1]
+                
+                interval_file = os.path.sep.join([str_tmp_dir, "{}.intervals".format(chromosome)])
+                ofh = open(interval_file, 'w')
+                ofh.write("{}:1-{}\n".format(chromosome, chr_length))
+                ofh.close()
+                
+                chromosomes.append(chromosome)
+                interval_files.append(interval_file)
+
+        chr_interval_file_pairs = zip(chromosomes, interval_files)
+
+        return chr_interval_file_pairs
+    
+
 
 
 def make_menu():
