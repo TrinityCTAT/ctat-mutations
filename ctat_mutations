@@ -24,7 +24,7 @@ import urllib.request
 VERSION = "__BLEEDING_EDGE__"
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
-from Pipeliner import Pipeliner, Command, run_cmd
+from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
 import logging
 FORMAT = "%(asctime)-15s: %(levelname)s %(module)s.%(name)s.%(funcName)s %(message)s"
 logger = logging.getLogger('ctat_mutations')
@@ -34,7 +34,7 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
 
 # Directory structure
-STR_MISC_DIR = "misc"
+STR_MISC_DIR = "misc.tmp"
 
 # STAR alignment options
 STR_ALIGN_STAR = "STAR"
@@ -47,11 +47,6 @@ STR_STAR_LOG_FINAL = "Log.final.out"
 STR_STAR_OUTPUT_BAM = "Aligned.sortedByCoord.out.bam"
 STR_STAR_PROGRESS = "Log.progress.out"
 
-# Variant Calling modes - GATK or NONE
-STR_VARIANT_GATK = "GATK"
-STR_VARIANT_NONE = "NONE"
-LSTR_VARIANT_CALLING_CHOICES = [STR_VARIANT_GATK,
-                                STR_VARIANT_NONE]
 
 # PICARD platforms
 # Choices for platform
@@ -121,109 +116,111 @@ class RnaseqSnp:
                            index_dir,
                            genome_fa,
                            str_misc_dir):
-            '''
-            Input files : fastq, fastq.gz, input.bam
-            Output : Aligned.sortedByCoord.out.bam.bai or input.bam.bai  (index file of alignment)
-            ''' 
+        '''
+        Input files : fastq, fastq.gz, input.bam
+        Output : Aligned.sortedByCoord.out.bam.bai or input.bam.bai  (index file of alignment)
+        ''' 
+
+
+        str_star_sorted_bam = os.path.join(str_misc_dir, STR_STAR_OUTPUT_BAM)
+
+        # Pipeline variables
+        str_num_threads = str(args_call.i_number_threads)
+        str_left = args_call.str_sample_file_left_fq
+        str_right = args_call.str_sample_file_right_fq
+
+        # Commands to build and return are stored in this list
+        lcmd_commands = []
+
+
+        ########################################
+        ##### STAR in limited memory mode ######
+        ########################################
+        # Update the limitGenomeGenerateRAM if more memory is requested
+        lstr_index_memory_size = []
+        if hasattr(args_call, "str_star_memory_limit"):
+            if((args_call.str_star_memory_limit) and
+               (args_call.str_alignment_mode == "STAR")):
+                lstr_index_memory_size.extend(["--limitGenomeGenerateRAM",
+                                               args_call.str_star_memory_limit])
+
+        lstr_limited_index_mode = []
+        if args_call.str_alignment_mode == "LIMITED":
+             lstr_limited_index_mode.append(" ".join(["--limitGenomeGenerateRAM",
+                                                      "15000000000",
+                                                      "--genomeSAsparseD 2",
+                                                      "--outSAMmapqUnique 60",
+                                                      "--limitIObufferSize",
+                                                      "150000000"]))
+
+        lstr_limited_alignment_mode = []
+        if args_call.str_alignment_mode == "LIMITED":
+            lstr_limited_alignment_mode.append("--genomeSAsparseD 2")
 
             
-            str_star_sorted_bam = os.path.join(str_misc_dir, STR_STAR_OUTPUT_BAM)
-
-            # Pipeline variables
-            str_num_threads = str(args_call.i_number_threads)
-            str_left = args_call.str_sample_file_left_fq
-            str_right = args_call.str_sample_file_right_fq
-
-            # Commands to build and return are stored in this list
-            lcmd_commands = []
-
-            
-            ########################################
-            ##### STAR in limited memory mode ######
-            ########################################
-            # Update the limitGenomeGenerateRAM if more memory is requested
-            lstr_index_memory_size = []
-            if hasattr(args_call, "str_star_memory_limit"):
-                if((args_call.str_star_memory_limit) and
-                   (args_call.str_alignment_mode == "STAR")):
-                    lstr_index_memory_size.extend(["--limitGenomeGenerateRAM",
-                                                   args_call.str_star_memory_limit])
-
-            lstr_limited_index_mode = []
-            if args_call.str_alignment_mode == "LIMITED":
-                 lstr_limited_index_mode.append(" ".join(["--limitGenomeGenerateRAM",
-                                                          "15000000000",
-                                                          "--genomeSAsparseD 2",
-                                                          "--outSAMmapqUnique 60",
-                                                          "--limitIObufferSize",
-                                                          "150000000"]))
-
-            lstr_limited_alignment_mode = []
-            if args_call.str_alignment_mode == "LIMITED":
-                lstr_limited_alignment_mode.append("--genomeSAsparseD 2")
-
-            
-            if not args_call.str_bam_file:
-                
-                ###########################################
-                #### Generate Index if not provided #######
-                ###########################################
-                # If the premade index is not given then generate
-                if not index_dir:
-                    index_dir = genome_fa + ".star.idx"
-                    str_index = " ".join(["STAR", "--runMode", "genomeGenerate"] +
-                                                lstr_limited_index_mode + lstr_index_memory_size +
-                                                ["--genomeDir", index_dir,
-                                                  "--outSAMmapqUnique", "60",
-                                                 "--genomeFastaFiles", genome_fa,
-                                                 "--runThreadN", str_num_threads])
-                    lcmd_commands.append(Command(str_index, "star_index.ok"))
-                
-                ##########################################
-                ###### Perform two-pass alignment ########
-                ##########################################
-                # Star Aligner
-                lstr_gzip = []
-
-                # Check if the files are gzipped or not
-                str_ext_left = os.path.splitext(str_left)[1]
-                str_ext_right = os.path.splitext(str_right)[1]
-                if str_ext_left != str_ext_right:
-                    str_error = " ".join(["Fastq files from a single sample should both",
-                                          "either be gzipped (.gz) or not compressed."])
-                    cur_pipeline.logr_logger.error(str_error)
-                    exit(8)
-                elif str_ext_left == ".gz":
-                    lstr_gzip = ["--readFilesCommand", "\"gunzip -c\""]
-
-                # Map files
-                str_star_align = " ".join(["STAR",
-                                           "--genomeDir", index_dir,
-                                           "--runThreadN", str_num_threads,
-                                           "--readFilesIn", str_left,
-                                           str_right] + lstr_gzip + ["--outSAMtype",
-                                                                     "BAM", "SortedByCoordinate",
-                                                                     "--twopassMode", "Basic",
-                                                                     "--limitBAMsortRAM", "30000000000",
-                                                                     " --outSAMmapqUnique","60",
-                                                                     "--outFileNamePrefix",
-                                                                     str_misc_dir + os.sep])
-                      
-                lcmd_commands.append(Command(str_star_align, "star_alignment.ok"))
 
 
-            # Create index of alignment bam and save ok file
-            str_star_bai = " ".join(["samtools index", str_star_sorted_bam])
-            lcmd_commands.append(Command(str_star_bai, "star_bai.ok"))
-      
-            return lcmd_commands, str_star_sorted_bam
+        ###########################################
+        #### Generate Index if not provided #######
+        ###########################################
+        # If the premade index is not given then generate
+        if not index_dir:
+            index_dir = genome_fa + ".star.idx"
+            str_index = " ".join(["STAR", "--runMode", "genomeGenerate"] +
+                                        lstr_limited_index_mode + lstr_index_memory_size +
+                                        ["--genomeDir", index_dir,
+                                          "--outSAMmapqUnique", "60",
+                                         "--genomeFastaFiles", genome_fa,
+                                         "--runThreadN", str_num_threads])
+            lcmd_commands.append(Command(str_index, "star_index.ok"))
+
+        ##########################################
+        ###### Perform two-pass alignment ########
+        ##########################################
+        # Star Aligner
+        lstr_gzip = []
+
+        # Check if the files are gzipped or not
+        str_ext_left = os.path.splitext(str_left)[1]
+        str_ext_right = os.path.splitext(str_right)[1]
+        if str_ext_left != str_ext_right:
+            str_error = " ".join(["Fastq files from a single sample should both",
+                                  "either be gzipped (.gz) or not compressed."])
+            cur_pipeline.logr_logger.error(str_error)
+            exit(8)
+        elif str_ext_left == ".gz":
+            lstr_gzip = ["--readFilesCommand", "\"gunzip -c\""]
+
+        # Map files
+        str_star_align = " ".join(["STAR",
+                                   "--genomeDir", index_dir,
+                                   "--runThreadN", str_num_threads,
+                                   "--readFilesIn", str_left,
+                                   str_right] + lstr_gzip + ["--outSAMtype",
+                                                             "BAM", "SortedByCoordinate",
+                                                             "--twopassMode", "Basic",
+                                                             "--limitBAMsortRAM", "30000000000",
+                                                             " --outSAMmapqUnique","60",
+                                                             "--outFileNamePrefix",
+                                                             str_misc_dir + os.sep])
+
+        lcmd_commands.append(Command(str_star_align, "star_alignment.ok"))
+
+
+        # Create index of alignment bam and save ok file
+        str_star_bai = " ".join(["samtools index", str_star_sorted_bam])
+        lcmd_commands.append(Command(str_star_bai, "star_bai.ok"))
+
+        return lcmd_commands, str_star_sorted_bam
+
+
 
     def RNA_refine_mapping(self, args_call, str_align_file, str_unique_id,
                             str_project_dir, str_tmp_dir,
                             genome_fa,vcf_file,
                             gatk_path,picard_path):
         """
-        Manages the commands for the recalibration step in the GATK RNASEq mutation calling best practices.
+        Manages the commands for the recalibration step in the GATK RNASEQ mutation calling best practices.
 
         * args_call : Arguments for the pipeline
                     : Dict
@@ -236,6 +233,7 @@ class RnaseqSnp:
         * lstr_dependencies : List of file paths of dependencies from any previously running commands.
                             : List of strings
         """
+
         # Check for the known vcf file
         # If it does not exist, warn that the associated steps will not be ran.
         if not vcf_file:
@@ -318,138 +316,84 @@ class RnaseqSnp:
         return lcmd_gatk_recalibration_commands, str_return_bam, str_return_bai
     
 
-    def Variant_Calling_GATK(self, args_call,
-                             str_align_file,
-                             str_unique_id,
-                             str_project_dir,
-                             str_tmp_dir,
-                             genome_fa,
-                             vcf_file,
-                             gatk_path,
-                             picard_path):
+    def Variant_Calling_GATK_HaplotypeCaller(self,
+                                             args_call,
+                                             str_align_bam_file,
+                                             str_unique_id,
+                                             str_project_dir,
+                                             str_tmp_dir,
+                                             genome_fa,
+                                             vcf_file,
+                                             gatk_path,
+                                             picard_path):
+        
 
-
-         # Commands which will be returned
+        # Commands which will be returned
         lcmd_gatk_variants_commands = []
-
-        # Perform recalibration
-        align_refine_cmd, str_return_bam, str_return_bai = self.RNA_refine_mapping(args_call,
-                                                                                   str_align_file,
-                                                                                   str_unique_id, str_project_dir,
-                                                                                   str_tmp_dir,
-                                                                                   genome_fa,vcf_file,
-                                                                                   gatk_path,picard_path)
-        lcmd_gatk_variants_commands.extend(align_refine_cmd)
-   
+        
+           
         # Files
-        str_variants_file = os.path.join(str_project_dir, "variants.vcf")
+        str_variants_file = os.path.join(str_project_dir, "HaplotypeCaller.raw_variants.vcf")
 
-        # Create depth file
-        if args_call.f_calculate_base_coverage:
-            str_depth_compressed_file = os.path.basename(args_call.str_out_dir) + ".depth"
-            str_depth_compressed_file = os.path.join(args_call.str_out_dir,
-                                                     str_depth_compressed_file)
-            str_depth = " ".join(["samtools", "depth", str_return_bam, ">", str_depth_compressed_file])
-            lcmd_gatk_variants_commands.append(Command(str_depth,'dep.ok'))
         
+                
         # Variant calling
-        if args_call.str_gatk_variant_call_method == STR_GATK_HC:
-            str_hap_call = " ".join(["java", "-jar", gatk_path,
-                                     "HaplotypeCaller", "-R",
-                                     genome_fa, "-I", str_return_bam,
-                                     "--recover-dangling-heads","true",
-                                     "--dont-use-soft-clipped-bases","-stand-call-conf",
-                                     "20.0",
-                                     "-O", str_variants_file])
-            lcmd_gatk_variants_commands.append(Command(str_hap_call,'hap_call.ok'))
-          
-        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_germline_resource:
-            # if germline_resource is provided
-            f1r2_output = os.path.join(args_call.str_out_dir,"f1r2.tar.gz")
-            gnomad = args_call.str_germline_resource #os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "af-only-gnomad.raw.sites.b37.vcf.gz")
 
-            str_m2_call = " ".join(["java", "-jar", gatk_path,
-                                     "Mutect2",
-                                     "-R", genome_fa,
-                                     "-I", str_input_bam,
-                                     "--germline-resource", gnomad,
-                                     "--f1r2-tar-gz", f1r2_output,
-                                     "-O", str_variants_file])
-            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
-            
-        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and not args_call.str_germline_resource:
-            str_m2_call = " ".join(["java", "-jar",
-                                    gatk_path,
-                                    "Mutect2", "-R",
-                                    genome_fa,
-                                    "-I", str_return_bam,
-                                    "--dont-use-soft-clipped-bases",
-                                    "-stand-call-conf","20.0",
-                                    "-A", "ReferenceBases", "-A", "QualByDepth",
-                                    "-A", "FisherStrand", "-A", "ChromosomeCounts",
-                                    "-O", str_variants_file])
-            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call.ok'))
+        gatk_HaplotypeCaller_core_cmd = " ".join(["java", "-jar", gatk_path,
+                                                  "HaplotypeCaller",
+                                                  "-R", genome_fa,
+                                                  "-I", str_align_bam_file,
+                                                  "--recover-dangling-heads","true",
+                                                  "--dont-use-soft-clipped-bases",
+                                                  "-stand-call-conf", "20.0" ]) # just missing -O output_vcf_file
         
-        return lcmd_gatk_variants_commands, str_variants_file
-            
-    def Variant_Calling_USE_VCF(self, args_call,
-                                     str_align_file,
-                                     str_unique_id,
-                                     str_project_dir,
-                                     str_tmp_dir,
-                                     genome_fa,
-                                     gatk_path,
-                                     picard_path):
+
+        if args_call.i_number_threads == 1:
         
-        """
-        use a vcf provided as a script parameter.  For more rapid testing of downstream operations only...
-        """
+            str_hap_call = gatk_HaplotypeCaller_core_cmd + "-O {}".format(str_variants_file) 
+            lcmd_gatk_variants_commands.append(Command(str_hap_call,'gatk_HC.ok'))
 
-        lcmd_index = []
+        else:
+            ## do parallel processing by chromosome:
 
-        # symlink the vcf to the proj dir
-        target_vcf_file = os.path.sep.join([str_project_dir, "variants.vcf"])
-        lcmd_index.append(Command("ln -s {} {}".format(args_call.use_vcf_file, target_vcf_file), "symlink_use_vcf.ok"))
-        lcmd_index.append(Command("ln -s {} {}".format(args_call.use_vcf_file + ".idx", target_vcf_file + ".idx"), "symlink_use_vcf_idx.ok"))
+            parallel_HC_cmds = self.generate_parallel_gatk_cmds(args_call = args_call,
+                                                                gatk_core_cmd = gatk_HaplotypeCaller_core_cmd,
+                                                                genome_fa = genome_fa,
+                                                                final_output_vcf_file = str_variants_file,
+                                                                gatk_path = gatk_path,
+                                                                str_tmp_dir = str_tmp_dir)
+                                                                
+            
+            lcmd_gatk_variants_commands.extend(parallel_HC_cmds)
+            
+            
+        ####################
+        # Variant filtering.
 
-        return lcmd_index, target_vcf_file
-    
-    def func_do_filtering_gatk(self, args_call, str_variants_file, str_input_bam, gatk_path, genome_fa):
-        """
-        Creates the commands for the gatk hard filtering.
-        * args_call: Arguments for the pipeline
-                   : Dict
-        * str_variants_file: Path to file to be filtered
-                           : String path
-        * lstr_dependencies: List of file paths of dependencies from any
-                             previously running commands.
-                           : List of strings
-        * logr_cur: Pipeline logger
-                  : Logger
-        """
-        lcmd_filter = []
-        # Filtered variants file
-        str_filtered_variants_file = os.path.join(args_call.str_out_dir,
-                                                  C_STR_INIT_FILTER)
-        # Filter variants
-        ##########################################################
-        ####### 1. Haplotype caller - VariantFiltration ##########
-        ##########################################################
-        if args_call.str_gatk_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
-            str_hc_filter_output = os.path.join(args_call.str_out_dir,"preFilterHCCalls.vcf")
+        str_filtered_variants_file = None
+
+        if args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
+
+            ####################
+            # apply hard cutoffs
+
+            str_hc_filter_output = os.path.join(args_call.str_out_dir,"HaplotypeCaller.hard_cutoff_filters_applied.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
-                                           "VariantFiltration -R",
-                                           genome_fa, "-V",
-                                           str_variants_file, "-window 35",
-                                           "-cluster 3 --filter-name FS",
+                                           "VariantFiltration",
+                                           "-R", genome_fa,
+                                           "-V", str_variants_file,
+                                           "-window 35",
+                                           "-cluster 3 ",
+                                           "--filter-name FS",
                                            "-filter \"FS > 30.0\"",
                                            "--filter-name QD","-filter \"QD < 2.0\"",
                                            "-O", str_hc_filter_output])
             
             cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
-
+            # select variants
+            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"HaplotypeCaller.hard_cutoff_filters_applied.selected_variants.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
@@ -458,13 +402,14 @@ class RnaseqSnp:
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
             cmd_variant_filtration = Command(str_filter_command,'variant_select.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
         
-        ####################################################################################
-        ### 2. Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants ##
-        ####################################################################################
-        elif args_call.str_gatk_variant_call_method == STR_GATK_HC and args_call.str_variant_filter_mode == STR_FILTERING_HC_CNN:
 
+        elif args_call.str_variant_filter_mode == STR_FILTERING_HC_CNN:
+
+            ################################################################################
+            ## Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants ##
+        
             ## Resource files
             test_lib = os.path.join(args_call.genome_lib_dir,"ctat_mutation_lib")
             dbsnp = os.path.join(test_lib, "dbsnp_138.b37.vcf.gz")
@@ -472,7 +417,7 @@ class RnaseqSnp:
             hapmap = os.path.join(test_lib, "hapmap_3.3.b37.vcf.gz")
             high_conf = os.path.join(test_lib, "1000G_phase1.snps.high_confidence.b37.vcf.gz")
             
-            str_score_file = os.path.join(args_call.str_out_dir, "scored.vcf")
+            str_score_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.vcf")
             str_CNNScoreVariants_call = " ".join(["java", "-jar", gatk_path,
                                      "CNNScoreVariants",
                                      "-R", genome_fa,
@@ -483,10 +428,10 @@ class RnaseqSnp:
                                      "--inference-batch-size 8",
                                      "-O", str_score_file])
             cmd_variant_filtration = Command(str_CNNScoreVariants_call,'CNNScoreVariants.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
             
 
-            str_trenche_file = os.path.join(args_call.str_out_dir, "trenche.vcf")
+            str_tranche_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.tranche.vcf")
             str_tranche_command = " ".join(["java -jar",gatk_path,
                                            "FilterVariantTranches",
                                            "-R", genome_fa,
@@ -497,67 +442,91 @@ class RnaseqSnp:
                                            "--snp-tranche 95.9",
                                            "--indel-tranche 95.0",
                                            "--invalidate-previous-filters",
-                                           "-O", str_trenche_file])
+                                           "-O", str_tranche_file])
             cmd_variant_filtration = Command(str_tranche_command,'tranche_filter.ok')
-            lcmd_filter.append(cmd_variant_filtration)
-            
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+            str_filtered_variants_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.tranche.selected.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
-                                            "-V", str_trenche_file,
+                                            "-V", str_tranche_file,
                                             "-select-type SNP",
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
             cmd_variant_filtration = Command(str_filter_command,'variant_cnn_filter.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
-        ## We will remove one of 3/4 depending on the benchmarking
-        ##########################################################
-        ###########  3. Mutect2 and FilterMutectCalls  ###########
-        ##########################################################
-        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_REGULAR:
-            mutFilter_output = os.path.join(args_call.str_out_dir,"preFilterMutectCalls.vcf")
-            str_filter_command = " ".join(["java -jar",gatk_path,
-                                           "FilterMutectCalls -R",
-                                           genome_fa,
-                                           "-V", str_variants_file,
-                                           "-O", mutFilter_output])
-            cmd_variant_filtration = Command(str_filter_command,'FilterMutectCalls.ok')
-            lcmd_filter.append(cmd_variant_filtration)
 
-            str_filter_mut_command = " ".join(["java -jar",gatk_path,
-                                            "SelectVariants",
-                                            "-R", genome_fa,
-                                            "-V", mutFilter_output,
-                                            "-select-type SNP",
-                                            "--exclude-filtered",
-                                            "-O", str_filtered_variants_file]) 
-            cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+        else:
+            raise RuntimeError("Error, not recognizing filter method {} for use with GATK HaplytypeCaller".format(args_call.str_variant_filter_mode))
+
+        
+        
+        return lcmd_gatk_variants_commands, str_filtered_variants_file
+    
+    
+
+    def Variant_Calling_GATK_Mutect2(self, args_call,
+                                     str_align_bam_file,
+                                     str_unique_id,
+                                     str_project_dir,
+                                     str_tmp_dir,
+                                     genome_fa,
+                                     vcf_file,
+                                     gatk_path,
+                                     picard_path):
+        
+
+        # Commands which will be returned
+        lcmd_gatk_variants_commands = []
+                   
+        # Files
+        str_filtered_variants_file = None        
+        
+        # Variant calling
+                  
+        if args_call.str_germline_resource:
+
+            # if germline_resource is provided   ** recommended approach **
+
+            str_germline_resource = args_call.str_germline_resource
             
-            
+            ##################################
+            ## Mutect2 Best Practices Pipeline
+            ##################################
 
-        ##########################################################
-        ################ 4. Mutect2 and LROM #####################
-        ##########################################################
-        elif args_call.str_gatk_variant_call_method == STR_GATK_MUTECT2 and args_call.str_variant_filter_mode == STR_FILTERING_MUTECT2_LROM:
+            str_variants_file = os.path.join(str_project_dir, "Mutect2.BestPractices.raw_variants.vcf")
+            
             f1r2_output = os.path.join(args_call.str_out_dir,"f1r2.tar.gz")
-            LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
-            test_lib = os.path.join(args_call.genome_lib_dir,"ctat_mutation_lib")
-            common_exac = os.path.join(test_lib, "small_exac_common_3_b37.vcf.gz")
-            pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
-            contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
-            segments_output = os.path.join(args_call.str_out_dir,"segments.table")
-            mutFilter_output = os.path.join(args_call.str_out_dir,"preFilterMutectCalls.vcf")
+            
+            str_m2_call = " ".join(["java", "-jar", gatk_path,
+                                    "Mutect2",
+                                    "-R", genome_fa,
+                                    "-I", str_align_bam_file,
+                                    "--germline-resource", str_germline_resource,
+                                    "--f1r2-tar-gz", f1r2_output,
+                                    "-O", str_variants_file])
+            
+            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
 
             
+            #################################################################
+            ## Mutect2 and Learn Read Orientation Model (LROM) and Filter  ##
+                        
+            # Learn read orientation bias model
+            LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
             str_LROM_call = " ".join(["java", "-jar", gatk_path,
-                                     "LearnReadOrientationModel",
-                                     "-I", f1r2_output,
-                                     "-O", LROM_output])
+                                      "LearnReadOrientationModel",
+                                      "-I", f1r2_output,
+                                      "-O", LROM_output])
             cmd_variant_filtration = Command(str_LROM_call,'LearnReadOrientationModel.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+            
 
+            ## Tumor contamination estimation steps:
+            # 1. get pileup summaries
+            pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
             str_pileup_call = " ".join(["java", "-jar", gatk_path,
                                      "GetPileupSummaries",
                                      "-I ", str_input_bam,
@@ -565,27 +534,83 @@ class RnaseqSnp:
                                      "-L", common_exac,
                                      "-O ", pileups_output])
             cmd_variant_filtration = Command(str_pileup_call,'PileupSummaries.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
+            # 2. calc tumor contamination
+            contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
+            segments_output = os.path.join(args_call.str_out_dir,"segments.table")
             str_CalculateContamination_call = " ".join(["java", "-jar", gatk_path,
-                                     "CalculateContamination",
-                                     "-I ", pileups_output,
-                                     "-O", contamination_output,
-                                     "--tumor-segmentation", segments_output])
+                                                        "CalculateContamination",
+                                                        "-I ", pileups_output,
+                                                        "-O", contamination_output,
+                                                        "--tumor-segmentation", segments_output])
             cmd_variant_filtration = Command(str_CalculateContamination_call,'CalculateContamination.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
+            # do final Mutect2 filtering
+            mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.BestPractices.raw_variants.filter_applied.vcf")
             str_mutFilter_command = " ".join(["java -jar",gatk_path,
-                                           "FilterMutectCalls",
-                                           "-R", genome_fa,
-                                           "-V", str_variants_file,
-                                           "--tumor-segmentation", segments_output,
-                                           "--contamination-table", contamination_output,
-                                           "--ob-priors", LROM_output,
-                                           "-O",mutFilter_output])
+                                              "FilterMutectCalls",
+                                              "-R", genome_fa,
+                                              "-V", str_variants_file,
+                                              "--tumor-segmentation", segments_output,
+                                              "--contamination-table", contamination_output,
+                                              "--ob-priors", LROM_output,
+                                              "-O",mutFilter_output])
             cmd_variant_filtration = Command(str_mutFilter_command,'FilterMutectCalls.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+            # select variants
+            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.BestPractices.raw_variants.filter_applied.selected.vcf") 
+            str_filter_mut_command = " ".join(["java -jar",gatk_path,
+                                               "SelectVariants",
+                                               "-R", genome_fa,
+                                               "-V", mutFilter_output,
+                                               "-select-type SNP",
+                                               "--exclude-filtered",
+                                               "-O", str_filtered_variants_file]) 
+            cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+                                        
             
+        else:
+
+            ########################################
+            ## Basic Mutect2 execution and filtering
+            ## no germline resource provided
+
+            str_variants_file = os.path.join(str_project_dir, "Mutect2.exec_basic.raw_variants.vcf")
+            
+            str_m2_call = " ".join(["java", "-jar",
+                                    gatk_path,
+                                    "Mutect2",
+                                    "-R", genome_fa,
+                                    "-I", str_align_bam_file,
+                                    "--dont-use-soft-clipped-bases",
+                                    "-stand-call-conf","20.0",
+                                    "-A", "ReferenceBases",
+                                    "-A", "QualByDepth",
+                                    "-A", "FisherStrand",
+                                    "-A", "ChromosomeCounts",
+                                    "-O", str_variants_file])
+
+            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call.ok'))
+
+
+            ## Mutect2 filtering, Basic
+            
+            mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.vcf")
+            str_filter_command = " ".join(["java -jar",gatk_path,
+                                           "FilterMutectCalls -R",
+                                           genome_fa,
+                                           "-V", str_variants_file,
+                                           "-O", mutFilter_output])
+            cmd_variant_filtration = Command(str_filter_command,'FilterMutectCalls.ok')
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+
+            ## select variants
+            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
             str_filter_mut_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
@@ -594,11 +619,17 @@ class RnaseqSnp:
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file]) 
             cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
-            lcmd_filter.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
             
         
-        return lcmd_filter, str_filtered_variants_file
+        
+        return lcmd_gatk_variants_commands, str_filtered_variants_file
+            
 
+
+
+
+    
     def func_do_variant_filtering_cancer(self,
                                          args_call,
                                          cosmic_vcf,
@@ -851,15 +882,13 @@ class RnaseqSnp:
                 ref_bed = args_parsed.str_ref_bed
 
             # cravat header
-            # cravat header
             cravat_header = STR_CRAVAT_HEADER_INFO
             
             if args_parsed.str_cravat_headers is not None:
                 cravat_header = args_parsed.str_cravat_headers
 
             # ctat_mutation_lib
-            properties=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib",
-                                                     "properties.json")
+            properties=os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "properties.json")
             if not os.path.exists(properties):
                 exit("Error, cannot find properties.json file in $CTAT_GENOME_LIB/ctat_mutation_lib")
 
@@ -872,7 +901,7 @@ class RnaseqSnp:
                 cosmic_vcf=args_parsed.str_cosmic_vcf
             
             
-            # Fastq files or bam files must be given or index only should be true
+            # Fastq files or bam files must be given
             if(not (args_parsed.str_sample_file_left_fq
                     and args_parsed.str_sample_file_right_fq)
                and not args_parsed.str_bam_file):
@@ -884,28 +913,19 @@ class RnaseqSnp:
                exit(7)
 
 
-            # set full paths in case of relative path settings
-            if args_parsed.str_bam_file:
-                args_parsed.str_bam_file = os.path.abspath(args_parsed.str_bam_file)
-            if args_parsed.use_vcf_file:
-                args_parsed.use_vcf_file = os.path.abspath(args_parsed.use_vcf_file)
-            
-            # Constants
-            # If not using a premade index, do not update the
-            # name of the index dir with the sample name. Does not need to be
-            # unique. Otherwise update the name of the index directory so it is
-            # unique, in case the pipeline is ran for multiple samples at once.
-            str_sample_postfix = os.path.splitext(
+ 
+            # set sample output directory name according to sample name.
+            str_sample_unique_id = os.path.splitext(
                 os.path.basename(
                     args_parsed.str_sample_file_left_fq if args_parsed.str_sample_file_left_fq else args_parsed.str_bam_file
                     ))[0]
             
-            str_sample_postfix = str_sample_postfix.replace(".","_")
+            str_sample_unique_id = str_sample_unique_id.replace(".","_")
             
-
+            
             # If the output directory is not given, get the file base from a sample file
             if not args_parsed.str_out_dir:
-                args_parsed.str_out_dir = str_sample_postfix
+                args_parsed.str_out_dir = str_sample_unique_id
 
             # Make sure the output directory is absolute
             args_parsed.str_out_dir = os.path.abspath(args_parsed.str_out_dir)
@@ -913,138 +933,147 @@ class RnaseqSnp:
             # Base outputs on the sample file unless an output directory is given directories
             str_misc_dir = os.path.join(args_parsed.str_out_dir, STR_MISC_DIR)
 
+            
+            #####################################
+            ## Construct the pipeline of commands
+            #####################################
+            
             # Start commands
             lcmd_commands = []
             dict_align_info = {}
 
             if not os.path.exists(str_misc_dir):
                 os.mkdir(str_misc_dir)
-
-
-            ## Run STAR alignment
-            star_align_cmd, str_align_file = self.RNA_star_alignment(args_call=args_parsed,
-                                                           index_dir=index_dir,
-                                                           genome_fa=genome_fa,
-                                                           str_misc_dir = str_misc_dir)
-            lcmd_commands.extend(star_align_cmd)
-            
-            ## Refine mapping using PICARD
-            
-            refine_mapping_cmd, str_return_bam, str_return_bai = self.RNA_refine_mapping(args_call=args_parsed,
-                                                str_align_file = str_align_file,
-                                                str_unique_id=str_sample_postfix, 
-                                                str_project_dir=args_parsed.str_out_dir,
-                                                str_tmp_dir=str_misc_dir,
-                                                genome_fa=genome_fa,
-                                                vcf_file=dbsnp_vcf_file,
-                                                gatk_path=gatk_path,
-                                                picard_path=picard_path)
-
-            lcmd_commands.extend(refine_mapping_cmd)
-            
-            ## Variant Calling
-            '''
-            if args_parsed.str_variant_call_mode == STR_VARIANT_SAMTOOLS:
-                variant_calling_cmd, str_variant_file = self.Variant_Calling_SAMTOOLS(args_call = args_parsed,
-                                                                             str_align_file = str_align_file,
-                                                                             str_unique_id = str_sample_postfix,
-                                                                             str_project_dir = args_parsed.str_out_dir,
-                                                                             str_tmp_dir = str_misc_dir,
-                                                                             genome_fa= genome_fa,
-                                                                             vcf_file = dbsnp_vcf_file,
-                                                                             gatk_path=gatk_path,
-                                                                             picard_path=picard_path)
-
-            '''
-                
-            if args_parsed.str_variant_call_mode == STR_VARIANT_GATK:
-                variant_calling_cmd, str_variant_file = self.Variant_Calling_GATK(args_call = args_parsed,
-                                                                             str_align_file = str_align_file,
-                                                                             str_unique_id = str_sample_postfix,
-                                                                             str_project_dir = args_parsed.str_out_dir,
-                                                                             str_tmp_dir = str_misc_dir,
-                                                                             genome_fa= genome_fa,
-                                                                             vcf_file = dbsnp_vcf_file,
-                                                                             gatk_path=gatk_path,
-                                                                             picard_path=picard_path)
-
-            elif args_parsed.str_variant_call_mode == STR_VARIANT_NONE:
-                variant_calling_cmd, str_variant_file = self.Variant_Calling_USE_VCF(args_call = args_parsed,
-                                                                             str_align_file = str_align_file,
-                                                                             str_unique_id = str_sample_postfix,
-                                                                             str_project_dir = args_parsed.str_out_dir,
-                                                                             str_tmp_dir = str_misc_dir,
-                                                                             genome_fa= genome_fa,
-                                                                             gatk_path=gatk_path,
-                                                                             picard_path=picard_path)
                 
                 
-            lcmd_commands.extend(variant_calling_cmd)
+            bam_target_for_var_calling = None
 
-            ## Variant Filtering - BCFTOOLS, HC, MUTECT2, NONE
-            '''
-            if args_parsed.str_variant_filter_mode == STR_FILTERING_BCFTOOLS:
-                filter_cmd, str_filtered_variants_file = self.func_do_filtering_bcftools(args_call=args_parsed,
-                                                             str_variants_file=str_variant_file)
-            '''
-            if args_parsed.str_variant_filter_mode in STR_FILTERING_GATK:
-                filter_cmd, str_filtered_variants_file = self.func_do_filtering_gatk(args_call=args_parsed,
-                                                                                     str_variants_file=str_variant_file,
-                                                                                     str_input_bam = str_return_bam,
-                                                                                     gatk_path=gatk_path,
-                                                                                     genome_fa = genome_fa)
-                
-            elif args_parsed.str_variant_filter_mode == STR_FILTERING_NONE:
-                filter_cmd = []
-                str_filtered_variants_file = str_variant_file
 
-            lcmd_commands.extend(filter_cmd)
+            if not args_parsed.use_vcf_file:
+
+                ## Run STAR alignment
+                if args_parsed.str_bam_file:
+                    ## bam file provided, use it directly.
+                    bam_target_for_var_calling = os.path.abspath(args_parsed.str_bam_file)
+                    
+                    if not os.path.exists("{}.bai".format(bam_target_for_var_calling)):
+                        lcmd_commands.append(Command("samtools index {}".format(bam_target_for_var_calling), "star_bai_for_provided_bam.ok"))
+
+                else:
+
+                    star_align_cmd, str_align_file = self.RNA_star_alignment(args_call=args_parsed,
+                                                                             index_dir=index_dir,
+                                                                             genome_fa=genome_fa,
+                                                                             str_misc_dir = str_misc_dir)
+                    lcmd_commands.extend(star_align_cmd)
+
+                    ## Refine mapping using PICARD
+
+                    (refine_mapping_cmd,
+                     bam_target_for_var_calling,
+                     bam_target_for_var_calling_bai) = self.RNA_refine_mapping(args_call=args_parsed,
+                                                                               str_align_file = str_align_file,
+                                                                               str_unique_id=str_sample_unique_id, 
+                                                                               str_project_dir=args_parsed.str_out_dir,
+                                                                               str_tmp_dir=str_misc_dir,
+                                                                               genome_fa=genome_fa,
+                                                                               vcf_file=dbsnp_vcf_file,
+                                                                               gatk_path=gatk_path,
+                                                                               picard_path=picard_path)
+
+                    lcmd_commands.extend(refine_mapping_cmd)
+
+
+
+            if args_parsed.f_calculate_base_coverage:
+                # Create depth file (for convenience w/ downstream analytics, not essential here)
+                str_depth_compressed_file = bam_target_for_var_calling + ".depth"
+                str_depth_cmdstr = " ".join(["samtools", "depth", bam_target_for_var_calling, ">", str_depth_compressed_file])
+                lcmd_gatk_variants_commands.append(Command(str_depth_cmdstr,'dep.ok'))
             
+
+
+            #################################
+            ## Variant Calling and Filtering
+            #################################
+
+            variants_vcf_file = None
+
+            if args_parsed.use_vcf_file:
+                variants_vcf_file = os.path.abspath(args_parsed.use_vcf_file)
+            else:
+
+                variant_calling_cmd = None
+                
+                if args_parsed.str_gatk_variant_call_method == STR_GATK_HC:
+
+                    variant_calling_cmd, variants_vcf_file = self.Variant_Calling_GATK_HaplotypeCaller(args_call = args_parsed,
+                                                                                                       str_align_bam_file = bam_target_for_var_calling,
+                                                                                                       str_unique_id = str_sample_unique_id,
+                                                                                                       str_project_dir = args_parsed.str_out_dir,
+                                                                                                       str_tmp_dir = str_misc_dir,
+                                                                                                       genome_fa= genome_fa,
+                                                                                                       vcf_file = dbsnp_vcf_file,
+                                                                                                       gatk_path=gatk_path,
+                                                                                                       picard_path=picard_path)
+                
+                elif args_parsed.str_gatk_variant_call_method == STR_GATK_MUTECT2:
+                    
+                    variant_calling_cmd, variants_vcf_file = self.Variant_Calling_GATK_Mutect2(args_call = args_parsed,
+                                                                                               str_align_bam_file = bam_target_for_var_calling,
+                                                                                               str_unique_id = str_sample_unique_id,
+                                                                                               str_project_dir = args_parsed.str_out_dir,
+                                                                                               str_tmp_dir = str_misc_dir,
+                                                                                               genome_fa= genome_fa,
+                                                                                               vcf_file = dbsnp_vcf_file,
+                                                                                               gatk_path=gatk_path,
+                                                                                               picard_path=picard_path)
+                    
+                    
+                else:
+                    raise RuntimeError("Error, not recognizing variant calling method: {}".format(args_call.str_gatk_variant_call_method))
+
+                
+                lcmd_commands.extend(variant_calling_cmd)
+                
+                                       
+            
+
+            ########################################
             # Clean up VCF file after variant caller
-            str_annotated_vcf_file = str_filtered_variants_file
+                                       
             str_clean_vcf = os.path.join(str_misc_dir,
-                                         self.func_switch_ext(os.path.basename(str_annotated_vcf_file),
-                                         "_clean.vcf"))
+                                         self.func_switch_ext(os.path.basename(variants_vcf_file),
+                                                              "_clean.vcf"))
             str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
-                                          str_annotated_vcf_file,
+                                          variants_vcf_file,
                                           str_clean_vcf])
 
             lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
-            str_annotated_vcf_file = str_clean_vcf
 
-
-            # Filter results to just SNPs
-            str_snp_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_snp.vcf")
-            str_cmd_filter_snps = " ".join([os.path.sep.join([SCRIPTDIR, "reduce_vcf_to_snps.py"]),
-                                            str_annotated_vcf_file, str_snp_filtered_vcf])
-            lcmd_commands.append(Command(str_cmd_filter_snps,'filter_only_snps.ok'))
-            str_annotated_vcf_file = str_snp_filtered_vcf
-
+            target_vcf_file = str_clean_vcf
+                                       
             # Filter RNA Editing
             if not args_parsed.no_filter_rna_editing:
                 
                 # rediportal
                 rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
 
-                # radar
-                radar_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "radar.txt")
-                
-                str_rna_edit_filtered_vcf = self.func_switch_ext(str_annotated_vcf_file, "_RNAedit.vcf")
+                str_rna_edit_filtered_vcf = self.func_switch_ext(target_vcf_file, "_RNAedit.vcf")
 
                 lstr_cmd_rna_editing_filter = [os.path.sep.join([SCRIPTDIR, "filter_snps_rna_editing.py"])]
 
-                lstr_cmd_rna_editing_filter.extend(["--radar", radar_bed])
                 lstr_cmd_rna_editing_filter.extend(["--rediportal", rediportal_bed])
                 
-                lstr_cmd_rna_editing_filter.extend([str_annotated_vcf_file, str_rna_edit_filtered_vcf])
+                lstr_cmd_rna_editing_filter.extend([target_vcf_file, str_rna_edit_filtered_vcf])
                 str_cmd_rna_editing_filter = " ".join(lstr_cmd_rna_editing_filter)
                 lcmd_commands.append(Command(str_cmd_rna_editing_filter,'rna_edit.ok')) 
 
                 # Switch over the annotated VCF to this RNA-Edited annotated VCF
-                str_annotated_vcf_file = str_rna_edit_filtered_vcf
-
-            ## gip --> variants_initial_filtering_clean_snp_RNAedit.vcf
-            lcmd_index, str_gz = self.func_gz(str_annotated_vcf_file,
+                target_vcf_file = str_rna_edit_filtered_vcf
+                
+            ## gzip --> variants_initial_filtering_clean_snp_RNAedit.vcf
+            lcmd_index, str_gz = self.func_gz(target_vcf_file,
                                        args_parsed.str_out_dir)
 
             lcmd_commands.extend(lcmd_index)
@@ -1056,58 +1085,47 @@ class RnaseqSnp:
             lcmd_commands.extend(lcmd_index)
 
 
-            # Tabix / gz DBSNP
-            lcmd_index, str_dbsnp_gz = self.func_gz(dbsnp_vcf_file,
-                                       args_parsed.str_out_dir)
-            lcmd_commands.extend(lcmd_index)
-
-            lcmd_index, str_dbsnp_csi = self.func_csi(str_dbsnp_gz,
-                                                      args_parsed.str_out_dir)
-            lcmd_commands.extend(lcmd_index)
-
-            str_compressed_dbsnp = dbsnp_vcf_file
-            str_csi_dbsnp = str_dbsnp_csi
-
-
             # DBSNP annotation
             # Annotate combined sample vcf files
             # bcftools annotate --annotations str_dbsnp_vcf -c
             # PM variant is clinicall precious (clinical and pubmed cited)
             # NSF, NSM, NSN, COMMON, SAO, KGPROD, KGVALIDATED, MUT, WTD, VLD, RS, PMC
-            str_dbsnp_annotated_vcf = self.func_switch_ext(str_annotated_vcf_file, "_dbsnp.vcf.gz")
+            str_dbsnp_annotated_vcf = self.func_switch_ext(target_vcf_file, "_dbsnp.vcf.gz")
             str_annotate_command = "".join(["bcftools", " annotate",
-                                             " --output-type", " z",
+                                            " --output-type", " z",
                                             " --annotations ",
-                                             str_compressed_dbsnp,
-                                             " --columns ",
-                                             "INFO/COMMON,INFO/PM,INFO/NSF,",
-                                             "INFO/NSM,INFO/NSN,INFO/SAO,",
-                                             "INFO/KGPROD,INFO/KGValidated,",
-                                             "INFO/MUT,INFO/WTD,INFO/VLD,",
-                                             "INFO/RS,INFO/PMC", " --output ",
-                                             str_dbsnp_annotated_vcf,
-                                             " ", str_gz])
+                                            dbsnp_vcf_file,
+                                            " --columns ",
+                                            "INFO/COMMON,INFO/PM,INFO/NSF,",
+                                            "INFO/NSM,INFO/NSN,INFO/SAO,",
+                                            "INFO/KGPROD,INFO/KGValidated,",
+                                            "INFO/MUT,INFO/WTD,INFO/VLD,",
+                                            "INFO/RS,INFO/PMC", " --output ",
+                                            str_dbsnp_annotated_vcf,
+                                            " ", str_gz])
             lcmd_commands.append(Command(str_annotate_command,'dbsnp.ok'))
-
+            
 
             ## SNPeff
             with open(properties,"r") as pr:
                 property_dict=json.load(pr)
+                
             gv=property_dict["Genome_version"]
-            str_snp_eff_annotated = self.func_switch_ext(str_annotated_vcf_file, "_snpeff.vcf")
+            str_snp_eff_annotated = self.func_switch_ext(str_dbsnp_annotated_vcf, "_snpeff.vcf")
             str_snp_eff_cmd = " ".join(["bgzip -cd", str_gz,
                                         "|", "java -jar ", os.path.join(PLUGINS,"snpEff.jar "),"-nostats",
                                         "-noLof -no-downstream -no-upstream",
                                         gv, ">", str_snp_eff_annotated])
             lcmd_commands.append(Command(str_snp_eff_cmd,'snp_eff.ok'))
-            str_annotated_vcf_file = str_snp_eff_annotated
+            str_snp_eff_annotated
 
 
             # Update the SNPeff style annotations to the simple info column feature style
-            str_snp_eff_updated_file = self.func_switch_ext(str_annotated_vcf_file, "_updated.vcf")
+            str_snp_eff_updated_file = self.func_switch_ext(str_snp_eff_annotated, "_updated.vcf")
             str_snp_eff_update_cmd = " ".join([os.path.sep.join([SCRIPTDIR,"update_snpeff_annotations.py"]),
-                                               str_annotated_vcf_file, str_snp_eff_updated_file])
+                                               str_snp_eff_annotated, str_snp_eff_updated_file])
             lcmd_commands.append(Command(str_snp_eff_update_cmd,'snpeff_simple.ok'))
+            
             str_annotated_vcf_file = str_snp_eff_updated_file
 
 
@@ -1121,39 +1139,42 @@ class RnaseqSnp:
 
             # Index and bgzip vcf
             lcmd_index, str_annotated_vcf_gz = self.func_gz(str_annotated_vcf_file,
-                                       args_parsed.str_out_dir)
+                                                            args_parsed.str_out_dir)
             lcmd_commands.extend(lcmd_index)
             lcmd_index, str_annotated_vcf_csi = self.func_csi(str_annotated_vcf_gz,
-                                                      args_parsed.str_out_dir)
+                                                              args_parsed.str_out_dir)
             lcmd_commands.extend(lcmd_index)
 
 
+            ########################################
+            ## CRAVAT annotations of cancer variants
+            
             cmd_filter_cancer, str_cancer_tab = self.func_do_variant_filtering_cancer(args_call=args_parsed,
-                                                                      cosmic_vcf = cosmic_vcf,
-                                                                      str_variants_file=str_annotated_vcf_gz,
-                                                                      str_project_dir = args_parsed.str_out_dir,
-                                                                      f_is_hg_38 = f_cravat_hg38,
-                                                                      gatk_path = gatk_path,
-                                                                      genome_fa = genome_fa,
-                                                                      cravat_header = cravat_header)
+                                                                                      cosmic_vcf = cosmic_vcf,
+                                                                                      str_variants_file=str_annotated_vcf_gz,
+                                                                                      str_project_dir = args_parsed.str_out_dir,
+                                                                                      f_is_hg_38 = f_cravat_hg38,
+                                                                                      gatk_path = gatk_path,
+                                                                                      genome_fa = genome_fa,
+                                                                                      cravat_header = cravat_header)
             
             
             lcmd_commands.extend(cmd_filter_cancer)
-
+            
 
             # Make JSON file for the inspector
             str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
             if ref_bed:
                 str_cmd_json_inspector = " ".join([ os.path.sep.join([SCRIPTDIR, "make_mutation_inspector_json.py"]),
-                                            "--sample", args_parsed.str_out_dir,
-                                            "--tab", str_cancer_tab,
-                                            "--bam", str_return_bam, 
-                                            "--bam_index", str_return_bai,
-                                            "--bed", ref_bed,
-                                            "--bed_index", ref_bed + ".idx",
-                                            str_json_inspector_file])
+                                                    "--sample", args_parsed.str_out_dir,
+                                                    "--tab", str_cancer_tab,
+                                                    "--bam", bam_target_for_var_calling, 
+                                                    "--bam_index", bam_target_for_var_calling_bai,
+                                                    "--bed", ref_bed,
+                                                    "--bed_index", ref_bed + ".idx",
+                                                    str_json_inspector_file])
                 lcmd_commands.append(Command(str_cmd_json_inspector,'json_inspector.ok')) 
-
+                
                 # Copy bed to output to make it an output for Galaxy and allow it to be used in the inspector.
                 str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(ref_bed))
                 str_cmd_copy_bed = " ".join(["cp", ref_bed, str_copied_bed])
@@ -1161,18 +1182,19 @@ class RnaseqSnp:
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
                 str_cmd_html = " ".join([ "create_report",
-                                           os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                           genome_fa,
-					   "--flanking", "1000",
-                                           "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
-                                           "--tracks", str_return_bam+" "+ref_bed+".gz",
-					   "--output", html_out])
+                                          os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
+                                          genome_fa,
+                                          "--flanking", "1000",
+                                          "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                          "--tracks", bam_target_for_var_calling+" "+ref_bed+".gz",
+                                          "--output", html_out])
                 lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
-
+                
             ## Run pipeline
             return lcmd_commands
 
 
+    
     def func_gz(self, str_vcf, str_output_dir = ""):
           """
               Creates a bcftools index (vcf index) for the given vcf file.
@@ -1236,6 +1258,60 @@ class RnaseqSnp:
               lcmd_tabix.append(Command(str_cmd_tabix_vcf,ok_file))
               
           return lcmd_tabix
+
+
+    def generate_parallel_gatk_cmds(self,
+                                  args_call,
+                                  gatk_core_cmd,
+                                  genome_fa,
+                                  final_output_vcf_file,
+                                  gatk_path,
+                                  str_tmp_dir):
+
+        ## make interval files.
+        interval_vcf_files = list()
+        interval_gatk_cmds = list()
+
+        genome_fai_file = "{}.fai".format(genome_fa)
+        if not os.path.exists(genome_fai_file):
+            raise RuntimeError("Error, cannot locate expected file: {}".format(genome_fai_file))
+
+        with open(genome_fai_file) as fh:
+            for line in fh:
+                vals = line.split("\t")
+                chromosome = vals[0]
+                chr_length = vals[1]
+                
+                interval_file = os.path.sep.join([str_tmp_dir, "{}.intervals".format(chromosome)])
+                ofh = open(interval_file, 'w')
+                ofh.write("{}:1-{}\n".format(chromosome, chr_length))
+                ofh.close()
+                
+                interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
+                interval_gatk_cmd = gatk_core_cmd + " -L {} -O {}".format(interval_file, interval_vcf_file)
+                
+                interval_vcf_files.append(interval_vcf_file)
+                interval_gatk_cmds.append(interval_gatk_cmd)
+                
+
+
+        ret_cmds_list = list()
+        parallel_cmd_obj = ParallelCommandList(cmdlist=interval_gatk_cmds,
+                                               checkpoint="gatk.interval.cmds.ok",
+                                               num_threads=args_call.i_number_threads)
+        
+        ret_cmds_list.append(parallel_cmd_obj)
+
+        ## combine chromosome level searches:
+        merge_vcfs_cmdstr = " ".join(["java -jar {}".format(gatk_path),
+                                      "GatherVcfs",
+                                      *["-I {} ".format(vcf_file) for vcf_file in interval_vcf_files],
+                                      "-O", final_output_vcf_file ] )
+    
+        ret_cmds_list.append(Command(merge_vcfs_cmdstr, "interval_vcf_merge.ok"))
+
+        return ret_cmds_list
+    
 
 
 def make_menu():
@@ -1308,9 +1384,6 @@ def make_menu():
                           help = "Sample file in the form of a bam, if this is given NO alignment will be performed; the alignment mode command line will be ignored; let and right sample files will be ignored. Normal pipeline processing will pick up directly after alignment in the pipeline with the supplied bam.")
 
     ### GATK arguments:
-    optional.add_argument("--variant_call_mode", metavar = "call_mode", dest = "str_variant_call_mode",
-                          default = STR_VARIANT_GATK, choices = LSTR_VARIANT_CALLING_CHOICES,
-                          help = "Specifies the variant calling method to use.")
 
     gatk_args_group = args_parser.add_argument_group('GATK associated optional args')
     
@@ -1360,6 +1433,8 @@ def make_menu():
                           help = "Tissue type (used in CRAVAT variant prioritation). Supported classifiers can be found at http://www.cravat.us/help.jsp)")
     
 
+    optional.add_argument("--verbose", dest='verbose', action='store_true', default=False, help='turn on verbose mode')
+
     return args_parser
     
 
@@ -1390,7 +1465,11 @@ if __name__ == "__main__":
     lcmd_cmds = RnaseqSnp().build_pipeline_cmds(args_parsed)
 
     for cmd in lcmd_cmds:
+        if args_parsed.verbose:
+            print(cmd)
+
         pipeliner.add_commands([cmd])
+
     pipeliner.run()
 
     sys.exit(0)
