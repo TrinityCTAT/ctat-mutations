@@ -34,7 +34,7 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 SCRIPTDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "src"])
 
 # Directory structure
-STR_MISC_DIR = "misc.tmp"
+STR_MISC_DIR = "work_dir"
 
 # STAR alignment options
 STR_ALIGN_STAR = "STAR"
@@ -308,7 +308,7 @@ class RnaseqSnp:
         
            
         # Files
-        str_variants_file = os.path.join(str_project_dir, "HaplotypeCaller.raw_variants.vcf")
+        str_variants_file = os.path.join(str_tmp_dir, "HaplotypeCaller.raw_variants.vcf")
 
         
                 
@@ -352,8 +352,8 @@ class RnaseqSnp:
             ####################
             # apply hard cutoffs
 
-            str_hc_filter_output = os.path.join(args_call.str_out_dir,"HaplotypeCaller.hard_cutoff_filters_applied.vcf")
-            str_filter_command = " ".join(["java -jar",gatk_path,
+            str_hc_filter_output = os.path.join(str_tmp_dir, "HaplotypeCaller.hard_cutoff_filters_applied.vcf")
+            str_filter_command = " ".join(["java -jar", gatk_path,
                                            "VariantFiltration",
                                            "-R", genome_fa,
                                            "-V", str_variants_file,
@@ -364,11 +364,11 @@ class RnaseqSnp:
                                            "--filter-name QD","-filter \"QD < 2.0\"",
                                            "-O", str_hc_filter_output])
             
-            cmd_variant_filtration = Command(str_filter_command,'variant_filter.ok')
+            cmd_variant_filtration = Command(str_filter_command,'gatk_HC_hard_cutoffs_variant_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
             # select variants
-            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"HaplotypeCaller.hard_cutoff_filters_applied.selected_variants.vcf")
+            str_filtered_variants_file = os.path.join(str_tmp_dir, "HaplotypeCaller.hard_cutoff_filters_applied.selected_variants.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
@@ -376,7 +376,7 @@ class RnaseqSnp:
                                             "-select-type SNP",
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
-            cmd_variant_filtration = Command(str_filter_command,'variant_select.ok')
+            cmd_variant_filtration = Command(str_filter_command,'gatk_HC_hard_cutoff.variant_select.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
         
 
@@ -392,7 +392,7 @@ class RnaseqSnp:
             hapmap = os.path.join(test_lib, "hapmap_3.3.b37.vcf.gz")
             high_conf = os.path.join(test_lib, "1000G_phase1.snps.high_confidence.b37.vcf.gz")
             
-            str_score_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.vcf")
+            str_score_file = os.path.join(str_tmp_dir, "HaplotypeCaller.CNN_scored_variants.vcf")
             str_CNNScoreVariants_call = " ".join(["java", "-jar", gatk_path,
                                      "CNNScoreVariants",
                                      "-R", genome_fa,
@@ -402,11 +402,11 @@ class RnaseqSnp:
                                      "--transfer-batch-size 8",
                                      "--inference-batch-size 8",
                                      "-O", str_score_file])
-            cmd_variant_filtration = Command(str_CNNScoreVariants_call,'CNNScoreVariants.ok')
+            cmd_variant_filtration = Command(str_CNNScoreVariants_call,'gatk_HC_CNNScoreVariants.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
             
 
-            str_tranche_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.tranche.vcf")
+            str_tranche_file = os.path.join(str_tmp_dir, "HaplotypeCaller.CNN_scored_variants.tranche.vcf")
             str_tranche_command = " ".join(["java -jar",gatk_path,
                                            "FilterVariantTranches",
                                            "-R", genome_fa,
@@ -418,10 +418,10 @@ class RnaseqSnp:
                                            "--indel-tranche 95.0",
                                            "--invalidate-previous-filters",
                                            "-O", str_tranche_file])
-            cmd_variant_filtration = Command(str_tranche_command,'tranche_filter.ok')
+            cmd_variant_filtration = Command(str_tranche_command,'gatk_HC_CNN_tranche_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
-            str_filtered_variants_file = os.path.join(args_call.str_out_dir, "HaplotypeCaller.CNN_scored_variants.tranche.selected.vcf")
+            str_filtered_variants_file = os.path.join(str_tmp_dir, "HaplotypeCaller.CNN_scored_variants.tranche.selected.vcf")
             str_filter_command = " ".join(["java -jar",gatk_path,
                                             "SelectVariants",
                                             "-R", genome_fa,
@@ -429,7 +429,7 @@ class RnaseqSnp:
                                             "-select-type SNP",
                                             "--exclude-filtered",
                                             "-O", str_filtered_variants_file])
-            cmd_variant_filtration = Command(str_filter_command,'variant_cnn_filter.ok')
+            cmd_variant_filtration = Command(str_filter_command,'gatk_HC_CNN_variant_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
 
@@ -634,14 +634,14 @@ class RnaseqSnp:
         
         # Annotate cancer variants with COSMIC
         str_vcf_base = os.path.join(str_project_dir, STR_MISC_DIR, os.path.basename(os.path.splitext(str_variants_file)[0]))
-        str_cancer_mutations_unfiltered = self.func_switch_ext(str_vcf_base, "_cosmic_annotated.vcf")
+        str_cancer_mutations_unfiltered = self.func_switch_ext(str_vcf_base, "_cosmic_annotated.vcf.gz")
         str_cancer_annotation_command = " ".join(["bcftools", "annotate",
                                                   "--output-type", "z",
                                                   "--annotations",cosmic_vcf,
                                                   "--columns", "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC",
                                                   "--output", str_cancer_mutations_unfiltered,
                                                   str_variants_file])
-        lcmd_cancer_filter.append(Command(str_cancer_annotation_command,'cosmic.ok'))
+        lcmd_cancer_filter.append(Command(str_cancer_annotation_command,'cosmic_annot.ok'))
 
         
         # Filter variants before CRAVAT
@@ -649,7 +649,7 @@ class RnaseqSnp:
         str_cancer_filter_command = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer.py"]), # retain cosmic, remove common, req depth>=10, etc. See script for details.
                                               str_cancer_mutations_unfiltered,
                                               str_cancer_mutations_filtered])
-        lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_before_cravat.ok'))
+        lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_filter_before_cravat.ok'))
 
         str_pred_filtered_vcf = str_cancer_mutations_filtered # file that gets returned (or first modified by cravat below)
         
@@ -727,7 +727,7 @@ class RnaseqSnp:
             lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
 
             ## annotate noncoding variants
-            str_cravat_annotated_all_vcf = str_project_dir + os.path.sep + "variants.final.vcf.gz" #CRAVAT
+            str_cravat_annotated_all_vcf = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_coding_and_noncoding.vcf.gz") #CRAVAT 
             str_annotate_noncoding = " ".join(["bcftools",
                                                "annotate",
                                                "--annotations",
@@ -742,8 +742,10 @@ class RnaseqSnp:
                                                str_cravat_annotated_all_vcf,
                                                str_cravat_annotated_coding_vcf])
             lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
+
+            
             # Filter based on Predictions
-            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "cravat_annotated_filtered.vcf")
+            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "cravat_annotated_and_filtered.vcf") # final vcf output file here.
             str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                    str_cravat_annotated_all_vcf,
                                                    str_pred_filtered_vcf])
@@ -1037,9 +1039,7 @@ class RnaseqSnp:
             ########################################
             # Clean up VCF file after variant caller
                                        
-            str_clean_vcf = os.path.join(str_misc_dir,
-                                         self.func_switch_ext(os.path.basename(variants_vcf_file),
-                                                              "_clean.vcf"))
+            str_clean_vcf = os.path.join(args_parsed.str_out_dir, "variants.init.vcf") # starting point from initial variant calling results.
             str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                           variants_vcf_file,
                                           str_clean_vcf])
@@ -1054,7 +1054,7 @@ class RnaseqSnp:
                 # rediportal
                 rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
 
-                str_rna_edit_filtered_vcf = self.func_switch_ext(target_vcf_file, "_RNAedit.vcf")
+                str_rna_edit_filtered_vcf = self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")
 
                 lstr_cmd_rna_editing_filter = [os.path.sep.join([SCRIPTDIR, "filter_snps_rna_editing.py"])]
 

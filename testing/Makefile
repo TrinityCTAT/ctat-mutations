@@ -3,7 +3,7 @@ all: standard
 cravat: cravat_hg19 cravat_GRCh38
 
 standard:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard --threads 4
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard --threads 10
 
 standard_single_thread:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard.onethread --threads 1
