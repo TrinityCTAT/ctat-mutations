@@ -1047,15 +1047,26 @@ class RnaseqSnp:
             lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
 
             target_vcf_file = str_clean_vcf
-                                       
+
+            ## gzip --> variants_initial_filtering_clean_snp_RNAedit.vcf
+            lcmd_index, str_gz = self.func_gz(target_vcf_file,
+                                              args_parsed.str_out_dir)
+            lcmd_commands.extend(lcmd_index)
+
+            ## csi index
+            lcmd_index, str_csi = self.func_csi(str_gz,
+                                                args_parsed.str_out_dir)
+            lcmd_commands.extend(lcmd_index)
+            
+            
             # Filter RNA Editing
             if not args_parsed.no_filter_rna_editing:
                 
                 # rediportal
                 rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
 
-                str_rna_edit_filtered_vcf = self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")
-
+                str_rna_edit_filtered_vcf = os.path.join(str_misc_dir, os.path.basename(self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")))
+                
                 lstr_cmd_rna_editing_filter = [os.path.sep.join([SCRIPTDIR, "filter_snps_rna_editing.py"])]
 
                 lstr_cmd_rna_editing_filter.extend(["--rediportal", rediportal_bed])
@@ -1067,25 +1078,23 @@ class RnaseqSnp:
                 # Switch over the annotated VCF to this RNA-Edited annotated VCF
                 target_vcf_file = str_rna_edit_filtered_vcf
                 
-            ## gzip --> variants_initial_filtering_clean_snp_RNAedit.vcf
-            lcmd_index, str_gz = self.func_gz(target_vcf_file,
-                                       args_parsed.str_out_dir)
-
-            lcmd_commands.extend(lcmd_index)
-
-            ## csi index
-            lcmd_index, str_csi = self.func_csi(str_gz,
-                                                args_parsed.str_out_dir)
-
-            lcmd_commands.extend(lcmd_index)
-
-
+                ## gzip --> variants_initial_filtering_clean_snp_RNAedit.vcf
+                lcmd_index, str_gz = self.func_gz(target_vcf_file,
+                                                  str_misc_dir)
+                lcmd_commands.extend(lcmd_index)
+                
+                ## csi index
+                lcmd_index, str_csi = self.func_csi(str_gz,
+                                                    str_misc_dir)
+                lcmd_commands.extend(lcmd_index)
+                
+            
             # DBSNP annotation
             # Annotate combined sample vcf files
             # bcftools annotate --annotations str_dbsnp_vcf -c
             # PM variant is clinicall precious (clinical and pubmed cited)
             # NSF, NSM, NSN, COMMON, SAO, KGPROD, KGVALIDATED, MUT, WTD, VLD, RS, PMC
-            str_dbsnp_annotated_vcf = self.func_switch_ext(target_vcf_file, "_dbsnp.vcf.gz")
+            str_dbsnp_annotated_vcf = os.path.join(str_misc_dir, os.path.basename(self.func_switch_ext(target_vcf_file, "_dbsnp.vcf.gz")))
             str_annotate_command = "".join(["bcftools", " annotate",
                                             " --output-type", " z",
                                             " --annotations ",
@@ -1160,20 +1169,20 @@ class RnaseqSnp:
             # Make JSON file for the inspector
             str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
             if ref_bed:
-                str_cmd_json_inspector = " ".join([ os.path.sep.join([SCRIPTDIR, "make_mutation_inspector_json.py"]),
-                                                    "--sample", args_parsed.str_out_dir,
-                                                    "--tab", str_cancer_tab,
-                                                    "--bam", bam_target_for_var_calling, 
-                                                    "--bam_index", bam_target_for_var_calling_bai,
-                                                    "--bed", ref_bed,
-                                                    "--bed_index", ref_bed + ".idx",
-                                                    str_json_inspector_file])
-                lcmd_commands.append(Command(str_cmd_json_inspector,'json_inspector.ok')) 
+                #str_cmd_json_inspector = " ".join([ os.path.sep.join([SCRIPTDIR, "make_mutation_inspector_json.py"]),
+                #                                    "--sample", args_parsed.str_out_dir,
+                #                                    "--tab", str_cancer_tab,
+                #                                    "--bam", bam_target_for_var_calling, 
+                #                                    "--bam_index", bam_target_for_var_calling_bai,
+                #                                    "--bed", ref_bed,
+                #                                    "--bed_index", ref_bed + ".idx",
+                #                                    str_json_inspector_file])
+                #lcmd_commands.append(Command(str_cmd_json_inspector,'json_inspector.ok')) 
                 
                 # Copy bed to output to make it an output for Galaxy and allow it to be used in the inspector.
-                str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(ref_bed))
-                str_cmd_copy_bed = " ".join(["cp", ref_bed, str_copied_bed])
-                lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
+                #str_copied_bed = os.path.join(args_parsed.str_out_dir, os.path.basename(ref_bed))
+                #str_cmd_copy_bed = " ".join(["cp", ref_bed, str_copied_bed])
+                #lcmd_commands.append(Command(str_cmd_copy_bed,'copy_bed.ok'))
 
                 html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
                 str_cmd_html = " ".join([ "create_report",
