@@ -39,14 +39,6 @@ STR_MISC_DIR = "misc.tmp"
 # STAR alignment options
 STR_ALIGN_STAR = "STAR"
 
-# STAR key words and staticly named files
-STR_STAR_GENOME_GENERATE = "genomeGenerate"
-STR_STAR_JUNCTION = "SJ.out.tab"
-STR_STAR_LOG = "Log.out"
-STR_STAR_LOG_FINAL = "Log.final.out"
-STR_STAR_OUTPUT_BAM = "Aligned.sortedByCoord.out.bam"
-STR_STAR_PROGRESS = "Log.progress.out"
-
 
 # PICARD platforms
 # Choices for platform
@@ -60,33 +52,16 @@ LSTR_SEQ_CHOICES = [STR_ILLUMINA, "SLX,SOLEXA",
 STR_GATK_HC = "HaplotypeCaller"
 STR_GATK_MUTECT2 = "Mutect2"
 LSTR_VARIANT_METHOD_CHOICES = [STR_GATK_HC,
-                                STR_GATK_MUTECT2]
+                               STR_GATK_MUTECT2]
 
 # Choices for variant filtering
-STR_FILTERING_BCFTOOLS = "BCFTOOLS"
 STR_FILTERING_HC_REGULAR = "HC_REGULAR"
 STR_FILTERING_HC_CNN = "HC_CNN"
-STR_FILTERING_MUTECT2_REGULAR = "MUTECT2_REGULAR"
-STR_FILTERING_MUTECT2_LROM = "MUTECT2_LROM"
-STR_FILTERING_NONE = "NONE"
+
+
 
 LSTR_VARIANT_FILTERING_CHOICES = [STR_FILTERING_HC_REGULAR,
-                                  STR_FILTERING_HC_CNN,
-                                  STR_FILTERING_MUTECT2_REGULAR,
-                                  STR_FILTERING_MUTECT2_LROM,
-                                  STR_FILTERING_BCFTOOLS,
-                                  STR_FILTERING_NONE]
-
-STR_FILTERING_GATK = [STR_FILTERING_HC_REGULAR,
-                                  STR_FILTERING_HC_CNN,
-                                  STR_FILTERING_MUTECT2_REGULAR,
-                                  STR_FILTERING_MUTECT2_LROM]
-
-# File names required for filtering
-C_STR_INIT_FILTER = "variants_initial_filtering.vcf"
-
-# File name for cosmic filtering
-C_STR_CANCER_ANNOTATED_VCF = "variants_annotated.vcf.gz"
+                                  STR_FILTERING_HC_CNN]
 
 # File name for CRAVAT filtering
 C_STR_CANCER_VCF = "cancer.vcf"
@@ -122,7 +97,7 @@ class RnaseqSnp:
         ''' 
 
 
-        str_star_sorted_bam = os.path.join(str_misc_dir, STR_STAR_OUTPUT_BAM)
+        str_star_sorted_bam = os.path.join(str_misc_dir, "Aligned.sortedByCoord.out.bam")
 
         # Pipeline variables
         str_num_threads = str(args_call.i_number_threads)
@@ -485,7 +460,7 @@ class RnaseqSnp:
         str_filtered_variants_file = None        
         
         # Variant calling
-                  
+        
         if args_call.str_germline_resource:
 
             # if germline_resource is provided   ** recommended approach **
@@ -649,10 +624,6 @@ class RnaseqSnp:
         * return: List of commands
         """
 
-        # TODO
-        # ClinVAR, CADD for annotation?
-        # TODO, Do all COMIC IDs represent pathogenic mutations, if not remove non-pathogenic variants with COSMIC IDS
-
         # Commands for cancer filtering
         lcmd_cancer_filter = []
 
@@ -660,68 +631,49 @@ class RnaseqSnp:
         # Adding the following annotations from COSMIC
         # If the VCF does not have an annotation in COSMIC then it is dropped
         # GENE, COSMIC_ID, TISSUE, TUMOR, FATHMM, SOMATIC
-        str_cancer_mutations_unfiltered = os.path.join(str_project_dir, STR_MISC_DIR, C_STR_CANCER_ANNOTATED_VCF)
+        
+        # Annotate cancer variants with COSMIC
         str_vcf_base = os.path.join(str_project_dir, STR_MISC_DIR, os.path.basename(os.path.splitext(str_variants_file)[0]))
-        str_cancer_mutations_filtered = self.func_switch_ext(str_vcf_base, "_cosmic_filtered.vcf")
-        str_cravat_filtered_groom_vcf = str_project_dir + os.path.sep + C_STR_CANCER_VCF # CRAVAT
-        str_cravat_result_dir = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotations.gz")
-        str_extracted_cravat_dir = str_vcf_base + "_cosmic_filtered_cravat_annotations" # CRAVAT
-        str_cravat_detail_coding = os.path.join(str_extracted_cravat_dir, "Variant.Result.tsv") #CRAVAT
-        str_cravat_detail_noncoding = os.path.join(str_extracted_cravat_dir, "Variant_Non-coding.Result.tsv") #CRAVAT
-        str_cravat_detail_coding_updated = os.path.join(str_project_dir, STR_MISC_DIR, "Variant_result_updated.tsv") #CRAVAT
-        str_cravat_detail_noncoding_updated = os.path.join(str_project_dir, STR_MISC_DIR, "Variant_non_coding_result_updated.tsv") #CRAVAT
-        str_cravat_annotated_coding_vcf = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_coding.vcf.gz") #CRAVAT
-        str_cravat_annotated_all_vcf = str_project_dir + os.path.sep + "annotated_min_filtered.vcf.gz" #CRAVAT
-        str_cancer_tab = str_project_dir + os.path.sep + C_STR_CANCER_TAB
-        
-        if cosmic_vcf:
-            # Annotate cancer variants with COSMIC
-            str_cancer_annotation_command = " ".join(["bcftools", "annotate", "--output-type", "z",
-                                                      "--annotations",cosmic_vcf,
-                                                      "--columns", "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC",
-                                                      "--output", str_cancer_mutations_unfiltered, str_variants_file])
-            lcmd_cancer_filter.append(Command(str_cancer_annotation_command,'cosmic.ok'))
-            str_vcf_to_filter = str_cancer_mutations_unfiltered
+        str_cancer_mutations_unfiltered = self.func_switch_ext(str_vcf_base, "_cosmic_annotated.vcf")
+        str_cancer_annotation_command = " ".join(["bcftools", "annotate",
+                                                  "--output-type", "z",
+                                                  "--annotations",cosmic_vcf,
+                                                  "--columns", "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC",
+                                                  "--output", str_cancer_mutations_unfiltered,
+                                                  str_variants_file])
+        lcmd_cancer_filter.append(Command(str_cancer_annotation_command,'cosmic.ok'))
 
         
-
-        # Filter variant before CRAVAT
-        str_cancer_filter_command = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer.py"]),
-                                              str_vcf_to_filter,
+        # Filter variants before CRAVAT
+        str_cancer_mutations_filtered = self.func_switch_ext(str_cancer_mutations_unfiltered, "_cosmic_filtered.vcf")
+        str_cancer_filter_command = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer.py"]), # retain cosmic, remove common, req depth>=10, etc. See script for details.
+                                              str_cancer_mutations_unfiltered,
                                               str_cancer_mutations_filtered])
         lcmd_cancer_filter.append(Command(str_cancer_filter_command,'variant_before_cravat.ok'))
 
-
+        str_pred_filtered_vcf = str_cancer_mutations_filtered # file that gets returned (or first modified by cravat below)
         
-        # Annotate non-common with CRAVAT
-        str_cmd_make_cravat_tab = " ".join(["java -jar",gatk_path, "VariantsToTable", "-R", genome_fa,"-V", str_cravat_filtered_groom_vcf,
-                                           "-F", "CHROM", "-F", "POS", "-F", "REF", "-F", "ALT", "-F", "GENE",
-                                           "-F", "DP", "-F", "QUAL", "-F", "MQ",
-                                           "-F", "SAO", "-F", "NSF", "-F", "NSM", "-F", "NSN", "-F", "TUMOR", "-F", "TISSUE",
-                                           "-F", "COSMIC_ID", "-F", "KGPROD", "-F", "RS", "-F", "PMC"])
-
-        
-       
         if (not args_call.f_skip_cravat):
+            # Annotate non-common with CRAVAT
+                        
             # Update the output target vcf file given these steps are ran.
-            str_return_vcf = str_cravat_filtered_groom_vcf
-            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_filtered.vcf")
-            str_cmd_make_cravat_tab = " ".join([str_cmd_make_cravat_tab,
-                                                "-F", "CHASM_PVALUE",
-                                                "-F", "CHASM_FDR",
-                                                "-F", "VEST_PVALUE",
-                                                "-F", "VEST_FDR"])
-
+            str_cravat_result_dir = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotations.gz")
             str_cravat_result_dir_zip = str_cravat_result_dir + ".zip"
             lstr_hg_38 = ["--is_hg19"] if not f_is_hg_38 else []
             str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
-                                       "--classifier", args_call.str_cravat_classifier] + lstr_hg_38 +
-                                      ["--email", args_call.str_email_contact, "--max_attempts", str(I_CRAVAT_ATTEMPTS),
-                                       "--wait", str(I_CRAVAT_WAIT), str_cancer_mutations_filtered, str_cravat_result_dir])
+                                       "--classifier", args_call.str_cravat_classifier] +
+                                      lstr_hg_38 +
+                                      ["--email", args_call.str_email_contact,
+                                       "--max_attempts", str(I_CRAVAT_ATTEMPTS),
+                                       "--wait", str(I_CRAVAT_WAIT),
+                                       str_cancer_mutations_filtered,
+                                       str_cravat_result_dir])
+
             lcmd_cancer_filter.append(Command(str_cravat_cmd,'annotate_cravat.ok'))
 
             
             ## Unzip
+            str_extracted_cravat_dir = str_vcf_base + "_cosmic_filtered_cravat_annotations" # CRAVAT
             str_unzip_cravat_cmd = " ".join(["unzip", "-d", str_extracted_cravat_dir, str_cravat_result_dir_zip])
             lcmd_cancer_filter.append(Command(str_unzip_cravat_cmd,'unzip.ok')) 
 
@@ -731,16 +683,23 @@ class RnaseqSnp:
             str_move_cravat_files = " ".join(["bash -c \"cp", "{"+str_coding_variant_result+","+str_non_coding_variant_result+"}", str_extracted_cravat_dir+"\""])
             lcmd_cancer_filter.append(Command(str_move_cravat_files,'mv_cravat.ok'))
 
+            ################
             # Groom CRAVAT output tab for it does not upset BCFtools.
+
+            ## groom coding
+            str_cravat_detail_coding = os.path.join(str_extracted_cravat_dir, "Variant.Result.tsv") #CRAVAT
+            str_cravat_detail_coding_updated = os.path.join(str_project_dir, STR_MISC_DIR, "Variant_result_updated.tsv") #CRAVAT
             str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                     str_cravat_detail_coding, str_cravat_detail_coding_updated])
+            lcmd_cancer_filter.append(Command(str_groom_cravat_tab_coding,'cravat_coding.ok'))
 
+            ## groom noncoding
+            str_cravat_detail_noncoding = os.path.join(str_extracted_cravat_dir, "Variant_Non-coding.Result.tsv") #CRAVAT
+            str_cravat_detail_noncoding_updated = os.path.join(str_project_dir, STR_MISC_DIR, "Variant_non_coding_result_updated.tsv") #CRAVAT
             str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                         str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
-            cmd_groom_cravat_tab_coding = Command(str_groom_cravat_tab_coding,'cravat_coding.ok')
-            cmd_groom_cravat_tab_noncoding = Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok')
-            lcmd_cancer_filter.extend([cmd_groom_cravat_tab_coding, cmd_groom_cravat_tab_noncoding])
-
+            lcmd_cancer_filter.append(Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok'))
+            
             # Tabix index the CRAVAT tsv files
             tabix_cmd = self.func_tabix(str_cravat_detail_coding_updated, str_output_dir = os.path.join(str_project_dir, STR_MISC_DIR))
             lcmd_cancer_filter.extend(tabix_cmd)
@@ -752,6 +711,7 @@ class RnaseqSnp:
             ## Annotate and VCF file with TAB data.
             ## CRAVAT gives both Coding and none coding Variants results.
             ## For now, including both and not excluding noncoding.
+            str_cravat_annotated_coding_vcf = self.func_switch_ext(str_vcf_base, "_cosmic_filtered_cravat_annotated_coding.vcf.gz") #CRAVAT
             str_annotate_coding = " ".join(["bcftools",
                                             "annotate",
                                             "--annotations",
@@ -765,6 +725,9 @@ class RnaseqSnp:
                                             str_cravat_annotated_coding_vcf,
                                             str_cancer_mutations_filtered])
             lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
+
+            ## annotate noncoding variants
+            str_cravat_annotated_all_vcf = str_project_dir + os.path.sep + "variants.final.vcf.gz" #CRAVAT
             str_annotate_noncoding = " ".join(["bcftools",
                                                "annotate",
                                                "--annotations",
@@ -780,6 +743,7 @@ class RnaseqSnp:
                                                str_cravat_annotated_coding_vcf])
             lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
             # Filter based on Predictions
+            str_pred_filtered_vcf=self.func_switch_ext(str_vcf_base, "cravat_annotated_filtered.vcf")
             str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                    str_cravat_annotated_all_vcf,
                                                    str_pred_filtered_vcf])
@@ -788,17 +752,42 @@ class RnaseqSnp:
         
         
         # Groom before filter
+        str_cravat_filtered_groom_vcf = str_project_dir + os.path.sep + C_STR_CANCER_VCF # CRAVAT
         str_cmd_groom_cancer_filtered = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                                   str_pred_filtered_vcf,
                                                   str_cravat_filtered_groom_vcf])
         lcmd_cancer_filter.append(Command(str_cmd_groom_cancer_filtered,'groom_filter.ok'))
-
+        
         # Convert filtered VCF file to tab file.
-        str_cmd_make_cravat_tab = " ".join([str_cmd_make_cravat_tab,
+        str_cancer_tab = str_project_dir + os.path.sep + C_STR_CANCER_TAB
+        str_cmd_make_cravat_tab = " ".join(["java -jar",gatk_path, "VariantsToTable",
+                                            "-R", genome_fa,
+                                            "-V", str_cravat_filtered_groom_vcf,
+                                            "-F", "CHROM",
+                                            "-F", "POS",
+                                            "-F", "REF",
+                                            "-F", "ALT", "-F", "GENE",
+                                            "-F", "DP",
+                                            "-F", "QUAL",
+                                            "-F", "MQ",
+                                            "-F", "SAO",
+                                            "-F", "NSF",
+                                            "-F", "NSM",
+                                            "-F", "NSN",
+                                            "-F", "TUMOR",
+                                            "-F", "TISSUE",
+                                            "-F", "COSMIC_ID",
+                                            "-F", "KGPROD",
+                                            "-F", "RS",
+                                            "-F", "PMC",
+                                            "-F", "CHASM_PVALUE",
+                                            "-F", "CHASM_FDR",
+                                            "-F", "VEST_PVALUE",
+                                            "-F", "VEST_FDR",
                                             "--lenient",
                                             "-O", str_cancer_tab])
         lcmd_cancer_filter.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
-
+        
 
         return lcmd_cancer_filter, str_cancer_tab
         
@@ -947,41 +936,47 @@ class RnaseqSnp:
                 
                 
             bam_target_for_var_calling = None
+            bam_target_for_var_calling_bai = None
 
+            #####################
+            ## Run STAR alignment
+            
+            if args_parsed.str_bam_file:
 
-            if not args_parsed.use_vcf_file:
+                ## bam file provided, use it directly.
 
-                ## Run STAR alignment
-                if args_parsed.str_bam_file:
-                    ## bam file provided, use it directly.
-                    bam_target_for_var_calling = os.path.abspath(args_parsed.str_bam_file)
-                    
-                    if not os.path.exists("{}.bai".format(bam_target_for_var_calling)):
-                        lcmd_commands.append(Command("samtools index {}".format(bam_target_for_var_calling), "star_bai_for_provided_bam.ok"))
+                bam_target_for_var_calling = os.path.abspath(args_parsed.str_bam_file)
+                bam_target_for_var_calling_bai = "{}.bai".format(bam_target_for_var_calling)
 
-                else:
+                if not os.path.exists(bam_target_for_var_calling_bai):
+                    ## create bam index if not exists.
+                    lcmd_commands.append(Command("samtools index {}".format(bam_target_for_var_calling), "star_bai_for_provided_bam.ok"))
 
-                    star_align_cmd, str_align_file = self.RNA_star_alignment(args_call=args_parsed,
-                                                                             index_dir=index_dir,
-                                                                             genome_fa=genome_fa,
-                                                                             str_misc_dir = str_misc_dir)
-                    lcmd_commands.extend(star_align_cmd)
+            else:
 
-                    ## Refine mapping using PICARD
+                ## must run STAR to align reads, generate bam file
 
-                    (refine_mapping_cmd,
-                     bam_target_for_var_calling,
-                     bam_target_for_var_calling_bai) = self.RNA_refine_mapping(args_call=args_parsed,
-                                                                               str_align_file = str_align_file,
-                                                                               str_unique_id=str_sample_unique_id, 
-                                                                               str_project_dir=args_parsed.str_out_dir,
-                                                                               str_tmp_dir=str_misc_dir,
-                                                                               genome_fa=genome_fa,
-                                                                               vcf_file=dbsnp_vcf_file,
-                                                                               gatk_path=gatk_path,
-                                                                               picard_path=picard_path)
+                star_align_cmd, str_align_file = self.RNA_star_alignment(args_call=args_parsed,
+                                                                         index_dir=index_dir,
+                                                                         genome_fa=genome_fa,
+                                                                         str_misc_dir = str_misc_dir)
+                lcmd_commands.extend(star_align_cmd)
 
-                    lcmd_commands.extend(refine_mapping_cmd)
+                ## Refine mapping using PICARD
+
+                (refine_mapping_cmd,
+                 bam_target_for_var_calling,
+                 bam_target_for_var_calling_bai) = self.RNA_refine_mapping(args_call=args_parsed,
+                                                                           str_align_file = str_align_file,
+                                                                           str_unique_id=str_sample_unique_id, 
+                                                                           str_project_dir=args_parsed.str_out_dir,
+                                                                           str_tmp_dir=str_misc_dir,
+                                                                           genome_fa=genome_fa,
+                                                                           vcf_file=dbsnp_vcf_file,
+                                                                           gatk_path=gatk_path,
+                                                                           picard_path=picard_path)
+
+                lcmd_commands.extend(refine_mapping_cmd)
 
 
 
@@ -1412,7 +1407,7 @@ def make_menu():
     ## Variant Filtering modes
     optional.add_argument("--variant_filtering_mode", metavar = "Filter_mode", dest = "str_variant_filter_mode",
                         default = STR_FILTERING_HC_REGULAR, choices = LSTR_VARIANT_FILTERING_CHOICES,
-                          help = "Specifies the variant filtering method.")
+                          help = "Specifies the variant filtering method for HaplotypeCaller.")
 
     optional.add_argument("--germline_resource", metavar = "germline_resource", dest = "str_germline_resource",
                         default = None, help = "Germline resource file for Mutect2")
