@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
+#from __future__ import (absolute_import, division,
+#                        print_function, unicode_literals)
 
 import argparse
 import datetime
@@ -488,41 +488,48 @@ class RnaseqSnp:
                         
             # Learn read orientation bias model
             LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
+            f1r2_tar_param_list = ["-I {}".format(f1r2_tar_gz) for f1r2_tar_gz in f1r2_tar_gz_list]
             str_LROM_call = " ".join(["java", "-jar", gatk_path,
                                       "LearnReadOrientationModel",
-                                      *["-I {}".format(f1r2_tar_gz) for f1r2_tar_gz in f1r2_tar_gz_list],
+                                      *f1r2_tar_param_list,
                                       "-O", LROM_output])
-            cmd_variant_filtration = Command(str_LROM_call,'LearnReadOrientationModel.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(Command(str_LROM_call,'LearnReadOrientationModel.ok'))
             
 
-            ## Tumor contamination estimation steps:
-            # 1. get pileup summaries
-            pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
+            tumor_contam_est_params = list()
 
-            pileup_cmds_list = self.generate_GetPileupSummaries_cmds(args_call=args_call,
-                                                                     genome_fa=genome_fa,
-                                                                     str_align_bam_file=str_align_bam_file,
-                                                                     str_germline_resource=str_germline_resource,
-                                                                     pileups_output=pileups_output,
-                                                                     str_project_dir=str_project_dir,
-                                                                     str_tmp_dir=str_tmp_dir,
-                                                                     gatk_path=gatk_path)
+            if args_call.include_contamination_estimates:
 
-                        
-            
-            lcmd_gatk_variants_commands.extend(pileup_cmds_list)
-            
-            # 2. calc tumor contamination
-            contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
-            segments_output = os.path.join(args_call.str_out_dir,"segments.table")
-            str_CalculateContamination_call = " ".join(["java", "-jar", gatk_path,
-                                                        "CalculateContamination",
-                                                        "-I ", pileups_output,
-                                                        "-O", contamination_output,
-                                                        "--tumor-segmentation", segments_output])
-            lcmd_gatk_variants_commands.append(Command(str_CalculateContamination_call,'CalculateContamination.ok'))
-            
+                ## Tumor contamination estimation steps:
+                # 1. get pileup summaries
+                pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
+
+                pileup_cmds_list = self.generate_GetPileupSummaries_cmds(args_call=args_call,
+                                                                         genome_fa=genome_fa,
+                                                                         str_align_bam_file=str_align_bam_file,
+                                                                         str_germline_resource=str_germline_resource,
+                                                                         pileups_output=pileups_output,
+                                                                         str_project_dir=str_project_dir,
+                                                                         str_tmp_dir=str_tmp_dir,
+                                                                         gatk_path=gatk_path)
+
+
+
+                lcmd_gatk_variants_commands.extend(pileup_cmds_list)
+
+                # 2. calc tumor contamination
+                contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
+                segments_output = os.path.join(args_call.str_out_dir,"segments.table")
+                str_CalculateContamination_call = " ".join(["java", "-jar", gatk_path,
+                                                            "CalculateContamination",
+                                                            "-I ", pileups_output,
+                                                            "-O", contamination_output,
+                                                            "--tumor-segmentation", segments_output])
+                lcmd_gatk_variants_commands.append(Command(str_CalculateContamination_call,'CalculateContamination.ok'))
+
+                tumor_contam_est_params = [  "--tumor-segmentation", segments_output,
+                                             "--contamination-table", contamination_output ]
+
             
             # do final Mutect2 filtering
             mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.BestPractices.raw_variants.filter_applied.vcf")
@@ -530,8 +537,7 @@ class RnaseqSnp:
                                               "FilterMutectCalls",
                                               "-R", genome_fa,
                                               "-V", str_variants_file,
-                                              "--tumor-segmentation", segments_output,
-                                              "--contamination-table", contamination_output,
+                                              *tumor_contam_est_params,  #populated only if ran tumor contamination estimates.
                                               "--ob-priors", LROM_output,
                                               "-O",mutFilter_output])
             lcmd_gatk_variants_commands.append(Command(str_mutFilter_command,'FilterMutectCalls.ok'))
@@ -542,7 +548,7 @@ class RnaseqSnp:
                                                "SelectVariants",
                                                "-R", genome_fa,
                                                "-V", mutFilter_output,
-                                               "-select-type SNP",
+                                               # "-select-type SNP",
                                                "--exclude-filtered",
                                                "-O", str_filtered_variants_file]) 
             lcmd_gatk_variants_commands.append(Command(str_filter_mut_command,'Mutect2.BestPractices.raw_variants.select_variants.ok'))
@@ -587,12 +593,12 @@ class RnaseqSnp:
             ## select variants
             str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
             str_filter_mut_command = " ".join(["java -jar",gatk_path,
-                                            "SelectVariants",
-                                            "-R", genome_fa,
-                                            "-V", mutFilter_output,
-                                            "-select-type SNP",
-                                            "--exclude-filtered",
-                                            "-O", str_filtered_variants_file]) 
+                                               "SelectVariants",
+                                               "-R", genome_fa,
+                                               "-V", mutFilter_output,
+                                               # "-select-type SNP",
+                                               "--exclude-filtered",
+                                               "-O", str_filtered_variants_file]) 
             cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
             
@@ -1483,9 +1489,10 @@ class RnaseqSnp:
             
 
             ## now need to merge stuff
+            dict_file = self.func_switch_ext(genome_fa, ".dict")
             merge_pileups_cmdstr = " ".join(["java -jar {}".format(gatk_path),
                                              "GatherPileupSummaries",
-                                             "-R {}.dict".format(genome_fa),
+                                             "--sequence-dictionary {}".format(dict_file),
                                              *["-I {} ".format(pileup_file) for pileup_file in chromosome_pileups_list],
                                              "-O", pileups_output ] )
 
@@ -1602,6 +1609,11 @@ def make_menu():
     optional.add_argument("--germline_resource", metavar = "germline_resource", dest = "str_germline_resource",
                         default = None, help = "Germline resource file for Mutect2")
 
+
+    optional.add_argument("--include_contamination_estimates", dest="include_contamination_estimates",
+                          action='store_true', default=False,
+                          help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
+    
 
     ## RNA Editing
     optional.add_argument("--no_filter_rna_editing", action="store_true",
