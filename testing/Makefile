@@ -35,7 +35,7 @@ cravat_groom:
 ## HaplotypeCaller CNN filter:
 
 HC_CNN:
-
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.HC_CNN --variant_filtering_mode HC_CNN  --threads 10
 
 
 ###############
@@ -46,8 +46,8 @@ Mutect2_basic:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_basic --gatk_variant_call_method Mutect2  --threads 10
 
 
-Mutect2_LROM:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_LROM --gatk_variant_call_method Mutect2  --threads 10 --germline_resource /seq/RNASEQ/mbrown/ctat_genome_lib_build_dir/ctat_mutation_lib/af-only-gnomad.raw.sites.b37.vcf.gz 
+Mutect2_best_practices:
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_bestpract --gatk_variant_call_method Mutect2  --threads 10 --germline_resource /seq/RNASEQ/__ctat_genome_lib_building/JUNE_17_2019/af-only-gnomad.hg38.primary.vcf.gz
 
 
 clean:

@@ -57,9 +57,6 @@ LSTR_VARIANT_METHOD_CHOICES = [STR_GATK_HC,
 # Choices for variant filtering
 STR_FILTERING_HC_REGULAR = "HC_REGULAR"
 STR_FILTERING_HC_CNN = "HC_CNN"
-
-
-
 LSTR_VARIANT_FILTERING_CHOICES = [STR_FILTERING_HC_REGULAR,
                                   STR_FILTERING_HC_CNN]
 
@@ -325,7 +322,7 @@ class RnaseqSnp:
 
         if args_call.i_number_threads == 1:
         
-            str_hap_call = gatk_HaplotypeCaller_core_cmd + "-O {}".format(str_variants_file) 
+            str_hap_call = gatk_HaplotypeCaller_core_cmd + " -O {}".format(str_variants_file) 
             lcmd_gatk_variants_commands.append(Command(str_hap_call,'gatk_HC.ok'))
 
         else:
@@ -334,7 +331,7 @@ class RnaseqSnp:
             parallel_HC_cmds = self.generate_parallel_gatk_HC_cmds(args_call = args_call,
                                                                    gatk_core_cmd = gatk_HaplotypeCaller_core_cmd,
                                                                    genome_fa = genome_fa,
-                                                                        final_output_vcf_file = str_variants_file,
+                                                                   final_output_vcf_file = str_variants_file,
                                                                    gatk_path = gatk_path,
                                                                    str_tmp_dir = str_tmp_dir)
                                                                 
@@ -394,14 +391,14 @@ class RnaseqSnp:
             
             str_score_file = os.path.join(str_tmp_dir, "HaplotypeCaller.CNN_scored_variants.vcf")
             str_CNNScoreVariants_call = " ".join(["java", "-jar", gatk_path,
-                                     "CNNScoreVariants",
-                                     "-R", genome_fa,
-                                     "-I", str_input_bam,
-                                     "-V", str_variants_file,
-                                     "--tensor-type read_tensor",
-                                     "--transfer-batch-size 8",
-                                     "--inference-batch-size 8",
-                                     "-O", str_score_file])
+                                                  "CNNScoreVariants",
+                                                  "-R", genome_fa,
+                                                  "-I", str_align_bam_file,
+                                                  "-V", str_variants_file,
+                                                  "--tensor-type read_tensor",
+                                                  "--transfer-batch-size 8",
+                                                  "--inference-batch-size 8",
+                                                  "-O", str_score_file])
             cmd_variant_filtration = Command(str_CNNScoreVariants_call,'gatk_HC_CNNScoreVariants.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
             
@@ -472,19 +469,19 @@ class RnaseqSnp:
             ##################################
 
             str_variants_file = os.path.join(str_project_dir, "Mutect2.BestPractices.raw_variants.vcf")
-            
-            f1r2_output = os.path.join(args_call.str_out_dir,"f1r2.tar.gz")
-            
-            str_m2_call = " ".join(["java", "-jar", gatk_path,
-                                    "Mutect2",
-                                    "-R", genome_fa,
-                                    "-I", str_align_bam_file,
-                                    "--germline-resource", str_germline_resource,
-                                    "--f1r2-tar-gz", f1r2_output,
-                                    "-O", str_variants_file])
-            
-            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
 
+            mutect2_call_cmdlist, f1r2_tar_gz_list = self.generate_Mutect2_best_practice_cmds(args_call=args_call,
+                                                                                              genome_fa=genome_fa,
+                                                                                              str_align_bam_file=str_align_bam_file,
+                                                                                              str_germline_resource=str_germline_resource,
+                                                                                              str_variants_file=str_variants_file,
+                                                                                              str_project_dir=str_project_dir,
+                                                                                              str_tmp_dir=str_tmp_dir,
+                                                                                              gatk_path=gatk_path)
+
+            lcmd_gatk_variants_commands.extend(mutect2_call_cmdlist)
+
+            
             
             #################################################################
             ## Mutect2 and Learn Read Orientation Model (LROM) and Filter  ##
@@ -493,7 +490,7 @@ class RnaseqSnp:
             LROM_output = os.path.join(args_call.str_out_dir,"ob-priors.tar.gz")
             str_LROM_call = " ".join(["java", "-jar", gatk_path,
                                       "LearnReadOrientationModel",
-                                      "-I", f1r2_output,
+                                      *["-I {}".format(f1r2_tar_gz) for f1r2_tar_gz in f1r2_tar_gz_list],
                                       "-O", LROM_output])
             cmd_variant_filtration = Command(str_LROM_call,'LearnReadOrientationModel.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
@@ -502,14 +499,19 @@ class RnaseqSnp:
             ## Tumor contamination estimation steps:
             # 1. get pileup summaries
             pileups_output = os.path.join(args_call.str_out_dir,"tumor.pileups")
-            str_pileup_call = " ".join(["java", "-jar", gatk_path,
-                                        "GetPileupSummaries",
-                                        "-I ", str_align_bam_file,
-                                        "-V", str_germline_resource,
-                                        "-L", str_germline_resource,
-                                        "-O ", pileups_output])
-            cmd_variant_filtration = Command(str_pileup_call,'PileupSummaries.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+            pileup_cmds_list = self.generate_GetPileupSummaries_cmds(args_call=args_call,
+                                                                     genome_fa=genome_fa,
+                                                                     str_align_bam_file=str_align_bam_file,
+                                                                     str_germline_resource=str_germline_resource,
+                                                                     pileups_output=pileups_output,
+                                                                     str_project_dir=str_project_dir,
+                                                                     str_tmp_dir=str_tmp_dir,
+                                                                     gatk_path=gatk_path)
+
+                        
+            
+            lcmd_gatk_variants_commands.extend(pileup_cmds_list)
             
             # 2. calc tumor contamination
             contamination_output = os.path.join(args_call.str_out_dir,"contamination.table")
@@ -519,9 +521,9 @@ class RnaseqSnp:
                                                         "-I ", pileups_output,
                                                         "-O", contamination_output,
                                                         "--tumor-segmentation", segments_output])
-            cmd_variant_filtration = Command(str_CalculateContamination_call,'CalculateContamination.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-
+            lcmd_gatk_variants_commands.append(Command(str_CalculateContamination_call,'CalculateContamination.ok'))
+            
+            
             # do final Mutect2 filtering
             mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.BestPractices.raw_variants.filter_applied.vcf")
             str_mutFilter_command = " ".join(["java -jar",gatk_path,
@@ -532,8 +534,7 @@ class RnaseqSnp:
                                               "--contamination-table", contamination_output,
                                               "--ob-priors", LROM_output,
                                               "-O",mutFilter_output])
-            cmd_variant_filtration = Command(str_mutFilter_command,'FilterMutectCalls.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+            lcmd_gatk_variants_commands.append(Command(str_mutFilter_command,'FilterMutectCalls.ok'))
 
             # select variants
             str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.BestPractices.raw_variants.filter_applied.selected.vcf") 
@@ -544,9 +545,8 @@ class RnaseqSnp:
                                                "-select-type SNP",
                                                "--exclude-filtered",
                                                "-O", str_filtered_variants_file]) 
-            cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-                                        
+            lcmd_gatk_variants_commands.append(Command(str_filter_mut_command,'Mutect2.BestPractices.raw_variants.select_variants.ok'))
+            
             
         else:
 
@@ -1342,6 +1342,161 @@ class RnaseqSnp:
         return chr_interval_file_pairs
     
 
+    def generate_Mutect2_best_practice_cmds(self,
+                                            args_call,
+                                            genome_fa,
+                                            str_align_bam_file,
+                                            str_germline_resource,
+                                            str_variants_file,
+                                            str_project_dir,
+                                            str_tmp_dir,
+                                            gatk_path
+                                            ):
+
+        num_threads = args_call.i_number_threads
+
+        cmds_list = list()
+        f1r2_tar_gz_list = list()
+
+        mutect2_core_params = ["java", "-jar", gatk_path,
+                              "Mutect2",
+                              "-R", genome_fa,
+                              "-I", str_align_bam_file,
+                              "--germline-resource", str_germline_resource]
+
+        
+        if num_threads == 1:
+
+            f1r2_output = "f1r2.tar.gz"
+            f1r2_tar_gz_list.append(f1r2_output)
+            
+            str_m2_call = " ".join([ *mutect2_core_params,
+                                     "--f1r2-tar-gz", f1r2_output,
+                                     "-O", str_variants_file ])
+            
+            cmds_list.append(Command(str_m2_call,'Mutect2_call_gnomad.ok'))
+
+        else:
+            # run each chr separately w/ throughput according to num_threads
+
+            chromosome_interval_file_pairs = self.make_chr_interval_files(genome_fa, str_tmp_dir)
+
+            interval_vcf_files = list()
+            interval_f1r2_files = list()
+            interval_gatk_cmds = list()
+
+            for (chromosome, interval_file) in chromosome_interval_file_pairs:
+                interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
+                interval_f1r2_file = os.path.sep.join([str_tmp_dir, "{}.interval.f1r2.tar.gz".format(chromosome)])
+                interval_gatk_cmd = " ".join([ *mutect2_core_params, " -L {} --f1r2-tar-gz {} -O {}".format(interval_file, interval_f1r2_file, interval_vcf_file)])
+                
+                interval_vcf_files.append(interval_vcf_file)
+                interval_f1r2_files.append(interval_f1r2_file)
+                interval_gatk_cmds.append(interval_gatk_cmd)
+
+
+            parallel_cmd_obj = ParallelCommandList(cmdlist=interval_gatk_cmds,
+                                                   checkpoint="mutect2.bestpractice.interval.cmds.ok",
+                                                   num_threads=num_threads)
+            
+            cmds_list.append(parallel_cmd_obj)
+            f1r2_tar_gz_list = interval_f1r2_files
+
+            ## now need to merge stuff
+            merge_vcfs_cmdstr = " ".join(["java -jar {}".format(gatk_path),
+                                          "GatherVcfs",
+                                          *["-I {} ".format(vcf_file) for vcf_file in interval_vcf_files],
+                                          "-O", str_variants_file ] )
+
+            cmds_list.append(Command(merge_vcfs_cmdstr, "mutect2.bestpractice.merge_vcfs.ok"))
+            
+            merge_stats_files_cmd = " ".join(["java -jar {}".format(gatk_path),
+                                          "MergeMutectStats",
+                                          *["-stats {}.stats ".format(vcf_file) for vcf_file in interval_vcf_files],
+                                          "-O {}.stats".format(str_variants_file) ] )
+
+            cmds_list.append(Command(merge_stats_files_cmd, "mutect2.bestpractice.merge_stats.ok"))
+
+            
+        return cmds_list, f1r2_tar_gz_list
+
+
+
+
+    def generate_GetPileupSummaries_cmds(self,
+                                         args_call,
+                                         genome_fa,
+                                         str_align_bam_file,
+                                         str_germline_resource,
+                                         pileups_output,
+                                         str_project_dir,
+                                         str_tmp_dir,
+                                         gatk_path
+                                         ):
+
+        num_threads = args_call.i_number_threads
+
+        cmds_list = list()
+        f1r2_tar_gz_list = list()
+
+        pileup_core_params = ["java", "-jar", gatk_path,
+                              "GetPileupSummaries",
+                              "-R", genome_fa,
+                              "-I", str_align_bam_file,
+                              "-V", str_germline_resource,
+                              "-L", str_germline_resource,
+                              ]
+        
+        if num_threads == 1:
+
+                        
+            pileup_summaries_cmdstr = " ".join([ *pileup_core_params,
+                                                 "-O", pileups_output ])
+            
+            cmds_list.append(Command(str_m2_call,'GetPileupSummaries.1thread.ok'))
+
+        else:
+            # run each chr separately w/ throughput according to num_threads
+
+            chromosome_interval_file_pairs = self.make_chr_interval_files(genome_fa, str_tmp_dir) # likely duplicating effort here, but its fast enough.
+
+            pileup_cmds = list()
+            chromosome_pileups_list = list()
+
+            for (chromosome, interval_file) in chromosome_interval_file_pairs:
+                
+                chromosome_pileup_file = os.path.sep.join([str_tmp_dir, "{}.pileups.table".format(chromosome)])
+                
+                interval_pileup_cmd = " ".join([ *pileup_core_params, " -L {} -O {}".format(interval_file, chromosome_pileup_file)])
+
+                
+                pileup_cmds.append(interval_pileup_cmd)
+                chromosome_pileups_list.append(chromosome_pileup_file)
+                                
+                
+            parallel_cmd_obj = ParallelCommandList(cmdlist=pileup_cmds,
+                                                   checkpoint="mutect2.bestpractice.pileup.cmds.ok",
+                                                   num_threads=num_threads)
+            
+            cmds_list.append(parallel_cmd_obj)
+            
+            
+
+            ## now need to merge stuff
+            merge_pileups_cmdstr = " ".join(["java -jar {}".format(gatk_path),
+                                             "GatherPileupSummaries",
+                                             "-R {}.dict".format(genome_fa),
+                                             *["-I {} ".format(pileup_file) for pileup_file in chromosome_pileups_list],
+                                             "-O", pileups_output ] )
+
+
+            cmds_list.append(Command(merge_pileups_cmdstr, "mutect2.bestpractice.merge_pileups.ok"))
+            
+
+        return cmds_list
+
+    
+
 
 
 def make_menu():
@@ -1442,7 +1597,7 @@ def make_menu():
     ## Variant Filtering modes
     optional.add_argument("--variant_filtering_mode", metavar = "Filter_mode", dest = "str_variant_filter_mode",
                         default = STR_FILTERING_HC_REGULAR, choices = LSTR_VARIANT_FILTERING_CHOICES,
-                          help = "Specifies the variant filtering method for HaplotypeCaller.")
+                          help = "Specifies the variant filtering method for HaplotypeCaller. Choices: " + " ".join(LSTR_VARIANT_FILTERING_CHOICES))
 
     optional.add_argument("--germline_resource", metavar = "germline_resource", dest = "str_germline_resource",
                         default = None, help = "Germline resource file for Mutect2")
@@ -1466,7 +1621,9 @@ def make_menu():
     optional.add_argument("--verbose", dest='verbose', action='store_true', default=False, help='turn on verbose mode')
 
     return args_parser
-    
+
+
+
 
 
 if __name__ == "__main__":
@@ -1503,3 +1660,4 @@ if __name__ == "__main__":
     pipeliner.run()
 
     sys.exit(0)
+
