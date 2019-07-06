@@ -60,12 +60,6 @@ STR_GATK_MUTECT2 = "Mutect2"
 LSTR_VARIANT_METHOD_CHOICES = [STR_GATK_HC,
                                STR_GATK_MUTECT2]
 
-# Choices for variant filtering
-STR_FILTERING_HC_REGULAR = "HC_REGULAR"
-STR_FILTERING_HC_CNN = "HC_CNN"
-LSTR_VARIANT_FILTERING_CHOICES = [STR_FILTERING_HC_REGULAR,
-                                  STR_FILTERING_HC_CNN]
-
 # File name for CRAVAT filtering
 C_STR_CANCER_VCF = "cancer.vcf"
 C_STR_CANCER_TAB = "cancer.tab"
@@ -193,10 +187,16 @@ class RnaseqSnp:
 
 
 
-    def RNA_refine_mapping(self, args_call, str_align_file, str_unique_id,
-                            str_project_dir, str_tmp_dir,
-                            genome_fa,vcf_file,
-                            gatk_path,picard_path):
+    def RNA_refine_mapping(self,
+                           args_call,
+                           str_align_file,
+                           str_unique_id,
+                           str_project_dir,
+                           str_tmp_dir,
+                           genome_fa,
+                           dbsnp_vcf_file,
+                           gatk_path,
+                           picard_path):
         """
         Manages the commands for the recalibration step in the GATK RNASEQ mutation calling best practices.
 
@@ -214,7 +214,7 @@ class RnaseqSnp:
 
         # Check for the known vcf file
         # If it does not exist, warn that the associated steps will not be ran.
-        if not vcf_file:
+        if not dbsnp_vcf_file:
             warnings.warn("".join(["\n\n\nWARNING, WARNING, WARNING, WARNING.\n",
                           "GATK Recalibration: A vcf file with known variants was not provided for realignment and recalibration steps.\n",
                            "These steps may perform better if such a vcf file is provided.\n\n\n"]))
@@ -262,11 +262,11 @@ class RnaseqSnp:
         str_return_bam = str_split_bam
         str_return_bai = str_split_bai
         
-        if vcf_file:
+        if dbsnp_vcf_file:
             ## BaseRecalibrator
             str_cur_command = " ".join(["java -Xmx4g -jar "+ gatk_path +" BaseRecalibrator -I",
                                                                           str_split_bam,
-                                                                          "-R", genome_fa, "-O", str_recalibrated_alignment_file, "--known-sites", vcf_file])
+                                                                          "-R", genome_fa, "-O", str_recalibrated_alignment_file, "--known-sites", dbsnp_vcf_file])
             
             lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'base_recal.ok')])    
 
@@ -301,7 +301,9 @@ class RnaseqSnp:
                                              str_project_dir,
                                              str_tmp_dir,
                                              genome_fa,
-                                             vcf_file,
+                                             dbsnp_vcf_file,
+                                             omni_vcf_file,
+                                             hapmap_vcf_file,
                                              gatk_path,
                                              picard_path):
         
@@ -350,7 +352,7 @@ class RnaseqSnp:
 
         str_filtered_variants_file = None
 
-        if args_call.str_variant_filter_mode == STR_FILTERING_HC_REGULAR :
+        if args_call.HaplotypeCaller_CNN is False:
 
             ####################
             # apply hard cutoffs
@@ -383,17 +385,11 @@ class RnaseqSnp:
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
         
 
-        elif args_call.str_variant_filter_mode == STR_FILTERING_HC_CNN:
+        else:
 
             ################################################################################
             ## Haplotype caller - CNNScoreVariants, FilterVariantTranches, SelectVariants ##
         
-            ## Resource files
-            test_lib = os.path.join(args_call.genome_lib_dir,"ctat_mutation_lib")
-            dbsnp = os.path.join(test_lib, "dbsnp_138.b37.vcf.gz")
-            omni = os.path.join(test_lib, "1000G_omni2.5.b37.vcf.gz")
-            hapmap = os.path.join(test_lib, "hapmap_3.3.b37.vcf.gz")
-            high_conf = os.path.join(test_lib, "1000G_phase1.snps.high_confidence.b37.vcf.gz")
             
             str_score_file = os.path.join(str_tmp_dir, "HaplotypeCaller.CNN_scored_variants.vcf")
             str_CNNScoreVariants_call = " ".join(["java", "-jar", gatk_path,
@@ -414,8 +410,8 @@ class RnaseqSnp:
                                            "FilterVariantTranches",
                                            "-R", genome_fa,
                                            "-V", str_score_file,
-                                           "--resource", omni,
-                                           "--resource", hapmap,
+                                           "--resource", omni_vcf_file,
+                                           "--resource", hapmap_vcf_file,
                                            "--info-key CNN_2D",
                                            "--snp-tranche 95.9",
                                            "--indel-tranche 95.0",
@@ -435,11 +431,6 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_filter_command,'gatk_HC_CNN_variant_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
-
-        else:
-            raise RuntimeError("Error, not recognizing filter method {} for use with GATK HaplytypeCaller".format(args_call.str_variant_filter_mode))
-
-        
         
         return lcmd_gatk_variants_commands, str_filtered_variants_file
     
@@ -451,7 +442,7 @@ class RnaseqSnp:
                                      str_project_dir,
                                      str_tmp_dir,
                                      genome_fa,
-                                     vcf_file,
+                                     germline_vcf_file,
                                      gatk_path,
                                      picard_path):
         
@@ -464,11 +455,58 @@ class RnaseqSnp:
         
         # Variant calling
         
-        if args_call.str_germline_resource:
+        if args_call.Mutect2_basic:
 
-            # if germline_resource is provided   ** recommended approach **
+            ########################################
+            ## Basic Mutect2 execution and filtering
+            ## no germline resource provided
 
-            str_germline_resource = args_call.str_germline_resource
+            str_variants_file = os.path.join(str_project_dir, "Mutect2.exec_basic.raw_variants.vcf")
+            
+            str_m2_call = " ".join(["java", "-jar",
+                                    gatk_path,
+                                    "Mutect2",
+                                    "-R", genome_fa,
+                                    "-I", str_align_bam_file,
+                                    "--dont-use-soft-clipped-bases",
+                                    #"-stand-call-conf","20.0",  # removed as option in latest mutect2?
+                                    "-A", "ReferenceBases",
+                                    "-A", "QualByDepth",
+                                    "-A", "FisherStrand",
+                                    "-A", "ChromosomeCounts",
+                                    "-O", str_variants_file])
+
+            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call.ok'))
+
+
+            ## Mutect2 filtering, Basic
+            
+            mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.vcf")
+            str_filter_command = " ".join(["java -jar",gatk_path,
+                                           "FilterMutectCalls -R",
+                                           genome_fa,
+                                           "-V", str_variants_file,
+                                           "-O", mutFilter_output])
+            cmd_variant_filtration = Command(str_filter_command,'FilterMutectCalls.ok')
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+
+            ## select variants
+            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
+            str_filter_mut_command = " ".join(["java -jar",gatk_path,
+                                               "SelectVariants",
+                                               "-R", genome_fa,
+                                               "-V", mutFilter_output,
+                                               # "-select-type SNP",
+                                               "--exclude-filtered",
+                                               "-O", str_filtered_variants_file]) 
+            cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
+            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+            
+        
+        else:
+
+            # best practices approach leveraging germline resource
             
             ##################################
             ## Mutect2 Best Practices Pipeline
@@ -479,7 +517,7 @@ class RnaseqSnp:
             mutect2_call_cmdlist, f1r2_tar_gz_list = self.generate_Mutect2_best_practice_cmds(args_call=args_call,
                                                                                               genome_fa=genome_fa,
                                                                                               str_align_bam_file=str_align_bam_file,
-                                                                                              str_germline_resource=str_germline_resource,
+                                                                                              germline_vcf_file=germline_vcf_file,
                                                                                               str_variants_file=str_variants_file,
                                                                                               str_project_dir=str_project_dir,
                                                                                               str_tmp_dir=str_tmp_dir,
@@ -503,8 +541,8 @@ class RnaseqSnp:
             
 
             tumor_contam_est_params = list()
-
-            if args_call.include_contamination_estimates:
+            
+            if args_call.Mutect2_include_contamination_estimates:
 
                 ## Tumor contamination estimation steps:
                 # 1. get pileup summaries
@@ -560,55 +598,6 @@ class RnaseqSnp:
             lcmd_gatk_variants_commands.append(Command(str_filter_mut_command,'Mutect2.BestPractices.raw_variants.select_variants.ok'))
             
             
-        else:
-
-            ########################################
-            ## Basic Mutect2 execution and filtering
-            ## no germline resource provided
-
-            str_variants_file = os.path.join(str_project_dir, "Mutect2.exec_basic.raw_variants.vcf")
-            
-            str_m2_call = " ".join(["java", "-jar",
-                                    gatk_path,
-                                    "Mutect2",
-                                    "-R", genome_fa,
-                                    "-I", str_align_bam_file,
-                                    "--dont-use-soft-clipped-bases",
-                                    #"-stand-call-conf","20.0",  # removed as option in latest mutect2?
-                                    "-A", "ReferenceBases",
-                                    "-A", "QualByDepth",
-                                    "-A", "FisherStrand",
-                                    "-A", "ChromosomeCounts",
-                                    "-O", str_variants_file])
-
-            lcmd_gatk_variants_commands.append(Command(str_m2_call,'Mutect2_call.ok'))
-
-
-            ## Mutect2 filtering, Basic
-            
-            mutFilter_output = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.vcf")
-            str_filter_command = " ".join(["java -jar",gatk_path,
-                                           "FilterMutectCalls -R",
-                                           genome_fa,
-                                           "-V", str_variants_file,
-                                           "-O", mutFilter_output])
-            cmd_variant_filtration = Command(str_filter_command,'FilterMutectCalls.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-
-
-            ## select variants
-            str_filtered_variants_file = os.path.join(args_call.str_out_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
-            str_filter_mut_command = " ".join(["java -jar",gatk_path,
-                                               "SelectVariants",
-                                               "-R", genome_fa,
-                                               "-V", mutFilter_output,
-                                               # "-select-type SNP",
-                                               "--exclude-filtered",
-                                               "-O", str_filtered_variants_file]) 
-            cmd_variant_filtration = Command(str_filter_mut_command,'variant_filter.ok')
-            lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-            
-        
         
         return lcmd_gatk_variants_commands, str_filtered_variants_file
             
@@ -880,15 +869,28 @@ class RnaseqSnp:
                 genome_fa = args_parsed.str_genome_fa
 
             # star index
-            index_dir = os.path.join(ctat_genome_lib_path,"ref_genome.fa.star.idx")
+            index_dir = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
             if args_parsed.str_index_dir:
                 index_dir = args_parsed.str_index_dir
-            
+
+                
+            ## Resource files
+            ctat_mutation_lib = os.path.join(ctat_genome_lib_path, "ctat_mutation_lib")
+
             # dbsnp vcf
-            dbsnp_vcf_file = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "dbsnp_138.vcf.gz")
+            dbsnp_vcf_file = os.path.join(ctat_genome_lib_path, "ctat_mutation_lib", "dbsnp.vcf.gz")
             if args_parsed.dbsnp_vcf_file:
                 dbsnp_vcf_file=args_parsed.dbsnp_vcf_file
+                
+            omni_vcf_file = os.path.join(ctat_mutation_lib, "1000G_omni.vcf.gz")
+            hapmap_vcf_file = os.path.join(ctat_mutation_lib, "hapmap.vcf.gz")
+            af_only_gnomad_vcf_file = os.path.join(ctat_mutation_lib, "af-only-gnomad.raw.sites.vcf.gz")
 
+            str_germline_resource = af_only_gnomad_vcf_file
+            if args_parsed.str_germline_resource:
+                str_germline_resource = args_parsed.str_germline_resource
+            
+            
             # reference bed file for IGV mutation inspector
             ref_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "refGene.sort.bed")
             if args_parsed.str_ref_bed:
@@ -996,7 +998,7 @@ class RnaseqSnp:
                                                                            str_project_dir=args_parsed.str_out_dir,
                                                                            str_tmp_dir=str_misc_dir,
                                                                            genome_fa=genome_fa,
-                                                                           vcf_file=dbsnp_vcf_file,
+                                                                           dbsnp_vcf_file=dbsnp_vcf_file,
                                                                            gatk_path=gatk_path,
                                                                            picard_path=picard_path)
 
@@ -1032,7 +1034,9 @@ class RnaseqSnp:
                                                                                                        str_project_dir = args_parsed.str_out_dir,
                                                                                                        str_tmp_dir = str_misc_dir,
                                                                                                        genome_fa= genome_fa,
-                                                                                                       vcf_file = dbsnp_vcf_file,
+                                                                                                       dbsnp_vcf_file = dbsnp_vcf_file,
+                                                                                                       omni_vcf_file = omni_vcf_file,
+                                                                                                       hapmap_vcf_file = hapmap_vcf_file,
                                                                                                        gatk_path=gatk_path,
                                                                                                        picard_path=picard_path)
                 
@@ -1044,7 +1048,7 @@ class RnaseqSnp:
                                                                                                str_project_dir = args_parsed.str_out_dir,
                                                                                                str_tmp_dir = str_misc_dir,
                                                                                                genome_fa= genome_fa,
-                                                                                               vcf_file = dbsnp_vcf_file,
+                                                                                               germline_vcf_file = str_germline_resource,
                                                                                                gatk_path=gatk_path,
                                                                                                picard_path=picard_path)
                     
@@ -1302,12 +1306,12 @@ class RnaseqSnp:
 
         for (chromosome, interval_file) in chromosome_interval_file_pairs:
                             
-                interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
-                interval_gatk_cmd = gatk_core_cmd + " -L {} -O {}".format(interval_file, interval_vcf_file)
-                
-                interval_vcf_files.append(interval_vcf_file)
-                interval_gatk_cmds.append(interval_gatk_cmd)
-        
+            interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
+            interval_gatk_cmd = gatk_core_cmd + " -L {} -O {}".format(interval_file, interval_vcf_file)
+            
+            interval_vcf_files.append(interval_vcf_file)
+            interval_gatk_cmds.append(interval_gatk_cmd)
+            
         ret_cmds_list = list()
         parallel_cmd_obj = ParallelCommandList(cmdlist=interval_gatk_cmds,
                                                checkpoint="gatk.interval.cmds.ok",
@@ -1358,7 +1362,7 @@ class RnaseqSnp:
                                             args_call,
                                             genome_fa,
                                             str_align_bam_file,
-                                            str_germline_resource,
+                                            germline_vcf_file,
                                             str_variants_file,
                                             str_project_dir,
                                             str_tmp_dir,
@@ -1374,7 +1378,7 @@ class RnaseqSnp:
                               "Mutect2",
                               "-R", genome_fa,
                               "-I", str_align_bam_file,
-                              "--germline-resource", str_germline_resource]
+                              "--germline-resource", germline_vcf_file]
 
         
         if num_threads == 1:
@@ -1608,15 +1612,15 @@ def make_menu():
     args_parser.add_argument('--use_vcf', dest="use_vcf_file", type=str, default=None,  help=argparse.SUPPRESS)
     
     ## Variant Filtering modes
-    optional.add_argument("--variant_filtering_mode", metavar = "Filter_mode", dest = "str_variant_filter_mode",
-                        default = STR_FILTERING_HC_REGULAR, choices = LSTR_VARIANT_FILTERING_CHOICES,
-                          help = "Specifies the variant filtering method for HaplotypeCaller. Choices: " + " ".join(LSTR_VARIANT_FILTERING_CHOICES))
+    optional.add_argument("--Mutect2_basic", action='store_true', default=False, help='Mutect2 calling using basic filtering')
+    
+    optional.add_argument("--HaplotypeCaller_CNN", action='store_true', default=False, help='use CNN filtering with HaplotypeCaller') 
 
     optional.add_argument("--germline_resource", metavar = "germline_resource", dest = "str_germline_resource",
                         default = None, help = "Germline resource file for Mutect2")
 
-
-    optional.add_argument("--include_contamination_estimates", dest="include_contamination_estimates",
+        
+    optional.add_argument("--Mutect2_include_contamination_estimates", dest="Mutect2_include_contamination_estimates",
                           action='store_true', default=False,
                           help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
     
