@@ -551,7 +551,7 @@ class RnaseqSnp:
                 pileup_cmds_list = self.generate_GetPileupSummaries_cmds(args_call=args_call,
                                                                          genome_fa=genome_fa,
                                                                          str_align_bam_file=str_align_bam_file,
-                                                                         str_germline_resource=str_germline_resource,
+                                                                         str_germline_resource=germline_vcf_file,
                                                                          pileups_output=pileups_output,
                                                                          str_project_dir=str_project_dir,
                                                                          str_tmp_dir=str_tmp_dir,
