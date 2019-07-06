@@ -1642,6 +1642,8 @@ def make_menu():
 
     optional.add_argument("--verbose", dest='verbose', action='store_true', default=False, help='turn on verbose mode')
 
+    optional.add_argument("--version", dest="version", action='store_true', default=False, help="show version info: {}".format(VERSION))
+    
     return args_parser
 
 
@@ -1649,6 +1651,11 @@ def make_menu():
 
 
 if __name__ == "__main__":
+
+    if "--version" in sys.argv:
+        print("ctat_mutations version: {}".format(VERSION))
+        sys.exit(0)
+    
     
     args_parser = make_menu()
     
