@@ -1,4 +1,8 @@
-all: HC_standard
+all: HaplotypeCaller cravat Mutect2
+
+HaplotypeCaller: HC_standard HC_CNN
+
+Mutect2: Mutect2_best_practices_skip_tumor_contam
 
 cravat: cravat_hg19 cravat_GRCh38
 
@@ -16,7 +20,7 @@ HC_standard_single_thread:
 
 HC_CNN:
 # conda activate gatk
-	../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
+	source activate gatk && ../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
 
 
 ###############
