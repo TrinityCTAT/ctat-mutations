@@ -1,0 +1,29 @@
+all: HC_standard
+
+
+########################
+## HaplotypeCaller tests
+
+HC_standard:
+	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir
+
+HC_CNN:
+# conda activate gatk
+	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/gatk_tutorial_data/tumor_reads_1.fastq.gz:/tumor_reads_1.fastq.gz:ro -v /home/bhaas/CTAT_GENOMICS/gatk_tutorial_data/tumor_reads_2.fastq.gz:/tumor_reads_2.fastq.gz:ro -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations bash -c "source activate gatk && /usr/local/src/ctat-mutations/ctat_mutations --left /tumor_reads_1.fastq.gz --right /tumor_reads_2.fastq.gz  --out_dir /data/example.HC_CNN.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir --HaplotypeCaller_CNN"
+
+
+###############
+## Mutect2 runs
+###############
+
+Mutect2_best_practices_skip_tumor_contam:
+	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right  /data/reads_2.fastq.gz --out_dir /data/example.mutect2.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir  --gatk_variant_call_method Mutect2  
+
+
+
+###########
+## Cleanup
+
+clean:
+	rm -rf ./example.*
+
