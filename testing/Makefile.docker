@@ -9,7 +9,7 @@ HC_standard:
 
 HC_CNN:
 # conda activate gatk
-	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations bash -c "source activate gatk && /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC_CNN.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir --HaplotypeCaller_CNN"
+	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/gatk_tutorial_data/tumor_reads_1.fastq.gz:/tumor_reads_1.fastq.gz:ro -v /home/bhaas/CTAT_GENOMICS/gatk_tutorial_data/tumor_reads_2.fastq.gz:/tumor_reads_2.fastq.gz:ro -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations bash -c "source activate gatk && /usr/local/src/ctat-mutations/ctat_mutations --left /tumor_reads_1.fastq.gz --right /tumor_reads_2.fastq.gz  --out_dir /data/example.HC_CNN.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir --HaplotypeCaller_CNN"
 
 
 ###############
