@@ -20,7 +20,7 @@ HC_standard_single_thread:
 
 HC_CNN:
 # conda activate gatk
-	source activate gatk && ../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
+	../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
 
 
 ###############
