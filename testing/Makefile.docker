@@ -7,6 +7,10 @@ all: HC_standard
 HC_standard:
 	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir
 
+HC_CNN:
+# conda activate gatk
+	docker run --rm -v `pwd`:/data -v /home/bhaas/CTAT_GENOMICS/GRCh37_gencode_v19_CTAT_lib_Mar272019.plug-n-play/ctat_genome_lib_build_dir:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations bash -c "source activate gatk && /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC_CNN.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir --HaplotypeCaller_CNN"
+
 
 ###############
 ## Mutect2 runs
