@@ -203,6 +203,9 @@ class ParallelCommandList(object):
                 cmdthread.start() # will auto-decrement _num_threads once it completes via shared memory usage.
                 cmd_idx += 1
 
+            else:
+                time.sleep(1) # give it a break in between checking for max jobs running.
+
         ## wait for the remaining ones to finish.
         iter_counter = 0
         while self._num_running > 0:
