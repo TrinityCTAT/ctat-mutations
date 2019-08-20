@@ -1064,6 +1064,7 @@ class RnaseqSnp:
 
             ########################################
             # Clean up VCF file after variant caller
+            ########################################
                                        
             str_clean_vcf = os.path.join(args_parsed.str_out_dir, "variants.init.vcf") # starting point from initial variant calling results.
             str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
@@ -1084,14 +1085,52 @@ class RnaseqSnp:
                                                 args_parsed.str_out_dir)
             lcmd_commands.extend(lcmd_index)
             
-            
-            # Filter RNA Editing
-            if not args_parsed.no_filter_rna_editing:
+
+
+
+
+
+            ############################
+            ## SNPeff
+            ############################
+            with open(properties,"r") as pr:
+                property_dict=json.load(pr)
                 
+            gv=property_dict["Genome_version"]
+            
+            # str_snp_eff_annotated = self.func_switch_ext(target_vcf_file, "_snpeff.vcf")
+            str_snp_eff_annotated = os.path.join(str_misc_dir, os.path.basename(self.func_switch_ext(target_vcf_file, "_snpeff.vcf")))
+
+            str_snp_eff_cmd = " ".join(["bgzip -cd", str_gz,
+                                        "|", "java -jar ", os.path.join(PLUGINS,"snpEff.jar "),"-nostats",
+                                        "-noLof -no-downstream -no-upstream",
+                                        gv, ">", str_snp_eff_annotated])
+            lcmd_commands.append(Command(str_snp_eff_cmd,'snp_eff.ok'))
+            str_snp_eff_annotated
+
+
+            # Update the SNPeff style annotations to the simple info column feature style
+            str_snp_eff_updated_file = self.func_switch_ext(str_snp_eff_annotated, "_updated.vcf")
+            str_snp_eff_update_cmd = " ".join([os.path.sep.join([SCRIPTDIR,"update_snpeff_annotations.py"]),
+                                               str_snp_eff_annotated, str_snp_eff_updated_file])
+            lcmd_commands.append(Command(str_snp_eff_update_cmd,'snpeff_simple.ok'))
+            
+            str_annotated_vcf_file = str_snp_eff_updated_file
+
+            target_vcf_file=str_annotated_vcf_file
+
+
+            ############################
+            # Filter RNA Editing
+            ############################
+            if not args_parsed.no_filter_rna_editing:
+                #-------------
                 # rediportal
+                #-------------
                 rediportal_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "rediportal.txt")
 
-                str_rna_edit_filtered_vcf = os.path.join(str_misc_dir, os.path.basename(self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")))
+                # str_rna_edit_filtered_vcf = os.path.join(str_misc_dir, os.path.basename(self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")))
+                str_rna_edit_filtered_vcf = self.func_switch_ext(target_vcf_file, "_RNAeditAnnot.vcf")
                 
                 lstr_cmd_rna_editing_filter = [os.path.sep.join([SCRIPTDIR, "filter_snps_rna_editing.py"])]
 
@@ -1114,8 +1153,9 @@ class RnaseqSnp:
                                                     str_misc_dir)
                 lcmd_commands.extend(lcmd_index)
                 
-            
-            # DBSNP annotation
+            ############################
+            # DBSNP annotation (Common Variants)
+            ############################
             # Annotate combined sample vcf files
             # bcftools annotate --annotations str_dbsnp_vcf -c
             # PM variant is clinicall precious (clinical and pubmed cited)
@@ -1136,30 +1176,35 @@ class RnaseqSnp:
             lcmd_commands.append(Command(str_annotate_command,'dbsnp.ok'))
             
 
-            ## SNPeff
-            with open(properties,"r") as pr:
-                property_dict=json.load(pr)
+
+            # ############################
+            # ## SNPeff
+            # ############################
+            # with open(properties,"r") as pr:
+            #     property_dict=json.load(pr)
                 
-            gv=property_dict["Genome_version"]
-            str_snp_eff_annotated = self.func_switch_ext(str_dbsnp_annotated_vcf, "_snpeff.vcf")
-            str_snp_eff_cmd = " ".join(["bgzip -cd", str_gz,
-                                        "|", "java -jar ", os.path.join(PLUGINS,"snpEff.jar "),"-nostats",
-                                        "-noLof -no-downstream -no-upstream",
-                                        gv, ">", str_snp_eff_annotated])
-            lcmd_commands.append(Command(str_snp_eff_cmd,'snp_eff.ok'))
-            str_snp_eff_annotated
+            # gv=property_dict["Genome_version"]
+            # str_snp_eff_annotated = self.func_switch_ext(str_dbsnp_annotated_vcf, "_snpeff.vcf")
+            # str_snp_eff_cmd = " ".join(["bgzip -cd", str_gz,
+            #                             "|", "java -jar ", os.path.join(PLUGINS,"snpEff.jar "),"-nostats",
+            #                             "-noLof -no-downstream -no-upstream",
+            #                             gv, ">", str_snp_eff_annotated])
+            # lcmd_commands.append(Command(str_snp_eff_cmd,'snp_eff.ok'))
+            # str_snp_eff_annotated
 
 
-            # Update the SNPeff style annotations to the simple info column feature style
-            str_snp_eff_updated_file = self.func_switch_ext(str_snp_eff_annotated, "_updated.vcf")
-            str_snp_eff_update_cmd = " ".join([os.path.sep.join([SCRIPTDIR,"update_snpeff_annotations.py"]),
-                                               str_snp_eff_annotated, str_snp_eff_updated_file])
-            lcmd_commands.append(Command(str_snp_eff_update_cmd,'snpeff_simple.ok'))
+            # # Update the SNPeff style annotations to the simple info column feature style
+            # str_snp_eff_updated_file = self.func_switch_ext(str_snp_eff_annotated, "_updated.vcf")
+            # str_snp_eff_update_cmd = " ".join([os.path.sep.join([SCRIPTDIR,"update_snpeff_annotations.py"]),
+            #                                    str_snp_eff_annotated, str_snp_eff_updated_file])
+            # lcmd_commands.append(Command(str_snp_eff_update_cmd,'snpeff_simple.ok'))
             
-            str_annotated_vcf_file = str_snp_eff_updated_file
+            # str_annotated_vcf_file = str_snp_eff_updated_file
+            str_annotated_vcf_file = str_dbsnp_annotated_vcf
 
-
+            ############################
             # Perform cancer filtering
+            ############################
             if args_parsed.str_email_contact is None:
                 warnings.warn("CRAVAT analysis will not be ran. Please specify an email address registered with CRAVAT service")
             if gv=="hg19":
