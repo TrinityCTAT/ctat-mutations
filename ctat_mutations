@@ -221,6 +221,7 @@ class RnaseqSnp:
 
         # Files
         str_sorted_bam = os.path.join(str_tmp_dir, "sorted.bam") ## AddorReplaceDuplicates
+        str_unpaired_bam = os.path.join(str_tmp_dir, "unpaired.bam") ## convert PE to SE
         str_dedupped_bam = os.path.join(str_tmp_dir, "dedupped.bam") ## MarkDuplicates
         str_qc_metrics = os.path.join(str_tmp_dir, "mark_duplicates_qc_metrics.txt") ## MarkDuplicates
         str_split_bam = os.path.join(str_tmp_dir, "split.bam") ## SplitNCigars
@@ -247,9 +248,17 @@ class RnaseqSnp:
                           args_call.str_sequencing_platform, " RGPU=machine RGSM=", str_unique_id])
 
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'add_or_replace_read_groups.ok')])
+
+
+        ## convert from PE reads to SE reads
+        str_cur_command = " ".join([ os.path.join(SCRIPTDIR, "make_paired_to_unpaired_bam.pl"),
+                                    str_sorted_bam,
+                                    " | samtools view -Sb -o {}".format(str_unpaired_bam) ])
+        lcmd_gatk_recalibration_commands.extend([Command(str_cur_command, 'make_unpaired_bam.ok')])                            
+        
         
         ## MarkDuplicates
-        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " MarkDuplicates"," I=", str_sorted_bam, " O=", str_dedupped_bam,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " MarkDuplicates"," I=", str_unpaired_bam, " O=", str_dedupped_bam,
                                                                            " CREATE_INDEX=true M=", str_qc_metrics])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'mark_duplicates.ok')])
 
@@ -823,7 +832,7 @@ class RnaseqSnp:
             return os.path.splitext(str_file)[0] + str_ext
 
     def build_pipeline_cmds(self, args_parsed):
-           ###make_commands
+           
             """
             Builds the pipeline. This is placed in a function so that multiple
             scripts with different arguments requirements can run it.
@@ -969,14 +978,12 @@ class RnaseqSnp:
             
             if args_parsed.str_bam_file:
 
-                ## bam file provided, use it directly.
-
-                bam_target_for_var_calling = os.path.abspath(args_parsed.str_bam_file)
-                bam_target_for_var_calling_bai = "{}.bai".format(bam_target_for_var_calling)
-
-                if not os.path.exists(bam_target_for_var_calling_bai):
+                str_align_file = os.path.abspath(args_parsed.str_bam_file)
+                str_bai_file = "{}.bai".format(str_align_file) 
+                
+                if not os.path.exists(str_bai_file):
                     ## create bam index if not exists.
-                    lcmd_commands.append(Command("samtools index {}".format(bam_target_for_var_calling), "star_bai_for_provided_bam.ok"))
+                    lcmd_commands.append(Command("samtools index {}".format(str_align_file), "star_bai_for_provided_bam.ok"))
 
             else:
 
@@ -988,21 +995,22 @@ class RnaseqSnp:
                                                                          str_misc_dir = str_misc_dir)
                 lcmd_commands.extend(star_align_cmd)
 
-                ## Refine mapping using PICARD
 
-                (refine_mapping_cmd,
-                 bam_target_for_var_calling,
-                 bam_target_for_var_calling_bai) = self.RNA_refine_mapping(args_call=args_parsed,
-                                                                           str_align_file = str_align_file,
-                                                                           str_unique_id=str_sample_unique_id, 
-                                                                           str_project_dir=args_parsed.str_out_dir,
-                                                                           str_tmp_dir=str_misc_dir,
-                                                                           genome_fa=genome_fa,
-                                                                           dbsnp_vcf_file=dbsnp_vcf_file,
-                                                                           gatk_path=gatk_path,
-                                                                           picard_path=picard_path)
+            ## Refine mapping using PICARD
 
-                lcmd_commands.extend(refine_mapping_cmd)
+            (refine_mapping_cmd,
+             bam_target_for_var_calling,
+             bam_target_for_var_calling_bai) = self.RNA_refine_mapping(args_call=args_parsed,
+                                                                       str_align_file = str_align_file,
+                                                                       str_unique_id=str_sample_unique_id, 
+                                                                       str_project_dir=args_parsed.str_out_dir,
+                                                                       str_tmp_dir=str_misc_dir,
+                                                                       genome_fa=genome_fa,
+                                                                       dbsnp_vcf_file=dbsnp_vcf_file,
+                                                                       gatk_path=gatk_path,
+                                                                       picard_path=picard_path)
+
+            lcmd_commands.extend(refine_mapping_cmd)
 
 
 
