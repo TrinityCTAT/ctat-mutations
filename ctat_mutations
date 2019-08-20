@@ -221,6 +221,7 @@ class RnaseqSnp:
 
         # Files
         str_sorted_bam = os.path.join(str_tmp_dir, "sorted.bam") ## AddorReplaceDuplicates
+        str_unpaired_bam = os.path.join(str_tmp_dir, "unpaired.bam") ## convert PE to SE
         str_dedupped_bam = os.path.join(str_tmp_dir, "dedupped.bam") ## MarkDuplicates
         str_qc_metrics = os.path.join(str_tmp_dir, "mark_duplicates_qc_metrics.txt") ## MarkDuplicates
         str_split_bam = os.path.join(str_tmp_dir, "split.bam") ## SplitNCigars
@@ -247,9 +248,17 @@ class RnaseqSnp:
                           args_call.str_sequencing_platform, " RGPU=machine RGSM=", str_unique_id])
 
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'add_or_replace_read_groups.ok')])
+
+
+        ## convert from PE reads to SE reads
+        str_cur_command = " ".join([ os.path.join(SCRIPTDIR, "make_paired_to_unpaired_bam.pl"),
+                                    str_sorted_bam,
+                                    " | samtools view -Sb -o {}".format(str_unpaired_bam) ])
+        lcmd_gatk_recalibration_commands.extend([Command(str_cur_command, 'make_unpaired_bam.ok')])                            
+        
         
         ## MarkDuplicates
-        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " MarkDuplicates"," I=", str_sorted_bam, " O=", str_dedupped_bam,
+        str_cur_command = "".join(["java -jar ", os.path.join(picard_path,"picard.jar"), " MarkDuplicates"," I=", str_unpaired_bam, " O=", str_dedupped_bam,
                                                                            " CREATE_INDEX=true M=", str_qc_metrics])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'mark_duplicates.ok')])
 
