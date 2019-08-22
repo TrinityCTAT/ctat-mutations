@@ -112,7 +112,8 @@ def main():
     ## output vcf file:
     print("##fileformat=VCFv4.2")
     print("##INFO=<ID=RNAEDIT,Type=String,Description=\"A known or predicted RNA-editing site\">")
-
+    print("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO")
+    
     variant_objs = editing_sites_dict.values()
 
     variant_objs = sorted(variant_objs, key=lambda variant: (variant.chr, variant.pos))
