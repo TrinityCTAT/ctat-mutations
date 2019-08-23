@@ -1171,6 +1171,24 @@ class RnaseqSnp:
 
         return (lcmd_commands, str_dbsnp_annotated_vcf)
     
+
+    def annotate_PASS_reads(self, lcmd_commands, str_target_vcf_file, str_align_bam_file):
+
+        pass_read_annotated_vcf_file = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_PASSreads.vcf")))
+        
+
+        cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_PASS_reads.py"),
+                                         "--vcf", str_target_vcf_file,
+                                         "--bam", str_align_bam_file,
+                                         "--output_vcf", pass_read_annotated_vcf_file])
+
+        lcmd_commands.append(Command(cmdstr,'annot_PASSreads.ok'))
+
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, pass_read_annotated_vcf_file)
+
+        return (lcmd_commands, "{}.gz".format(pass_read_annotated_vcf_file) )
+    
+    
     
     def annotate_variants(self,
                           lcmd_commands,
@@ -1192,6 +1210,11 @@ class RnaseqSnp:
         ## RNAediting annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
 
+        ## PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
+        (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
+
+        ## RepeatMasker annotations (mobile elements, etc.)
+        (lcmd_commands, str_target_vcf_file
         
         return lcmd_commands, str_target_vcf_file  ## debugging
 
