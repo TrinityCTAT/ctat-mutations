@@ -10,6 +10,8 @@ import os,sys,re
 import logging
 import subprocess
 import multiprocessing as mp
+import gzip
+
 logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
 
 '''
@@ -192,6 +194,13 @@ def evaluate_PASS_reads(i, bamFile):
 
 
 
+# open gzipped or regular text vcf files
+def open_file_for_reading(filename):
+    if re.search("\.gz$", filename):
+        return gzip.open(filename, 'rt') # t needed for python3 to look like regular text
+    else:
+        return open(filename, 'r') # regular text file
+    
 
 
 
@@ -208,7 +217,7 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # Open and create files 
     #-----------------------
     # Open input and output Files 
-    infile = open(vcf, "r")
+    infile = open_file_for_reading(vcf)
     # create the output file 
 
     outfile = open(output_vcf_filename, "w")
@@ -221,9 +230,11 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     variant_count = 0
 
     # Process the head of the VCF first and print it to the new file
-    for i in infile.readlines():
-        if i[0][0] == "#":
-            processVCFHead(line = i , outfile = outfile)
+    for line in infile:
+        line = str(line)
+        #print(line)
+        if line[0] == "#":
+            processVCFHead(line, outfile)
         else:
             variant_count +=1
     infile.close()
@@ -232,7 +243,7 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # VCF Variants 
     #-----------
     # now need to reopen the VCF file 
-    infile = open(vcf, "r")
+    infile = open_file_for_reading(vcf)
     
     # set up the parallelization 
     # pool = mp.Pool(mp.cpu_count())
