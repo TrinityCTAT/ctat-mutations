@@ -100,6 +100,8 @@ class RnaseqSnp:
 
     # germline_resource <str> : path to germline resource (could be dbsnp or other... user defines)
 
+    # repeat_mask_bed <str>  : bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)
+
     ## support for plugins
     # ref_gene_annotation_bed <str> : bed file containing the reference annotations, used by MutationInspector
     # cravat_header <str> : path to the cravat header info needed for cravat variant annotation integration.
@@ -200,6 +202,7 @@ class RnaseqSnp:
             dbsnp_vcf_file=args_parsed.dbsnp_vcf_file
         self.dbsnp_vcf_file = dbsnp_vcf_file
 
+        # other known variants
 
         omni_vcf_file = os.path.join(ctat_mutation_lib, "1000G_omni.vcf.gz")
         self.omni_vcf_file = omni_vcf_file
@@ -214,6 +217,11 @@ class RnaseqSnp:
         if args_parsed.str_germline_resource:
             str_germline_resource = args_parsed.str_germline_resource
         self.germline_resource = str_germline_resource
+
+        # repetitive elements:
+        repetitive_elements_bed = os.path.join(self.ctat_mutation_lib_path, "repeats_ucsc_gb.bed.gz")
+        self.repeat_mask_bed = repetitive_elements_bed
+
 
         # reference bed file for IGV mutation inspector
         ref_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "refGene.sort.bed")
@@ -1188,6 +1196,21 @@ class RnaseqSnp:
 
         return (lcmd_commands, "{}.gz".format(pass_read_annotated_vcf_file) )
     
+
+    def annotate_repetitive_elements(self, lcmd_commands, str_target_vcf_file):
+
+        repeat_annotated_vcf_file = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_Repeats.vcf")))
+        
+        cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_repeats.py"),
+                            "--input_vcf", str_target_vcf_file,
+                            "--repeats_bed", self.repeat_mask_bed,
+                            "--output_vcf", repeat_annotated_vcf_file ])
+
+        lcmd_commands.append(Command(cmdstr, 'annotate_repeats.ok'))
+
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, repeat_annotated_vcf_file)
+
+        return (lcmd_commands, "{}.gz".format(repeat_annotated_vcf_file))
     
     
     def annotate_variants(self,
@@ -1214,7 +1237,7 @@ class RnaseqSnp:
         (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
 
         ## RepeatMasker annotations (mobile elements, etc.)
-        (lcmd_commands, str_target_vcf_file
+        (lcmd_commands, str_target_vcf_file) = self.annotate_repetitive_elements(lcmd_commands, str_target_vcf_file)
         
         return lcmd_commands, str_target_vcf_file  ## debugging
 
