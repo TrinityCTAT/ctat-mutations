@@ -221,7 +221,7 @@ class RnaseqSnp:
         # repetitive elements:
         repetitive_elements_bed = os.path.join(self.ctat_mutation_lib_path, "repeats_ucsc_gb.bed.gz")
         self.repeat_mask_bed = repetitive_elements_bed
-
+        
 
         # reference bed file for IGV mutation inspector
         ref_bed = os.path.join(ctat_genome_lib_path,"ctat_mutation_lib", "refGene.sort.bed")
@@ -1211,7 +1211,28 @@ class RnaseqSnp:
         lcmd_commands = self.tabix_if_needed(lcmd_commands, repeat_annotated_vcf_file)
 
         return (lcmd_commands, "{}.gz".format(repeat_annotated_vcf_file))
+
+
+    def annotate_homopolymers_and_entropy(self, lcmd_commands, str_target_vcf_file):
+
+        homopolymer_annot_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_homopolymers.vcf")))
+        
+        cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_entropy_n_homopolymers.py"),
+                            "--input_vcf", str_target_vcf_file,
+                            "--ref_genome_fa", self.genome_fa,
+                            "--output_vcf", homopolymer_annot_vcf ])
+
+        lcmd_commands.append(Command(cmdstr, 'annotate_homopolymers.ok'))
+                
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, homopolymer_annot_vcf)
+
+        return (lcmd_commands, "{}.gz".format(homopolymer_annot_vcf))
+
     
+    
+    #############################
+    ## Annotate all features ####
+    ############################
     
     def annotate_variants(self,
                           lcmd_commands,
@@ -1238,6 +1259,11 @@ class RnaseqSnp:
 
         ## RepeatMasker annotations (mobile elements, etc.)
         (lcmd_commands, str_target_vcf_file) = self.annotate_repetitive_elements(lcmd_commands, str_target_vcf_file)
+
+        ## Homopolymers and Entropy
+        (lcmd_commands, str_target_vcf_file) = self.annotate_homopolymers_and_entropy(lcmd_commands, str_target_vcf_file)
+        
+
         
         return lcmd_commands, str_target_vcf_file  ## debugging
 
