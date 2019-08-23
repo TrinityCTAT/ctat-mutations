@@ -1228,6 +1228,24 @@ class RnaseqSnp:
 
         return (lcmd_commands, "{}.gz".format(homopolymer_annot_vcf))
 
+
+    def annotate_splice_distance(self, lcmd_commands, str_target_vcf_file):
+
+        splice_dist_annot_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_SpliceDist.vcf")))
+        
+        cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_exon_splice_proximity.py"),
+                            "--input_vcf", str_target_vcf_file,
+                            "--ref_exon_bed", os.path.join(self.ctat_mutation_lib_path, "ref_exons.bed"),
+                            "--output_vcf", splice_dist_annot_vcf ])
+
+        lcmd_commands.append(Command(cmdstr, 'annotate_splice_dist.ok'))
+                
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, splice_dist_annot_vcf)
+
+        return (lcmd_commands, "{}.gz".format(splice_dist_annot_vcf))
+
+    
+    
     
     
     #############################
@@ -1263,7 +1281,8 @@ class RnaseqSnp:
         ## Homopolymers and Entropy
         (lcmd_commands, str_target_vcf_file) = self.annotate_homopolymers_and_entropy(lcmd_commands, str_target_vcf_file)
         
-
+        ## annotate splice distance
+        (lcmd_commands, str_target_vcf_file) = self.annotate_splice_distance(lcmd_commands, str_target_vcf_file)
         
         return lcmd_commands, str_target_vcf_file  ## debugging
 
