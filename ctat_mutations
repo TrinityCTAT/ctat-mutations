@@ -878,14 +878,13 @@ class RnaseqSnp:
         # Clean up VCF file after variant caller
         ########################################
 
-        str_clean_vcf = os.path.join(self.out_dir, "variants.pre_annot_filt.vcf") # starting point from initial variant calling results.
+        str_clean_vcf = os.path.join(self.tmp_dir, "variants.pre_annot_filt.vcf") # starting point from initial variant calling results.
         str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                       variants_vcf_file,
                                       str_clean_vcf])
-
-        lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
-
         
+        lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
+                
         
         (lcmd_commands, str_variants_vcf, str_cancer_tab) = self.add_cancer_annotations(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
         
