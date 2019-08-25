@@ -1681,7 +1681,7 @@ def make_menu():
                           default=None,
                           help="Coding Cosmic Mutation VCF annotated with Phenotype Information and zipped using bgzip.")
 
-    optional.add_argument("--bam", metavar = "bam_file", dest = "str_bam_file", default = None,
+    optional.add_argument("--use_bam", metavar = "bam_file", dest = "str_bam_file", default = None,
                           help = "Sample file in the form of a bam, if this is given NO alignment will be performed; the alignment mode command line will be ignored; let and right sample files will be ignored. Normal pipeline processing will pick up directly after alignment in the pipeline with the supplied bam.")
 
     ### GATK arguments:
