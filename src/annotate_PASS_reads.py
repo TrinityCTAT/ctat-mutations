@@ -36,9 +36,9 @@ def processVCFHead(line, outfile):
             # add header info line for the repeat annotation type
             # once you get to the #CHROM line, 
             #       write the new INFO annotations above the #CHROM header line 
-            outfile.write("##INFO=<ID=VPR,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
-            outfile.write("##INFO=<ID=TPR,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
-            outfile.write("##INFO=<ID=TDM,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
+            outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
+            outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
+            outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
 
         outfile.write(line)
 

@@ -832,7 +832,7 @@ class RnaseqSnp:
         bam_target_for_var_calling_bai = str_bai_file
 
         if not self.input_vcf_file:
-            ## Refine mapping using PICARD
+            ## Refine mapping using PICARD unless a vcf file is already provided.
 
             (refine_mapping_cmd,
              bam_target_for_var_calling,
@@ -849,6 +849,11 @@ class RnaseqSnp:
 
         if self.input_vcf_file:
             variants_vcf_file = os.path.abspath(self.input_vcf_file)
+
+            lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
+            
+            # must add variant annotations:
+            (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_calling)
 
         else:
 
@@ -949,6 +954,8 @@ class RnaseqSnp:
 
     def annotate_dbSNP(self, lcmd_commands, str_target_vcf_file):
 
+        logger.info("-annotating dbSNP")
+
         ############################
         # DBSNP annotation (Common Variants)
         ############################
@@ -981,6 +988,8 @@ class RnaseqSnp:
 
     def annotate_PASS_reads(self, lcmd_commands, str_target_vcf_file, str_align_bam_file):
 
+        logger.info("-annotating PASS read statistics")
+
         pass_read_annotated_vcf_file = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_PASSreads.vcf")))
         
 
@@ -998,6 +1007,8 @@ class RnaseqSnp:
 
     def annotate_repetitive_elements(self, lcmd_commands, str_target_vcf_file):
 
+        logger.info("-annotating repetitive elements")
+
         repeat_annotated_vcf_file = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_Repeats.vcf")))
         
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_repeats.py"),
@@ -1014,6 +1025,8 @@ class RnaseqSnp:
 
     def annotate_homopolymers_and_entropy(self, lcmd_commands, str_target_vcf_file):
 
+        logger.info("-annotating homopolymers and entropy")
+
         homopolymer_annot_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_homopolymers.vcf")))
         
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_entropy_n_homopolymers.py"),
@@ -1029,6 +1042,8 @@ class RnaseqSnp:
 
 
     def annotate_splice_distance(self, lcmd_commands, str_target_vcf_file):
+
+        logger.info("-annotating splice distance")
 
         splice_dist_annot_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_SpliceDist.vcf")))
         
@@ -1056,6 +1071,8 @@ class RnaseqSnp:
                           str_target_vcf_file,
                           str_align_bam_file):        
 
+        logger.info("-ANNOTATING VARIANTS:")
+        
         # ensure bgzipd and indexed
         lcmd_commands = self.tabix_if_needed(lcmd_commands, str_target_vcf_file)
                 
