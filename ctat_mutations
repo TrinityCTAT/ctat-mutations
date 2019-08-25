@@ -1221,14 +1221,14 @@ class RnaseqSnp:
 
         ## groom coding
         str_cravat_detail_coding = os.path.join(str_extracted_cravat_dir, "Variant.Result.tsv") #CRAVAT
-        str_cravat_detail_coding_updated = os.path.join(self.tmp_dir, "Variant_result_updated.tsv") #CRAVAT
+        str_cravat_detail_coding_updated = os.path.join(str_extracted_cravat_dir, "Variant_result_updated.tsv") #CRAVAT
         str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                 str_cravat_detail_coding, str_cravat_detail_coding_updated])
         lcmd_cancer_filter.append(Command(str_groom_cravat_tab_coding,'cravat_coding.ok'))
 
         ## groom noncoding
         str_cravat_detail_noncoding = os.path.join(str_extracted_cravat_dir, "Variant_Non-coding.Result.tsv") #CRAVAT
-        str_cravat_detail_noncoding_updated = os.path.join(self.tmp_dir, "Variant_non_coding_result_updated.tsv") #CRAVAT
+        str_cravat_detail_noncoding_updated = os.path.join(str_extracted_cravat_dir, "Variant_non_coding_result_updated.tsv") #CRAVAT
         str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
                                                     str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
         lcmd_cancer_filter.append(Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok'))
@@ -1243,7 +1243,7 @@ class RnaseqSnp:
         ## Annotate and VCF file with TAB data.
         ## CRAVAT gives both Coding and none coding Variants results.
         ## For now, including both and not excluding noncoding.
-        str_cravat_annotated_coding_vcf = self.func_switch_ext(str_filtered_pre_cravat_vcf, "_cravat_annotated_coding.vcf.gz") #CRAVAT
+        str_cravat_annotated_coding_vcf = os.path.join(str_extracted_cravat_dir, "cravat_annotated_coding.vcf.gz") #CRAVAT
         str_annotate_coding = " ".join(["bcftools",
                                         "annotate",
                                         "--annotations",
@@ -1259,7 +1259,7 @@ class RnaseqSnp:
         lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
 
         ## annotate noncoding variants
-        str_cravat_annotated_all_vcf = self.func_switch_ext(str_filtered_pre_cravat_vcf, "_cravat_annotated_coding_and_noncoding.vcf.gz") #CRAVAT 
+        str_cravat_annotated_all_vcf = os.path.join(str_extracted_cravat_dir, "cravat_annotated_coding_and_noncoding.vcf.gz") #CRAVAT 
         str_annotate_noncoding = " ".join(["bcftools",
                                            "annotate",
                                            "--annotations",
@@ -1277,7 +1277,7 @@ class RnaseqSnp:
 
 
         # Filter based on Predictions
-        str_pred_filtered_vcf=self.func_switch_ext(str_filtered_pre_cravat_vcf, "_cravat_selected_cancer.vcf") # final vcf output file here.
+        str_pred_filtered_vcf = os.path.join(str_extracted_cravat_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
         str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
                                                str_cravat_annotated_all_vcf,
                                                str_pred_filtered_vcf])
