@@ -10,6 +10,8 @@ import os,sys,re
 import logging
 import subprocess
 import multiprocessing as mp
+import gzip
+
 logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
 
 '''
@@ -27,20 +29,20 @@ def processVCFHead(line, outfile):
     Add the annotation flag description to the head of the VCF 
         VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
         TPR : Total Passed Reads , reads that PASS filtering 
-        TMM : Total Multi-Mapping, number of reads that are multi-mapped 
+        TDM : Total Duplicate Marked, number of reads that are duplicate marked
     '''
     if line[0] == "#":
         if re.match("#CHROM\t", line):
             # add header info line for the repeat annotation type
             # once you get to the #CHROM line, 
             #       write the new INFO annotations above the #CHROM header line 
-            outfile.write("##INFO=<ID=VPR,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
-            outfile.write("##INFO=<ID=TPR,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
-            outfile.write("##INFO=<ID=TMM,Type=Integer,Description=\"Total Multi-Mapping, number of reads that are multi-mapped \">\n")
+            outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
+            outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
+            outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
 
         outfile.write(line)
 
-def processSamFlag(sam_flag):
+def check_reverse_strand(sam_flag):
     #----------------------------------------------------
     # Check SAM flag
     #----------------------------------------------------
@@ -53,20 +55,28 @@ def processSamFlag(sam_flag):
         rev_test = binary_flag[-5]
         if int(rev_test) == 1:
             revers_strand = 1
+
+    return revers_strand
+
+
+def check_duplicate_marked(sam_flag):
+
+    binary_flag = bin(int(sam_flag))
     
     # set the multi-mapping indicator to 0
-    multi_mapping = 0 
-    # multi_mapping = 1 if (alignment & 1024)
+    duplicateMarked = 0 
+    # duplicateMarked = 1 if (alignment & 1024)
     # check the SAM flag, (10000000000 means this is multi-mapping)
     if len(binary_flag) >= 11:
-        multimapping_test = binary_flag[-11] 
-        if int(multimapping_test) == 1:
-            multi_mapping = 1
+        duplicate_test = binary_flag[-11] 
+        if int(duplicate_test) == 1:
+            duplicateMarked = 1
 
-    return multi_mapping
+    return duplicateMarked
     
 
-def step3_processing(i, bamFile):
+
+def evaluate_PASS_reads(i, bamFile):
     #--------------
     # Constants 
     #--------------
@@ -98,12 +108,16 @@ def step3_processing(i, bamFile):
     # separate the Samtools view output by lines (rstrip to remove last \n)
     sam_output = sam_output[0].rstrip().split("\n")
     
-    multi_mapping = 0
+    duplicateMarked = 0
     for j in sam_output:
         bamfields = j.split("\t")
         # separate the output
-        alignment, readstart, cigar, sequencebases, qualscores = bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
+        samflag, readstart, cigar, sequencebases, qualscores = bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
+        if check_duplicate_marked(samflag):
+            duplicateMarked += 1
+            continue # not evaluating duplicate-marked reads.
+        
         # get the current position 
         currentpos, readpos = int(readstart), 1
         base_readpos = []
@@ -112,8 +126,7 @@ def step3_processing(i, bamFile):
         cigarletters = re.findall(r'[MIDNSHP=X]',cigar)
         # numbers
         cigarnums = re.split('[MIDNSHP]', cigar)
-
-
+        
         '''
         CIGAR letters:
             I = insertion into the reference
@@ -139,17 +152,15 @@ def step3_processing(i, bamFile):
                         base_readpos = readpos
                     currentpos += 1
                     readpos += 1
+
+        read_end_pos = readpos
         
         if base_readpos:
-            # Alignment is the SAM Flags
-            multi_mapping += processSamFlag(alignment)
-
-            
             #----------------------------------------------------
             # check is within 6 bases of the ends and quality score 
             #----------------------------------------------------
             # If the base position is within the 6 base pairs of either side of the sequence -> Pass
-            if (int(base_readpos) > 6) and (base_readpos < readpos - 5):
+            if (int(base_readpos) > 6) and (base_readpos < read_end_pos - 5):
                 # If quality score is greater than or equal to the cutoff  --> PASS
                 if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
                     newcov += 1
@@ -166,23 +177,34 @@ def step3_processing(i, bamFile):
     #-----------------------
     # VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
     # TPR : Total Passed Reads , reads that PASS filtering 
-    # TMM : Total Multi-Mapping, number of reads that are multi-mapped 
+    # TDM : Total Duplicate Marked, number of reads that are duplicate marked
     line[7] += ";VPR={}".format(newmismatch)
     line[7] += ";TPR={}".format(newcov)
-    line[7] += ";TMM={}".format(multi_mapping)
+    line[7] += ";TDM={}".format(duplicateMarked)
 
     # variant frequency if needed 
     # varfreq = (newmismatch/newcov)
 
     # newcov        : total number of PASS reads 
     # newmismatch   : number of PASS's that support the variant 
-    # multi_mapping : number of multi-mapped reads 
-    new_line = "\t".join(line) + "\n"
+    # duplicateMarked : number of duplicate-marked reads 
+    new_line = "\t".join(line)
+
     return(new_line)
 
 
 
-def createAnnotations(vcf, bamFile, cpu, output_path):
+# open gzipped or regular text vcf files
+def open_file_for_reading(filename):
+    if re.search("\.gz$", filename):
+        return gzip.open(filename, 'rt') # t needed for python3 to look like regular text
+    else:
+        return open(filename, 'r') # regular text file
+    
+
+
+
+def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     logging.info("Filtering out mismatches in first 6 bp of reads")
 
     ##############
@@ -195,22 +217,24 @@ def createAnnotations(vcf, bamFile, cpu, output_path):
     # Open and create files 
     #-----------------------
     # Open input and output Files 
-    infile = open(vcf, "r")
+    infile = open_file_for_reading(vcf)
     # create the output file 
-    outfile_path = "{}_annotated.txt".format(vcf)
-    out_path = os.path.join(output_path, outfile_path)
-    outfile = open(outfile_path, "w")
 
+    outfile = open(output_vcf_filename, "w")
 
     #-----------
     # VCF Header
     #-----------
     # counter to count number of variants 
+
     variant_count = 0
+
     # Process the head of the VCF first and print it to the new file
-    for i in infile.readlines():
-        if i[0][0] == "#":
-            processVCFHead(line = i , outfile = outfile)
+    for line in infile:
+        line = str(line)
+        #print(line)
+        if line[0] == "#":
+            processVCFHead(line, outfile)
         else:
             variant_count +=1
     infile.close()
@@ -219,23 +243,47 @@ def createAnnotations(vcf, bamFile, cpu, output_path):
     # VCF Variants 
     #-----------
     # now need to reopen the VCF file 
-    infile = open(vcf, "r")
+    infile = open_file_for_reading(vcf)
     
     # set up the parallelization 
     # pool = mp.Pool(mp.cpu_count())
+
     pool = mp.Pool(cpu)
+
     # Now process each variant in the VCF and print the variants that pass to the output VCF product 
     # results = [step3_processing(i, bamFile) for i in infile.readlines() if i[0][0] != "#"]
-    results = [pool.apply(step3_processing, args=(i, bamFile)) for i in infile.readlines() if i[0][0] != "#"]
 
+    results = [pool.apply(evaluate_PASS_reads, args=(i, bamFile)) for i in infile.readlines() if i[0][0] != "#"]
+    
     # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
     if variant_count != len(results):
         "The output VCF has a different number of variants than the input VCF"
+
+    # resort records since they might now be out of order due to multithreading
+
+    def chr_pos_retriever(result_line): # inner function for sorting vcf output by chr, pos
+        vals = result_line.split("\t")
+        chr_val = vals[0]
+        pos_val = int(vals[1])
+
+        if len(chr_val) < 5:
+            chr_val = chr_val.replace("chr", "chr0") # ensure chr08 comes before chr12, etc.
+        
+        return(chr_val, pos_val)
+
+    # sort it
+    results = sorted(results, key=chr_pos_retriever)
+
+    # output results
     for i in results:
         outfile.write(i)
+
     pool.close()
+    
     infile.close()
     outfile.close()
+
+
 
 def main():
     ###########################################
@@ -251,8 +299,8 @@ def main():
         help="input vcf.")
     parser.add_argument('--bam', required = True,
             help="input BAM file.")
-    parser.add_argument("--output_dir", required=True, 
-        help="output directory")
+    parser.add_argument("--output_vcf", required=True, 
+        help="output vcf file containing annotations")
     parser.add_argument("--threads", required=False, type = int, default = 4, 
         help="Number of threads to run on.")
     
@@ -262,9 +310,11 @@ def main():
     vcf = args.vcf
     bam = args.bam
     cpu = args.threads
-    output_path = args.output_dir
+    output_vcf_filename = args.output_vcf
 
-    createAnnotations(vcf, bam, cpu, output_path)
+    createAnnotations(vcf, bam, cpu, output_vcf_filename)
+
+    sys.exit(0)
 
 if __name__ == "__main__":
 

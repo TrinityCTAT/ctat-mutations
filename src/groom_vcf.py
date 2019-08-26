@@ -20,8 +20,14 @@ LSTR_REQUIRED_FILTER_FIELDS = [STR_ID, STR_DESCRIPTION]
 ## VCF entries related
 I_INFO_COL = 7
 
+import sys, os, re
 import argparse
 import csv
+
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../PyLib"]))
+import ctat_util
+
+
 
 prsr_arguments = argparse.ArgumentParser(prog="groom_vcf.py",
                                          description="Cleans VCF files and fixes formatting errors.",
@@ -37,7 +43,7 @@ lstr_vcf = []
 
 # Read in vcf file
 if args.str_input_file:
-    with open(args.str_input_file, "r") as hndl_vcf:
+    with ctat_util.open_file_for_reading(args.str_input_file) as hndl_vcf:
         for lstr_line in csv.reader(hndl_vcf, delimiter = STR_VCF_DELIMITER):
             # Work with comments
             if lstr_line[0][0] == CHR_COMMENT:

@@ -4,7 +4,12 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
+########################
 ## compile_RNAediting_library_vcf.py --rediportal rediportal.txt --radar radar.txt  > RNAediting.library.vcf
+#
+## then use bcftools annotate to add these annotations:
+## bcftools annotate --annotations $CTAT_GENOME_LIB/ctat_mutation_lib/RNAediting.library.vcf.gz --columns "INFO/RNAEDIT" variants.init.vcf.gz
+
 
 
 #import inspect
@@ -112,7 +117,8 @@ def main():
     ## output vcf file:
     print("##fileformat=VCFv4.2")
     print("##INFO=<ID=RNAEDIT,Type=String,Description=\"A known or predicted RNA-editing site\">")
-
+    print("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO")
+    
     variant_objs = editing_sites_dict.values()
 
     variant_objs = sorted(variant_objs, key=lambda variant: (variant.chr, variant.pos))

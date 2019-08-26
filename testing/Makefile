@@ -16,6 +16,10 @@ HC_standard_single_thread:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard.onethread --threads 1
 
 
+HC_GRCh37_kickstart_bam_vcf:
+	../ctat_mutations --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh37.bam --use_vcf __misc_data/variants.GRCh37.vcf --out_dir example.standard.full_kickstart --threads 1
+
+
 ## HaplotypeCaller CNN filter:
 
 HC_CNN:

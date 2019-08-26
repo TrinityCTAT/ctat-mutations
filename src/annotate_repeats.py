@@ -8,6 +8,10 @@ from collections import defaultdict
 import logging
 import re
 
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../PyLib"]))
+
+import ctat_util
+
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -57,13 +61,13 @@ def main():
     ## make output a vcf formatted file:
     with open(output_vcf_file, 'w') as ofh:
         
-        with open(input_vcf_file, 'r') as fh:
+        with ctat_util.open_file_for_reading(input_vcf_file) as fh:
             for line in fh:
                 if line[0] == "#":
                     
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
-                        ofh.write("##INFO=<ID=RPT,Type=String,Description=\"Repeat family from UCSC Genome Browser Repeatmasker Annotations\">\n")
+                        ofh.write("##INFO=<ID=RPT,Number=1,Type=String,Description=\"Repeat family from UCSC Genome Browser Repeatmasker Annotations\">\n")
 
                     ofh.write(line)
                 else:
