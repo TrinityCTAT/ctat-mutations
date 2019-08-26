@@ -413,12 +413,12 @@ class RnaseqSnp:
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'add_or_replace_read_groups.ok')])
 
         
-        ## convert from PE reads to SE reads
-        str_unpaired_bam = os.path.join(self.tmp_dir, "unpaired.bam")
-        str_cur_command = " ".join([ os.path.join(SCRIPTDIR, "make_paired_to_unpaired_bam.pl"),
-                                    str_sorted_bam,
-                                    " | samtools view -Sb -o {}".format(str_unpaired_bam) ])
-        lcmd_gatk_recalibration_commands.extend([Command(str_cur_command, 'make_unpaired_bam.ok')])                            
+        ## convert from PE reads to SE reads  ## experimental - didn't actually help any
+        #str_unpaired_bam = os.path.join(self.tmp_dir, "unpaired.bam")
+        #str_cur_command = " ".join([ os.path.join(SCRIPTDIR, "make_paired_to_unpaired_bam.pl"),
+        #                            str_sorted_bam,
+        #                            " | samtools view -Sb -o {}".format(str_unpaired_bam) ])
+        #lcmd_gatk_recalibration_commands.extend([Command(str_cur_command, 'make_unpaired_bam.ok')])                            
         
         
         ## MarkDuplicates
@@ -426,7 +426,8 @@ class RnaseqSnp:
         str_qc_metrics = os.path.join(self.tmp_dir, "mark_duplicates_qc_metrics.txt")
         str_cur_command = "".join(["java -jar ", os.path.join(self.picard_path, "picard.jar"),
                                    " MarkDuplicates",
-                                   " I=", str_unpaired_bam,
+                                   #" I=", str_unpaired_bam,
+                                   " I=", str_sorted_bam,
                                    " O=", str_dedupped_bam,
                                    " CREATE_INDEX=true M=", str_qc_metrics])
         lcmd_gatk_recalibration_commands.extend([Command(str_cur_command,'mark_duplicates.ok')])
@@ -524,7 +525,7 @@ class RnaseqSnp:
                         
             lcmd_gatk_variants_commands.extend(parallel_HC_cmds)
 
-
+        
         ## annotate
         (lcmd_gatk_variants_command, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
                                                                                  str_variants_file,
@@ -661,11 +662,12 @@ class RnaseqSnp:
         
         if self.args.Mutect2_basic:
 
+
             ########################################
             ## Basic Mutect2 execution and filtering
             ## no germline resource provided
 
-            str_variants_file = os.path.join(self.project_dir, "Mutect2.exec_basic.raw_variants.vcf")
+            str_variants_file = os.path.join(self.tmp_dir, "Mutect2.exec_basic.raw_variants.vcf")
             
             str_m2_call = " ".join(["java", "-jar", self.gatk_path,
                                     "Mutect2",
@@ -684,7 +686,7 @@ class RnaseqSnp:
 
             ## Mutect2 filtering, Basic
             
-            mutFilter_output = os.path.join(self.out_dir,"Mutect2.raw_variants.filter_basic.vcf")
+            mutFilter_output = os.path.join(self.tmp_dir,"Mutect2.raw_variants.filter_basic.vcf")
             str_filter_command = " ".join(["java -jar", self.gatk_path,
                                            "FilterMutectCalls ",
                                            "-R", self.genome_fa,
@@ -695,7 +697,7 @@ class RnaseqSnp:
 
 
             ## select variants
-            str_filtered_variants_file = os.path.join(self.out_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
+            str_filtered_variants_file = os.path.join(self.tmp_dir,"Mutect2.raw_variants.filter_basic.selected.vcf")
             str_filter_mut_command = " ".join(["java -jar", self.gatk_path,
                                                "SelectVariants",
                                                "-R", self.genome_fa,
@@ -710,12 +712,13 @@ class RnaseqSnp:
         else:
 
             # best practices approach leveraging germline resource
+
             
             ##################################
             ## Mutect2 Best Practices Pipeline
             ##################################
 
-            str_variants_file = os.path.join(self.project_dir, "Mutect2.BestPractices.raw_variants.vcf")
+            str_variants_file = os.path.join(self.tmp_dir, "Mutect2.BestPractices.raw_variants.vcf")
 
             mutect2_call_cmdlist, f1r2_tar_gz_list = self.generate_Mutect2_best_practice_cmds(str_align_bam_file=str_align_bam_file,
                                                                                               str_variants_file=str_variants_file)
@@ -726,7 +729,7 @@ class RnaseqSnp:
             ## Mutect2 and Learn Read Orientation Model (LROM) and Filter  ##
                         
             # Learn read orientation bias model
-            LROM_output = os.path.join(self.out_dir,"ob-priors.tar.gz")
+            LROM_output = os.path.join(self.tmp_dir,"ob-priors.tar.gz")
             f1r2_tar_param_list = ["-I {}".format(f1r2_tar_gz) for f1r2_tar_gz in f1r2_tar_gz_list]
             str_LROM_call = " ".join(["java", "-jar", self.gatk_path,
                                       "LearnReadOrientationModel",
@@ -741,7 +744,7 @@ class RnaseqSnp:
 
                 ## Tumor contamination estimation steps:
                 # 1. get pileup summaries
-                pileups_output = os.path.join(self.out_dir,"tumor.pileups")
+                pileups_output = os.path.join(self.tmp_dir,"tumor.pileups")
 
                 pileup_cmds_list = self.generate_GetPileupSummaries_cmds(str_align_bam_file=str_align_bam_file,
                                                                          pileups_output=pileups_output)
@@ -750,8 +753,8 @@ class RnaseqSnp:
 
                 
                 # 2. calc tumor contamination
-                contamination_output = os.path.join(self.out_dir,"contamination.table")
-                segments_output = os.path.join(self.out_dir,"segments.table")
+                contamination_output = os.path.join(self.tmp_dir,"contamination.table")
+                segments_output = os.path.join(self.tmp_dir,"segments.table")
                 str_CalculateContamination_call = " ".join(["java", "-jar", self.gatk_path,
                                                             "CalculateContamination",
                                                             "-I ", pileups_output,
@@ -764,7 +767,7 @@ class RnaseqSnp:
 
             
             # do final Mutect2 filtering
-            mutFilter_output = os.path.join(self.out_dir, "Mutect2.BestPractices.raw_variants.filter_applied.vcf")
+            mutFilter_output = os.path.join(self.tmp_dir, "Mutect2.BestPractices.raw_variants.filter_applied.vcf")
             str_mutFilter_command = " ".join(["java -jar", self.gatk_path,
                                               "FilterMutectCalls",
                                               "-R", self.genome_fa,
@@ -775,7 +778,7 @@ class RnaseqSnp:
             lcmd_gatk_variants_commands.append(Command(str_mutFilter_command, 'FilterMutectCalls.ok'))
 
             # select variants
-            str_filtered_variants_file = os.path.join(self.out_dir, "Mutect2.BestPractices.raw_variants.filter_applied.selected.vcf") 
+            str_filtered_variants_file = os.path.join(self.tmp_dir, "Mutect2.BestPractices.raw_variants.filter_applied.selected.vcf") 
             str_filter_mut_command = " ".join(["java -jar", self.gatk_path,
                                                "SelectVariants",
                                                "-R", self.genome_fa,
@@ -786,8 +789,12 @@ class RnaseqSnp:
             lcmd_gatk_variants_commands.append(Command(str_filter_mut_command, 'Mutect2.BestPractices.raw_variants.select_variants.ok'))
             
             
-        
-        return lcmd_gatk_variants_commands, str_filtered_variants_file
+
+        ## annotate the vcf file.  This stores a primary output file in the out_dir
+        (lcmd_gatk_variants_commands, annotated_vcf) = self.annotate_variants(lcmd_gatk_variants_commands, str_filtered_variants_file, str_align_bam_file)
+
+
+        return lcmd_gatk_variants_commands, annotated_vcf
             
 
 
@@ -1549,26 +1556,20 @@ class RnaseqSnp:
     
 
     def generate_Mutect2_best_practice_cmds(self,
-                                            args_call,
-                                            genome_fa,
                                             str_align_bam_file,
-                                            germline_vcf_file,
-                                            str_variants_file,
-                                            str_project_dir,
-                                            str_tmp_dir,
-                                            gatk_path
-                                            ):
-
-        num_threads = args_call.i_number_threads
+                                            str_variants_file):
+        
+        
+        num_threads = self.args.i_number_threads
 
         cmds_list = list()
         f1r2_tar_gz_list = list()
 
-        mutect2_core_params = ["java", "-jar", gatk_path,
+        mutect2_core_params = ["java", "-jar", self.gatk_path,
                               "Mutect2",
-                              "-R", genome_fa,
+                              "-R", self.genome_fa,
                               "-I", str_align_bam_file,
-                              "--germline-resource", germline_vcf_file]
+                              "--germline-resource", self.germline_resource]
 
         
         if num_threads == 1:
@@ -1585,15 +1586,15 @@ class RnaseqSnp:
         else:
             # run each chr separately w/ throughput according to num_threads
 
-            chromosome_interval_file_pairs = self.make_chr_interval_files(genome_fa, str_tmp_dir)
+            chromosome_interval_file_pairs = self.make_chr_interval_files(self.genome_fa, self.tmp_dir)
 
             interval_vcf_files = list()
             interval_f1r2_files = list()
             interval_gatk_cmds = list()
 
             for (chromosome, interval_file) in chromosome_interval_file_pairs:
-                interval_vcf_file = os.path.sep.join([str_tmp_dir, "{}.interval.vcf".format(chromosome)])
-                interval_f1r2_file = os.path.sep.join([str_tmp_dir, "{}.interval.f1r2.tar.gz".format(chromosome)])
+                interval_vcf_file = os.path.sep.join([self.tmp_dir, "{}.interval.vcf".format(chromosome)])
+                interval_f1r2_file = os.path.sep.join([self.tmp_dir, "{}.interval.f1r2.tar.gz".format(chromosome)])
                 interval_gatk_cmd = " ".join([ *mutect2_core_params, " -L {} --f1r2-tar-gz {} -O {}".format(interval_file, interval_f1r2_file, interval_vcf_file)])
                 
                 interval_vcf_files.append(interval_vcf_file)
@@ -1609,14 +1610,14 @@ class RnaseqSnp:
             f1r2_tar_gz_list = interval_f1r2_files
 
             ## now need to merge stuff
-            merge_vcfs_cmdstr = " ".join(["java -jar {}".format(gatk_path),
+            merge_vcfs_cmdstr = " ".join(["java -jar {}".format(self.gatk_path),
                                           "GatherVcfs",
                                           *["-I {} ".format(vcf_file) for vcf_file in interval_vcf_files],
                                           "-O", str_variants_file ] )
 
             cmds_list.append(Command(merge_vcfs_cmdstr, "mutect2.bestpractice.merge_vcfs.ok"))
             
-            merge_stats_files_cmd = " ".join(["java -jar {}".format(gatk_path),
+            merge_stats_files_cmd = " ".join(["java -jar {}".format(self.gatk_path),
                                           "MergeMutectStats",
                                           *["-stats {}.stats ".format(vcf_file) for vcf_file in interval_vcf_files],
                                           "-O {}.stats".format(str_variants_file) ] )
