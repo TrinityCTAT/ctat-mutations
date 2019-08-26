@@ -67,7 +67,7 @@ def main():
                     
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
-                        ofh.write("##INFO=<ID=RPT,Type=String,Description=\"Repeat family from UCSC Genome Browser Repeatmasker Annotations\">\n")
+                        ofh.write("##INFO=<ID=RPT,Number=1,Type=String,Description=\"Repeat family from UCSC Genome Browser Repeatmasker Annotations\">\n")
 
                     ofh.write(line)
                 else:

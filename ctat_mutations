@@ -890,8 +890,19 @@ class RnaseqSnp:
         
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
                 
+
+        #########################
+        ## Add cancer annotations
         
-        (lcmd_commands, str_variants_vcf, str_cancer_tab) = self.add_cancer_annotations(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
+        (lcmd_commands, str_variants_vcf) = self.add_cancer_annotations(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
+        
+
+        ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
+
+        variants_init_vcf = os.path.join(self.out_dir, "variants.init.vcf.gz")
+        lcmd_commands.append(Command("cp {} {}".format(str_variants_vcf, variants_init_vcf), "cp_variants_init_vcf_gz.ok"))
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_init_vcf)
+    
         
         
         return (lcmd_commands) ## end of build_pipeline_cmds()
@@ -1128,6 +1139,8 @@ class RnaseqSnp:
         
         
         str_target_vcf_file = str_cosmic_mutations_vcf
+
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, str_target_vcf_file)
         
         if (self.args.f_skip_cravat):
             return(lcmd_commands, str_target_vcf_file)
@@ -1137,11 +1150,27 @@ class RnaseqSnp:
         ## CRAVAT annotations of cancer variants
 
         
-        (lcmd_commands, str_target_vcf_file, str_cancer_tab) = self.get_CRAVAT_annotations(lcmd_commands,
-                                                                                           str_target_vcf_file)
+        (lcmd_commands, str_cancer_vcf_file, str_cancer_tab, str_cravat_annotated_all_vcf) = self.get_CRAVAT_annotations(lcmd_commands,
+                                                                                                                         str_target_vcf_file)
         
+
+
+        ## tack the cravat annotations on to the pre-cravat vcf file:
+
+        full_variant_set_with_cravat_vcf = self.func_switch_ext(str_target_vcf_file, "_wCRAVAT.vcf.gz") 
+
+        cmdstr = " ".join([ "bcftools annotate",
+                            "--annotations ", str_cravat_annotated_all_vcf,
+                            "-h", self.cravat_header,
+                            "--columns", "CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR",
+                            "--output-type z",
+                            "--output ", full_variant_set_with_cravat_vcf,
+                            str_target_vcf_file ])
+
+        lcmd_commands.append(Command(cmdstr, "add_cravat_annotations_to_full_vcf.ok"))
+                            
         
-        # Make JSON file for the inspector
+        # Make JSON file for the inspector based on the cancer variants
         str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
 
         if self.ref_gene_annotation_bed:
@@ -1158,8 +1187,9 @@ class RnaseqSnp:
 
             lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
 
+
         
-        return (lcmd_commands, str_target_vcf_file, str_cancer_tab)
+        return (lcmd_commands, full_variant_set_with_cravat_vcf)
 
 
 
@@ -1258,6 +1288,8 @@ class RnaseqSnp:
                                         str_filtered_pre_cravat_vcf])
         lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
 
+        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_annotated_coding_vcf)
+
         ## annotate noncoding variants
         str_cravat_annotated_all_vcf = os.path.join(str_extracted_cravat_dir, "cravat_annotated_coding_and_noncoding.vcf.gz") #CRAVAT 
         str_annotate_noncoding = " ".join(["bcftools",
@@ -1275,6 +1307,8 @@ class RnaseqSnp:
                                            str_cravat_annotated_coding_vcf])
         lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
 
+        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_annotated_all_vcf)
+        
 
         # Filter based on Predictions
         str_pred_filtered_vcf = os.path.join(str_extracted_cravat_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
@@ -1285,18 +1319,18 @@ class RnaseqSnp:
 
         
         
-        # Groom before filter
-        str_cravat_filtered_groom_vcf = os.path.join(self.out_dir, C_STR_CANCER_VCF) # CRAVAT
+        # Groom before table conversion
+        str_cancer_vcf = os.path.join(self.out_dir, C_STR_CANCER_VCF) # CRAVAT
         str_cmd_groom_cancer_filtered = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                                   str_pred_filtered_vcf,
-                                                  str_cravat_filtered_groom_vcf])
+                                                  str_cancer_vcf])
         lcmd_cancer_filter.append(Command(str_cmd_groom_cancer_filtered,'groom_filter.ok'))
         
         # Convert filtered VCF file to tab file.
         str_cancer_tab = os.path.join(self.out_dir, C_STR_CANCER_TAB)
         str_cmd_make_cravat_tab = " ".join(["java -jar", self.gatk_path, "VariantsToTable",
                                             "-R", self.genome_fa,
-                                            "-V", str_cravat_filtered_groom_vcf,
+                                            "-V", str_cancer_vcf,
                                             "-F", "CHROM",
                                             "-F", "POS",
                                             "-F", "REF",
@@ -1325,7 +1359,7 @@ class RnaseqSnp:
 
         lcmd_commands.extend(lcmd_cancer_filter)
 
-        return lcmd_commands, str_cravat_filtered_groom_vcf, str_cancer_tab
+        return (lcmd_commands, str_cancer_vcf, str_cancer_tab, str_cravat_annotated_all_vcf)
         
 
 
@@ -1383,16 +1417,16 @@ class RnaseqSnp:
           lcmd_tabix, str_gz = self.func_gz(str_vcf, str_output_dir)
           str_tabix = "-s 1 -b 2 -e 2 -S 12"
 
-          if not str_vcf.endswith(".tbi"):
-              # Create index for the VCF file
-              str_tbi = str_gz + ".tbi"
-              if str_output_dir:
-                  str_tbi = os.path.join(str_output_dir, os.path.basename(str_tbi))
-              str_cmd_tabix_vcf = " ".join(["tabix -f", str_tabix, str_gz])
-              
-              ok_file = ntpath.basename(str_gz) + '.vcf_tabix.ok'
-              lcmd_tabix.append(Command(str_cmd_tabix_vcf,ok_file))
-              
+
+          # Create index for the VCF file
+          str_tbi = str_gz + ".tbi"
+          if str_output_dir:
+              str_tbi = os.path.join(str_output_dir, os.path.basename(str_tbi))
+          str_cmd_tabix_vcf = " ".join(["tabix -f", str_tabix, str_gz])
+
+          ok_file = ntpath.basename(str_gz) + '.vcf_tabix.ok'
+          lcmd_tabix.append(Command(str_cmd_tabix_vcf,ok_file))
+
           return lcmd_tabix
 
 
