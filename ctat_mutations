@@ -891,18 +891,10 @@ class RnaseqSnp:
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
                 
 
-        #########################
-        ## Add cancer annotations
-        
-        (lcmd_commands, str_variants_vcf) = self.add_cancer_annotations(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
-        
 
-        ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
-
-        variants_init_vcf = os.path.join(self.out_dir, "variants.init.vcf.gz")
-        lcmd_commands.append(Command("cp {} {}".format(str_variants_vcf, variants_init_vcf), "cp_variants_init_vcf_gz.ok"))
-        lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_init_vcf)
-    
+        ## make the pretty igv.js report html for the cancer variants:
+        (lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file) = self.generate_cancer_variant_report(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
+        
         
         
         return (lcmd_commands) ## end of build_pipeline_cmds()
@@ -1112,6 +1104,18 @@ class RnaseqSnp:
         (lcmd_commands, str_target_vcf_file) = self.annotate_splice_distance(lcmd_commands, str_target_vcf_file)
 
         
+        #########################
+        ## Add cancer annotations
+        
+        (lcmd_commands, str_target_vcf_file) = self.add_cancer_annotations(lcmd_commands, str_target_vcf_file, str_align_bam_file)
+        
+
+        ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
+
+        variants_init_vcf = os.path.join(self.out_dir, "variants.init.wAnnot.vcf.gz")
+        lcmd_commands.append(Command("cp {} {}".format(str_target_vcf_file, variants_init_vcf), "cp_variants_init_wAnnot.vcf_gz.ok"))
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_init_vcf)
+    
         
         return (lcmd_commands, str_target_vcf_file)
 
@@ -1150,11 +1154,10 @@ class RnaseqSnp:
         ## CRAVAT annotations of cancer variants
 
         
-        (lcmd_commands, str_cancer_vcf_file, str_cancer_tab, str_cravat_annotated_all_vcf) = self.get_CRAVAT_annotations(lcmd_commands,
-                                                                                                                         str_target_vcf_file)
+        (lcmd_commands, str_cravat_annotated_all_vcf) = self.get_CRAVAT_annotations(lcmd_commands,
+                                                                                    str_target_vcf_file)
         
-
-
+        
         ## tack the cravat annotations on to the pre-cravat vcf file:
 
         full_variant_set_with_cravat_vcf = self.func_switch_ext(str_target_vcf_file, "_wCRAVAT.vcf.gz") 
@@ -1169,26 +1172,7 @@ class RnaseqSnp:
 
         lcmd_commands.append(Command(cmdstr, "add_cravat_annotations_to_full_vcf.ok"))
                             
-        
-        # Make JSON file for the inspector based on the cancer variants
-        str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
-
-        if self.ref_gene_annotation_bed:
-
-            html_out=os.path.join(args_parsed.str_out_dir,"igvjs_viewer.html") 
-
-            str_cmd_html = " ".join([ "create_report",
-                                      os.path.join(args_parsed.str_out_dir,"cancer.vcf"),
-                                      self.genome_fa,
-                                      "--flanking", "1000",
-                                      "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
-                                      "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
-                                      "--output", html_out])
-
-            lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
-
-
-        
+                
         return (lcmd_commands, full_variant_set_with_cravat_vcf)
 
 
@@ -1310,27 +1294,34 @@ class RnaseqSnp:
         lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_annotated_all_vcf)
         
 
-        # Filter based on Predictions
-        str_pred_filtered_vcf = os.path.join(str_extracted_cravat_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
-        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_predictions.py"]),
-                                               str_cravat_annotated_all_vcf,
-                                               str_pred_filtered_vcf])
-        lcmd_cancer_filter.append(Command(str_cmd_filter_predictions,'filter_predictions.ok'))
+        lcmd_commands.extend(lcmd_cancer_filter)
+        
+        return (lcmd_commands, str_cravat_annotated_all_vcf)
+        
 
+
+    def generate_cancer_variant_report(self, lcmd_commands, str_variants_vcf_file, bam_target_for_var_calling):
         
-        
+        # Filter based on Predictions
+        str_pred_filtered_vcf = os.path.join(self.tmp_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
+        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_predictions.py"]),
+                                               str_variants_vcf_file,
+                                               str_pred_filtered_vcf])
+        lcmd_commands.append(Command(str_cmd_filter_predictions,'extract_cancer_predictions.ok'))
+
+                
         # Groom before table conversion
-        str_cancer_vcf = os.path.join(self.out_dir, C_STR_CANCER_VCF) # CRAVAT
+        str_cancer_vcf_file = os.path.join(self.out_dir, C_STR_CANCER_VCF) # CRAVAT
         str_cmd_groom_cancer_filtered = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                                   str_pred_filtered_vcf,
-                                                  str_cancer_vcf])
-        lcmd_cancer_filter.append(Command(str_cmd_groom_cancer_filtered,'groom_filter.ok'))
+                                                  str_cancer_vcf_file])
+        lcmd_commands.append(Command(str_cmd_groom_cancer_filtered,'groom_cancer_vcf.ok'))
         
         # Convert filtered VCF file to tab file.
-        str_cancer_tab = os.path.join(self.out_dir, C_STR_CANCER_TAB)
+        str_cancer_tab_file = os.path.join(self.out_dir, C_STR_CANCER_TAB)
         str_cmd_make_cravat_tab = " ".join(["java -jar", self.gatk_path, "VariantsToTable",
                                             "-R", self.genome_fa,
-                                            "-V", str_cancer_vcf,
+                                            "-V", str_cancer_vcf_file,
                                             "-F", "CHROM",
                                             "-F", "POS",
                                             "-F", "REF",
@@ -1353,17 +1344,36 @@ class RnaseqSnp:
                                             "-F", "VEST_PVALUE",
                                             "-F", "VEST_FDR",
                                             "--lenient",
-                                            "-O", str_cancer_tab])
-        lcmd_cancer_filter.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
-        
-
-        lcmd_commands.extend(lcmd_cancer_filter)
-
-        return (lcmd_commands, str_cancer_vcf, str_cancer_tab, str_cravat_annotated_all_vcf)
-        
+                                            "-O", str_cancer_tab_file])
+        lcmd_commands.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
 
 
 
+        # Make JSON file for the inspector based on the cancer variants
+        str_json_inspector_file = args_parsed.str_out_dir + os.path.sep + C_STR_MUTATION_INSPECTOR
+
+        if self.ref_gene_annotation_bed:
+
+            html_out=os.path.join(self.out_dir, "igvjs_viewer.html") 
+
+            str_cmd_html = " ".join([ "create_report",
+                                      str_cancer_vcf_file,
+                                      self.genome_fa,
+                                      "--flanking", "1000",
+                                      "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                      "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
+                                      "--output", html_out])
+
+            lcmd_commands.append(Command(str_cmd_html, 'igv_html_viz.ok'))
+
+
+
+
+
+
+        return(lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file)
+
+    
     
     def func_gz(self, str_vcf, str_output_dir = ""):
           """
