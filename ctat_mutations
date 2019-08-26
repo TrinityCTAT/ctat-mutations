@@ -581,7 +581,14 @@ class RnaseqSnp:
                                             "-O", str_filtered_variants_file])
             cmd_variant_filtration = Command(str_filter_command,'gatk_HC_hard_cutoff.variant_select.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
-        
+            
+            ## Retain a copy of this variants file as a primary output:
+            HC_hard_cutoffs_applied_vcf = os.path.join(self.out_dir, "variants.HC_hard_cutoffs_applied.vcf")
+            lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_filtered_variants_file, HC_hard_cutoffs_applied_vcf),
+                                                       "HC_hard_cutoffs_primary_out_cp.ok"))
+
+            lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, HC_hard_cutoffs_applied_vcf)
+            
 
         else:
 
@@ -628,6 +635,14 @@ class RnaseqSnp:
             cmd_variant_filtration = Command(str_filter_command,'gatk_HC_CNN_variant_filter.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
 
+
+            ## Retain a copy of this variants file as a primary output:
+            HC_CNN_applied_vcf = os.path.join(self.out_dir, "variants.HC_CNN_applied.vcf")
+            lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_filtered_variants_file, HC_CNN_applied_vcf),
+                                                       "HC_hard_cutoffs_primary_out_cp.ok"))
+
+            lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, HC_CNN_applied_vcf)
+            
         
         return (lcmd_gatk_variants_commands, str_filtered_variants_file)
     
@@ -1165,17 +1180,31 @@ class RnaseqSnp:
         cmdstr = " ".join([ "bcftools annotate",
                             "--annotations ", str_cravat_annotated_all_vcf,
                             "-h", self.cravat_header,
-                            "--columns", "CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR",
+                            "--columns", "CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT",
                             "--output-type z",
                             "--output ", full_variant_set_with_cravat_vcf,
                             str_target_vcf_file ])
 
         lcmd_commands.append(Command(cmdstr, "add_cravat_annotations_to_full_vcf.ok"))
-                            
-                
-        return (lcmd_commands, full_variant_set_with_cravat_vcf)
+
+        ## groom it:
+        full_variant_set_with_cravat_clean_vcf = self.func_switch_ext(full_variant_set_with_cravat_vcf, "_clean.vcf")
+
+        str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
+                                      full_variant_set_with_cravat_vcf,
+                                      full_variant_set_with_cravat_clean_vcf])
+        
+        lcmd_commands.append(Command(str_clean_vcf_cmd,'cravat_annotations_to_full_vcf_clean.ok'))
 
 
+
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, full_variant_set_with_cravat_clean_vcf)
+
+        full_variant_set_with_cravat_clean_vcf = full_variant_set_with_cravat_clean_vcf + ".gz"
+        
+        return (lcmd_commands, full_variant_set_with_cravat_clean_vcf)
+
+    
 
 
 
@@ -1343,6 +1372,7 @@ class RnaseqSnp:
                                             "-F", "CHASM_FDR",
                                             "-F", "VEST_PVALUE",
                                             "-F", "VEST_FDR",
+                                            "-F", "MuPIT",
                                             "--lenient",
                                             "-O", str_cancer_tab_file])
         lcmd_commands.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
@@ -1360,7 +1390,7 @@ class RnaseqSnp:
                                       str_cancer_vcf_file,
                                       self.genome_fa,
                                       "--flanking", "1000",
-                                      "--info-columns","GENE TISSUE TUMOR COSMIC_ID GENE SOMATIC CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                      "--info-columns","GENE TISSUE TUMOR COSMIC_ID CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
                                       "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
                                       "--output", html_out])
 
