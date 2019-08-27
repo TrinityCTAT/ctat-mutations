@@ -531,7 +531,13 @@ class RnaseqSnp:
                                                                                  str_variants_file,
                                                                                  str_align_bam_file)
 
-        
+        ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
+
+        variants_init_vcf = os.path.join(self.out_dir, "variants.HC_init.wAnnot.vcf.gz")
+        lcmd_gatk_variants_command.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
+        lcmd_gatk_variants_command = self.tabix_if_needed(lcmd_gatk_variants_command, variants_init_vcf)
+    
+                
         ## apply filters
             
         (lcmd_gatk_variants_command, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
@@ -638,9 +644,9 @@ class RnaseqSnp:
 
 
             ## Retain a copy of this variants file as a primary output:
-            HC_CNN_applied_vcf = os.path.join(self.out_dir, "variants.HC_CNN_applied.vcf")
+            HC_CNN_applied_vcf = os.path.join(self.out_dir, "variants.HC_CNN_filter_applied.vcf")
             lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_filtered_variants_file, HC_CNN_applied_vcf),
-                                                       "HC_hard_cutoffs_primary_out_cp.ok"))
+                                                       "HC_CNN_filter_applied_primary_out_cp.ok"))
 
             lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, HC_CNN_applied_vcf)
             
@@ -659,10 +665,13 @@ class RnaseqSnp:
         str_filtered_variants_file = None        
         
         # Variant calling
+
+        mutect2_out_prefix = "Mutect2"
         
         if self.args.Mutect2_basic:
 
-
+            mutect2_out_prefix += "_basic"
+            
             ########################################
             ## Basic Mutect2 execution and filtering
             ## no germline resource provided
@@ -713,6 +722,8 @@ class RnaseqSnp:
 
             # best practices approach leveraging germline resource
 
+            mutect2_out_prefix += "_best_practices"
+            
             
             ##################################
             ## Mutect2 Best Practices Pipeline
@@ -741,6 +752,8 @@ class RnaseqSnp:
             tumor_contam_est_params = list()
             
             if self.Mutect2_include_contamination_estimates:
+
+                mutect2_out_prefix += "_incl_contam_est"
 
                 ## Tumor contamination estimation steps:
                 # 1. get pileup summaries
@@ -793,6 +806,12 @@ class RnaseqSnp:
         ## annotate the vcf file.  This stores a primary output file in the out_dir
         (lcmd_gatk_variants_commands, annotated_vcf) = self.annotate_variants(lcmd_gatk_variants_commands, str_filtered_variants_file, str_align_bam_file)
 
+        # provide primary Mutect2 output with annotations:
+        
+        mutect2_variants_vcf = os.path.join(self.out_dir, mutect2_out_prefix + ".wAnnot.vcf.gz")
+        lcmd_gatk_variants_commands.append(Command("cp {} {}".format(annotated_vcf, mutect2_variants_vcf), "cp_" + mutect2_out_prefix + ".ok"))
+        lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, mutect2_variants_vcf)
+        
 
         return lcmd_gatk_variants_commands, annotated_vcf
             
@@ -876,6 +895,12 @@ class RnaseqSnp:
             
             # must add variant annotations:
             (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_calling)
+
+            # store annotated vcf as primary output:
+            variants_wAnnot_vcf = os.path.join(self.out_dir, os.path.basename(self.input_vcf_file) + ".wAnnot.vcf.gz")
+            lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
+            lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
+            
 
         else:
 
@@ -1132,13 +1157,7 @@ class RnaseqSnp:
         (lcmd_commands, str_target_vcf_file) = self.add_cancer_annotations(lcmd_commands, str_target_vcf_file, str_align_bam_file)
         
 
-        ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
-
-        variants_init_vcf = os.path.join(self.out_dir, "variants.init.wAnnot.vcf.gz")
-        lcmd_commands.append(Command("cp {} {}".format(str_target_vcf_file, variants_init_vcf), "cp_variants_init_wAnnot.vcf_gz.ok"))
-        lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_init_vcf)
-    
-        
+            
         return (lcmd_commands, str_target_vcf_file)
 
     
