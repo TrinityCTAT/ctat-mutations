@@ -896,6 +896,12 @@ class RnaseqSnp:
             # must add variant annotations:
             (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_calling)
 
+            # store annotated vcf as primary output:
+            variants_wAnnot_vcf = os.path.join(self.out_dir, os.path.basename(self.input_vcf_file) + ".wAnnot.vcf.gz")
+            lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
+            lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
+            
+
         else:
 
             # must run a variant caller:
