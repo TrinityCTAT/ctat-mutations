@@ -77,6 +77,11 @@ def check_duplicate_marked(sam_flag):
 
 
 def evaluate_PASS_reads(i, bamFile):
+
+    vals = i.split("\t")
+
+    sys.stderr.write("[{}]\n".format(vals[0] + "::" + vals[1]))
+
     #--------------
     # Constants 
     #--------------
@@ -110,7 +115,16 @@ def evaluate_PASS_reads(i, bamFile):
     
     duplicateMarked = 0
     for j in sam_output:
+
+        if not re.match("\w", j):
+            continue # sometimes get a blank line for some reason
+
         bamfields = j.split("\t")
+        
+        if len(bamfields) < 11:
+            print("-warning: line[{}] has insufficient fields... skipping".format(j), file=sys.stderr)
+            continue
+        
         # separate the output
         samflag, readstart, cigar, sequencebases, qualscores = bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
@@ -253,7 +267,9 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # Now process each variant in the VCF and print the variants that pass to the output VCF product 
     # results = [step3_processing(i, bamFile) for i in infile.readlines() if i[0][0] != "#"]
 
-    results = [pool.apply(evaluate_PASS_reads, args=(i, bamFile)) for i in infile.readlines() if i[0][0] != "#"]
+    vcf_lines = infile.readlines()
+
+    results = [pool.apply(evaluate_PASS_reads, args=(line, bamFile)) for line in vcf_lines if line[0][0] != "#"]
     
     # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
     if variant_count != len(results):
