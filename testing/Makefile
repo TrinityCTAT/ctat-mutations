@@ -1,19 +1,24 @@
-all: HaplotypeCaller cravat Mutect2
+all: HaplotypeCaller Mutect2
+
+# standard execution mode testing:
 
 HaplotypeCaller: HC_standard HC_CNN
 
-Mutect2: Mutect2_best_practices_skip_tumor_contam
+Mutect2: Mutect2_basic Mutect2_best_practices_skip_tumor_contam
+
+# cravat testing
 
 cravat: cravat_hg19 cravat_GRCh38
+
 
 ########################
 ## HaplotypeCaller tests
 
 HC_standard:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard --threads 10
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.HC_standard --threads 10
 
 HC_standard_single_thread:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.standard.onethread --threads 1
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.HC_standard.onethread --threads 1
 
 
 HC_GRCh37_kickstart_bam_vcf:
