@@ -25,7 +25,7 @@ def main():
         description = "Adds repeat feature annotations to vcf file.\n")
     
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
-    parser.add_argument('--ref_exon_bed', required=True, help='reference exon bed file')
+    parser.add_argument('--ctat_mutation_lib_dir', required=True, help='path to ctat mutation lib dir')
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
     parser.add_argument("--max_dist_to_splice",  type=int, default=6, help="maximum distance from within intron to a splice boundary")
 
@@ -37,7 +37,7 @@ def main():
 
 
     input_vcf_file = args.input_vcf
-    ref_exon_bed_file = args.ref_exon_bed
+    ctat_mutation_lib_dir = args.ctat_mutation_lib_dir
     max_dist_to_splice = args.max_dist_to_splice
     output_vcf_file = args.output_vcf
     DEBUG_MODE = args.debug
@@ -49,53 +49,54 @@ def main():
         os.makedirs(tmpdir)
 
 
-    ## capture the variants that overlap exons
-    exon_overlapping_variants_vcf = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".exon_overlapping.vcf")
-
-    cmd = "bedtools intersect -header -a {} -b {} > {}".format(input_vcf_file, ref_exon_bed_file, exon_overlapping_variants_vcf)
-    logger.info("CMD: {}".format(cmd))
-    subprocess.check_call(cmd, shell=True)
-
-    ## get the remaining variants that do not overlap exons
-    exon_nonoverlapping_vcf = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".exon_NONoverlapping.vcf")
-    cmd = "bedtools subtract -header -a {} -b {} > {}".format(input_vcf_file, exon_overlapping_variants_vcf, exon_nonoverlapping_vcf)
-    logger.info("CMD: {}".format(cmd))
-    subprocess.check_call(cmd, shell=True)
+    ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed.gz")
+    if not os.path.exists(ref_splice_adj_regions_bed):
+        logger.critical("cannot locate required file: {}".format(ref_splice_adj_regions_bed))
+        sys.exit(1)
+            
     
-    ## see if the remaining exon-NONoverlapping variants are within distance
-    # make a new snp vcf file that includes max_dist_to_splice padding on each side and see if that overlaps
 
-    snp_padded_bed_file = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".padded_{}_variants.bed".format(max_dist_to_splice))
-    with open(snp_padded_bed_file, "w") as ofh:
-        with open(exon_nonoverlapping_vcf) as fh:
-            for line in fh:
-                if re.match("#", line):
-                    continue
-                vals = line.split("\t")
-                chr = vals[0]
-                pos = int(vals[1])
-                lend = pos - max_dist_to_splice + 1
-                rend = pos + max_dist_to_splice - 1
-                chrpos = "{}:{}".format(chr, pos)
-                
-                ofh.write("\t".join([chr, str(lend), str(rend), chrpos]) + "\n")
-
-
-    splice_adjacent_snps_bed = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".splice_adjacent.bed")
-    cmd = "bedtools intersect -a {} -b {} > {}".format(snp_padded_bed_file, ref_exon_bed_file, splice_adjacent_snps_bed)
+    splice_adjacent_snps_vcf_file = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".splice_adjacent.vcf")
+    cmd = "bedtools intersect -wb -a {} -b {} > {}".format(input_vcf_file, ref_splice_adj_regions_bed, splice_adjacent_snps_vcf_file)
     logger.info("CMD: {}".format(cmd))
     subprocess.check_call(cmd, shell=True)
 
     # capture those variants that were identified as exon-adjacent
-    var_set = set()
-    with open(splice_adjacent_snps_bed) as fh:
+    exon_splice_adj_dict = dict()
+    with open(splice_adjacent_snps_vcf_file) as fh:
         for line in fh:
+            if re.match("#", line): continue
             line = line.rstrip()
             vals = line.split("\t")
-            chrpos = vals[3]
-            var_set.add(chrpos)
-    
-    
+            chr_val = vals[0]
+            pos_val = vals[1]
+            chrpos = "{}:{}".format(chr_val, pos_val)
+
+            # determine distance from splice boundary
+            splice_adj_name = vals[-1]
+            # ex. chr1:L:6586064:6586073 or chr1:R:3662841:3662850 
+            #
+            # where L indicates left intron side and R indicates right intron side:
+            #   ---->GT   intron     AG<-------
+            #       |<-----|    |----->|
+            #         L              R     segment type
+            #
+
+            (chromosome, segment_type, lend, rend) = splice_adj_name.split(":")
+            
+            pos_val = int(pos_val); lend = int(lend); rend = int(rend)
+            # distance from splice boundary
+            delta = pos_val - lend + 1 if segment_type == "L" else rend - pos_val + 1
+
+            # want to store the minimum distance in case there are competing introns.
+            if chrpos in exon_splice_adj_dict:
+                if delta < exon_splice_adj_dict[ chrpos ]:
+                    exon_splice_adj_dict[ chrpos ] = delta
+            else:
+                # first occurence
+                exon_splice_adj_dict[ chrpos ] = delta
+
+                
     logger.info("Adding exon-neighboring annotations (SPLICEADJ = splice ajacent).")
     ## make output a vcf formatted file:
     with open(output_vcf_file, 'w') as ofh:
@@ -106,15 +107,15 @@ def main():
                     
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
-                        ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within {} distance to a reference exon splice boundary\">\n".format(max_dist_to_splice))
+                        ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within specified distance of a reference exon splice boundary\">\n".format(max_dist_to_splice))
 
                     ofh.write(line)
                 else:
                     line = line.rstrip()
                     vals = line.split("\t")
                     chrpos = "{}:{}".format(vals[0], vals[1])
-                    if chrpos in var_set:
-                        vals[7] += ";SPLICEADJ=1"
+                    if chrpos in exon_splice_adj_dict:
+                        vals[7] += ";SPLICEADJ={}".format(exon_splice_adj_dict[chrpos])
 
                     ofh.write("\t".join(vals) + "\n")
 
