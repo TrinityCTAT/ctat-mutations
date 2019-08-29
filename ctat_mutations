@@ -1082,8 +1082,9 @@ class RnaseqSnp:
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_entropy_n_homopolymers.py"),
                             "--input_vcf", str_target_vcf_file,
                             "--ref_genome_fa", self.genome_fa,
-                            "--output_vcf", homopolymer_annot_vcf ])
-
+                            "--output_vcf", homopolymer_annot_vcf,
+                            "--tmpdir", self.tmp_dir])
+        
         lcmd_commands.append(Command(cmdstr, 'annotate_homopolymers.ok'))
                 
         lcmd_commands = self.tabix_if_needed(lcmd_commands, homopolymer_annot_vcf)
@@ -1099,8 +1100,9 @@ class RnaseqSnp:
         
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_exon_splice_proximity.py"),
                             "--input_vcf", str_target_vcf_file,
-                            "--ref_exon_bed", os.path.join(self.ctat_mutation_lib_path, "ref_exons.bed"),
-                            "--output_vcf", splice_dist_annot_vcf ])
+                            "--ctat_mutation_lib_dir", self.ctat_mutation_lib_path,
+                            "--output_vcf", splice_dist_annot_vcf,
+                            "--tmpdir", self.tmp_dir])
 
         lcmd_commands.append(Command(cmdstr, 'annotate_splice_dist.ok'))
                 
