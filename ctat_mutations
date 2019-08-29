@@ -486,11 +486,12 @@ class RnaseqSnp:
                                             "-plots", str_recalibration_plots_pdf])
                 lcmd_gatk_recalibration_commands.append(Command(str_cur_command,'analyze_covariate.ok'))
         
-        return (lcmd_gatk_recalibration_commands, str_return_bam, str_return_bai)
+        return (lcmd_gatk_recalibration_commands, str_return_bam, str_return_bai, str_dedupped_bam) # end of RNA_refine_mapping()
     
 
     def Variant_Calling_GATK_HaplotypeCaller(self,
-                                             str_align_bam_file):
+                                             str_bam_for_var_calling,
+                                             str_bam_for_var_annotation):
                 
 
         # Commands which will be returned
@@ -505,7 +506,7 @@ class RnaseqSnp:
         gatk_HaplotypeCaller_core_cmd = " ".join(["java", "-jar", self.gatk_path,
                                                   "HaplotypeCaller",
                                                   "-R", self.genome_fa,
-                                                  "-I", str_align_bam_file,
+                                                  "-I", str_bam_for_var_calling,
                                                   "--recover-dangling-heads","true",
                                                   "--dont-use-soft-clipped-bases",
                                                   "-stand-call-conf", "20.0" ]) # just missing -O output_vcf_file
@@ -528,7 +529,7 @@ class RnaseqSnp:
         ## annotate
         (lcmd_gatk_variants_command, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
                                                                                  str_variants_file,
-                                                                                 str_align_bam_file)
+                                                                                 str_bam_for_var_annotation)
 
         ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
 
@@ -541,7 +542,7 @@ class RnaseqSnp:
             
         (lcmd_gatk_variants_command, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
                                                                                                    str_variants_file,
-                                                                                                   str_align_bam_file)
+                                                                                                   str_bam_for_var_calling)
         
         return (lcmd_gatk_variants_commands, str_variants_file)
 
@@ -655,8 +656,9 @@ class RnaseqSnp:
     
 
     def Variant_Calling_GATK_Mutect2(self,
-                                     str_align_bam_file):
-                                     
+                                     str_bam_file_for_var_calling,
+                                     str_bam_file_for_var_annotation):
+        
         # Commands which will be returned
         lcmd_gatk_variants_commands = []
                    
@@ -680,7 +682,7 @@ class RnaseqSnp:
             str_m2_call = " ".join(["java", "-jar", self.gatk_path,
                                     "Mutect2",
                                     "-R", self.genome_fa,
-                                    "-I", str_align_bam_file,
+                                    "-I", str_bam_file_for_var_calling,
                                     "--dont-use-soft-clipped-bases",
                                     #"-stand-call-conf","20.0",  # removed as option in latest mutect2?
                                     "-A", "ReferenceBases",
@@ -730,7 +732,7 @@ class RnaseqSnp:
 
             str_variants_file = os.path.join(self.tmp_dir, "Mutect2.BestPractices.raw_variants.vcf")
 
-            mutect2_call_cmdlist, f1r2_tar_gz_list = self.generate_Mutect2_best_practice_cmds(str_align_bam_file=str_align_bam_file,
+            mutect2_call_cmdlist, f1r2_tar_gz_list = self.generate_Mutect2_best_practice_cmds(str_align_bam_file=str_bam_file_for_var_calling,
                                                                                               str_variants_file=str_variants_file)
             lcmd_gatk_variants_commands.extend(mutect2_call_cmdlist)
 
@@ -758,7 +760,7 @@ class RnaseqSnp:
                 # 1. get pileup summaries
                 pileups_output = os.path.join(self.tmp_dir,"tumor.pileups")
 
-                pileup_cmds_list = self.generate_GetPileupSummaries_cmds(str_align_bam_file=str_align_bam_file,
+                pileup_cmds_list = self.generate_GetPileupSummaries_cmds(str_align_bam_file=str_bam_file_for_var_calling,
                                                                          pileups_output=pileups_output)
                 
                 lcmd_gatk_variants_commands.extend(pileup_cmds_list)
@@ -803,7 +805,7 @@ class RnaseqSnp:
             
 
         ## annotate the vcf file.  This stores a primary output file in the out_dir
-        (lcmd_gatk_variants_commands, annotated_vcf) = self.annotate_variants(lcmd_gatk_variants_commands, str_filtered_variants_file, str_align_bam_file)
+        (lcmd_gatk_variants_commands, annotated_vcf) = self.annotate_variants(lcmd_gatk_variants_commands, str_filtered_variants_file, str_bam_file_for_var_annotation)
 
         # provide primary Mutect2 output with annotations:
         
@@ -871,15 +873,19 @@ class RnaseqSnp:
         bam_target_for_var_calling = str_align_file
         bam_target_for_var_calling_bai = str_bai_file
 
+        bam_target_for_var_annotation = bam_target_for_var_calling # needs NH tags for number of hits.  Turns out split-n-cigar removes NH!
+
         if not self.input_vcf_file:
             ## Refine mapping using PICARD unless a vcf file is already provided.
 
             (refine_mapping_cmd,
              bam_target_for_var_calling,
-             bam_target_for_var_calling_bai) = self.RNA_refine_mapping(str_align_file = str_align_file)
+             bam_target_for_var_calling_bai,
+             duplicate_marked_bam) = self.RNA_refine_mapping(str_align_file = str_align_file)
 
             lcmd_commands.extend(refine_mapping_cmd)
 
+            bam_target_for_var_annotation = duplicate_marked_bam
 
         ######################################################################
         ## Variant Calling, Annotation, and Initial Annotation-free Filtering
@@ -893,8 +899,8 @@ class RnaseqSnp:
             lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
             
             # must add variant annotations:
-            (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_calling)
-
+            (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_annotation)
+            
             # store annotated vcf as primary output:
             variants_wAnnot_vcf = os.path.join(self.out_dir, os.path.basename(self.input_vcf_file) + ".wAnnot.vcf.gz")
             lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
@@ -908,13 +914,15 @@ class RnaseqSnp:
 
             if args_parsed.str_gatk_variant_call_method == STR_GATK_HC:
 
-                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_HaplotypeCaller(str_align_bam_file = bam_target_for_var_calling)
-
+                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_HaplotypeCaller(str_bam_for_var_calling = bam_target_for_var_calling,
+                                                                                                     str_bam_for_var_annotation = bam_target_for_var_annotation)
+                
 
             elif args_parsed.str_gatk_variant_call_method == STR_GATK_MUTECT2:
-
-                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_Mutect2(str_align_bam_file = bam_target_for_var_calling)
-
+                
+                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_Mutect2(str_bam_for_var_calling = bam_target_for_var_calling,
+                                                                                             str_bam_for_var_annotation = bam_target_for_var_annotation)
+                
 
             else:
                 raise RuntimeError("Error, not recognizing variant calling method: {}".format(args_call.str_gatk_variant_call_method))
