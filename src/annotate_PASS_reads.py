@@ -30,7 +30,9 @@ def processVCFHead(line, outfile):
         VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
         TPR : Total Passed Reads , reads that PASS filtering 
         TDM : Total Duplicate Marked, number of reads that are duplicate marked
+        VAF: Variant allele fraction 
     '''
+    
     if line[0] == "#":
         if re.match("#CHROM\t", line):
             # add header info line for the repeat annotation type
@@ -39,6 +41,7 @@ def processVCFHead(line, outfile):
             outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
             outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
             outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
+            outfile.write("##INFO=<ID=VAF,Number=1,Type=Float,Description=\"Variant allele fraction (VPR / TPR) \">\n")
 
         outfile.write(line)
 
@@ -80,7 +83,7 @@ def evaluate_PASS_reads(i, bamFile):
 
     vals = i.split("\t")
 
-    sys.stderr.write("[{}]\n".format(vals[0] + "::" + vals[1]))
+    #sys.stderr.write("[{}]\n".format(vals[0] + "::" + vals[1]))
 
     #--------------
     # Constants 
@@ -195,7 +198,8 @@ def evaluate_PASS_reads(i, bamFile):
     line[7] += ";VPR={}".format(newmismatch)
     line[7] += ";TPR={}".format(newcov)
     line[7] += ";TDM={}".format(duplicateMarked)
-
+    line[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
+    
     # variant frequency if needed 
     # varfreq = (newmismatch/newcov)
 
