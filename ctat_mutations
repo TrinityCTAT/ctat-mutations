@@ -356,9 +356,8 @@ class RnaseqSnp:
                                                              "BAM", "SortedByCoordinate",
                                                              "--twopassMode", "Basic",
                                                              "--limitBAMsortRAM", "30000000000",
-                                                             " --outSAMmapqUnique","60",
-                                                             "--outFileNamePrefix",
-                                                             self.tmp_dir + os.sep])
+                                                             "--outSAMmapqUnique","60",
+                                                             "--outFileNamePrefix", self.tmp_dir + os.sep])
 
         lcmd_commands.append(Command(str_star_align, "star_alignment.ok"))
 
