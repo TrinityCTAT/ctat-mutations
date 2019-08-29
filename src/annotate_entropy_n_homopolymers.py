@@ -27,7 +27,7 @@ def contains_homopolymer(side_window_size, window_seq, ref_base_nuc, edit_base_n
     edit_base_nuc = edit_base_nuc.upper()
     
     # iterate of the sequence 
-    #   check if the 4 consecutive nucleotides are the edited nucleotide 
+    #   check if the side_window_size consecutive nucleotides are the edited nucleotide 
     #   if true will set th variable homopolymer to TRUE
     for k in range(len(window_seq)-side_window_size):
 
