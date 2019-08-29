@@ -242,6 +242,12 @@ class RnaseqSnp:
         with open(properties,"r") as pr:
             self.property_dict=json.load(pr)
 
+        # If running in CNN mode, check to see if gatk enviornment is being used 
+        if args_parsed.HaplotypeCaller_CNN:
+            check_env_path = os.environ["CONDA_PREFIX"]
+            check_path_base = os.path.basename(check_env_path)
+            if check_path_base != 'gatk':
+                exit("Error: If Running in CNN mode, make sure to have the conda virtual enviornment \'gatk\' set before running.")
 
 
         ###############################################
