@@ -153,8 +153,7 @@ def main():
             vals = line.split("\t")
             chrpostoken = vals[0]
             window_seq = vals[1]
-            
-            (chrom, position, ref_base_nuc, edit_base_nuc) = chrpostoken.split(":")
+            (chrom, position, edit_base_nuc) = chrpostoken.split(":")[0:3]
             
             chrpos = "{}:{}".format(chrom, position)
             
