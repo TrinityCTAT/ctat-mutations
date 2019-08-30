@@ -30,7 +30,9 @@ def processVCFHead(line, outfile):
         VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
         TPR : Total Passed Reads , reads that PASS filtering 
         TDM : Total Duplicate Marked, number of reads that are duplicate marked
-        VAF: Variant allele fraction 
+        VAF: Variant allele fraction
+        TMMR: Number of multi-mapped reads
+        MMF: multi-mapped read fraction of TPR
     '''
     
     if line[0] == "#":
@@ -42,6 +44,8 @@ def processVCFHead(line, outfile):
             outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
             outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
             outfile.write("##INFO=<ID=VAF,Number=1,Type=Float,Description=\"Variant allele fraction (VPR / TPR) \">\n")
+            outfile.write("##INFO=<ID=TMMR,Number=1,Type=Integer,Description=\"Total multi-mapped reads at site\">\n")
+            outfile.write("##INFO=<ID=MMF,Number=1,Type=Float,Description=\"Multi-mapped read fraction (TMMR / TPR) \">\n")
 
         outfile.write(line)
 
@@ -97,14 +101,18 @@ def evaluate_PASS_reads(i, bamFile):
     mismatchreadcount = 0
     newcov, newmismatch = 0, 0 
     basequalFail, readPosFail = 0, 0
+    duplicateMarked = 0
+    multimappedReadCount = 0
     output =""
     output_failed =""
     
     # process the input line 
-    line = i.split("\t")
-    editnuc = line[4]
-    chrom, position = line[0], line[1]
+    lstr_vcfline = i.split("\t")
+    editnuc = lstr_vcfline[4]
+    chrom, position = lstr_vcfline[0], lstr_vcfline[1]
     bamposition = chrom + ':' + position + '-' + position
+
+    lstr_outvcfline = lstr_vcfline
 
     #------------------
     # Run Samtools view
@@ -112,20 +120,20 @@ def evaluate_PASS_reads(i, bamFile):
     # Run Samtools view on the BAM file with the given location
 
     cmd = "samtools view {} {}".format(bamFile, bamposition)
-    sam_output = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8', shell=True).communicate()
-    # separate the Samtools view output by lines (rstrip to remove last \n)
-    sam_output = sam_output[0].rstrip().split("\n")
+    sam_output = subprocess.check_output(cmd, shell=True, encoding='utf8')
     
-    duplicateMarked = 0
-    for j in sam_output:
+    # separate the Samtools view output by lines (rstrip to remove last \n)
+    sam_output = sam_output.rstrip().split("\n")
 
-        if not re.match("\w", j):
+    for line in sam_output:
+
+        if not re.match("\w", line):
             continue # sometimes get a blank line for some reason
 
-        bamfields = j.split("\t")
+        bamfields = line.split("\t")
         
         if len(bamfields) < 11:
-            print("-warning: line[{}] has insufficient fields... skipping".format(j), file=sys.stderr)
+            print("-warning: line[{}] has insufficient fields... skipping".format(line), file=sys.stderr)
             continue
         
         # separate the output
@@ -179,12 +187,24 @@ def evaluate_PASS_reads(i, bamFile):
             # If the base position is within the 6 base pairs of either side of the sequence -> Pass
             if (int(base_readpos) > 6) and (base_readpos < read_end_pos - 5):
                 # If quality score is greater than or equal to the cutoff  --> PASS
+
                 if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
+                    ## counting as a PASS read, contributes to total coverage (newcov)
+
                     newcov += 1
-                    # check if the base is the edited nucleotide 
+
+                    ## see if it's a multi-mapped read  NH:i:(x)  where (x) > 1
+                    m = re.search("\tNH:i:(\d+)", line)
+                    if m:
+                        num_mappings = int(m.group(1))
+                        if num_mappings > 1:
+                            multimappedReadCount += 1
+                    
+                    # check if the read base is the variant
                     if (sequencebases[base_readpos-1] == editnuc):
                         newmismatch+=1
                 else:
+                    ## Not a PASS read
                     basequalFail=1
             else:
                 readPosFail=1
@@ -195,10 +215,12 @@ def evaluate_PASS_reads(i, bamFile):
     # VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
     # TPR : Total Passed Reads , reads that PASS filtering 
     # TDM : Total Duplicate Marked, number of reads that are duplicate marked
-    line[7] += ";VPR={}".format(newmismatch)
-    line[7] += ";TPR={}".format(newcov)
-    line[7] += ";TDM={}".format(duplicateMarked)
-    line[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
+    lstr_outvcfline[7] += ";VPR={}".format(newmismatch)
+    lstr_outvcfline[7] += ";TPR={}".format(newcov)
+    lstr_outvcfline[7] += ";TDM={}".format(duplicateMarked)
+    lstr_outvcfline[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
+    lstr_outvcfline[7] += ";TMMR={}".format(multimappedReadCount)
+    lstr_outvcfline[7] += ";MMF={:0.3f}".format(multimappedReadCount/newcov if newcov > 0 else 0)
     
     # variant frequency if needed 
     # varfreq = (newmismatch/newcov)
@@ -206,7 +228,7 @@ def evaluate_PASS_reads(i, bamFile):
     # newcov        : total number of PASS reads 
     # newmismatch   : number of PASS's that support the variant 
     # duplicateMarked : number of duplicate-marked reads 
-    new_line = "\t".join(line)
+    new_line = "\t".join(lstr_outvcfline)
 
     return(new_line)
 
@@ -273,7 +295,7 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
 
     vcf_lines = infile.readlines()
 
-    results = [pool.apply(evaluate_PASS_reads, args=(line, bamFile)) for line in vcf_lines if line[0][0] != "#"]
+    results = [pool.apply(evaluate_PASS_reads, args=(vcfline, bamFile)) for vcfline in vcf_lines if vcfline[0] != "#"]
     
     # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
     if variant_count != len(results):
