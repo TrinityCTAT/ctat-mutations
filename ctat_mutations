@@ -242,6 +242,12 @@ class RnaseqSnp:
         with open(properties,"r") as pr:
             self.property_dict=json.load(pr)
 
+        # If running in CNN mode, check to see if gatk enviornment is being used 
+        if args_parsed.HaplotypeCaller_CNN:
+            check_env_path = os.environ["CONDA_PREFIX"]
+            check_path_base = os.path.basename(check_env_path)
+            if check_path_base != 'gatk':
+                exit("Error: If Running in CNN mode, make sure to have the conda virtual enviornment \'gatk\' set before running.")
 
 
         ###############################################
@@ -1650,27 +1656,21 @@ class RnaseqSnp:
 
 
     def generate_GetPileupSummaries_cmds(self,
-                                         args_call,
-                                         genome_fa,
                                          str_align_bam_file,
-                                         str_germline_resource,
-                                         pileups_output,
-                                         str_project_dir,
-                                         str_tmp_dir,
-                                         gatk_path
+                                         pileups_output
                                          ):
 
-        num_threads = args_call.i_number_threads
+        num_threads = self.args.i_number_threads
 
         cmds_list = list()
         f1r2_tar_gz_list = list()
 
-        pileup_core_params = ["java", "-jar", gatk_path,
+        pileup_core_params = ["java", "-jar", self.gatk_path,
                               "GetPileupSummaries",
-                              "-R", genome_fa,
+                              "-R", self.genome_fa,
                               "-I", str_align_bam_file,
-                              "-V", str_germline_resource,
-                              "-L", str_germline_resource,
+                              "-V", self.germline_resource,
+                              "-L", self.germline_resource,
                               ]
         
         if num_threads == 1:
@@ -1684,14 +1684,14 @@ class RnaseqSnp:
         else:
             # run each chr separately w/ throughput according to num_threads
 
-            chromosome_interval_file_pairs = self.make_chr_interval_files(genome_fa, str_tmp_dir) # likely duplicating effort here, but its fast enough.
+            chromosome_interval_file_pairs = self.make_chr_interval_files(self.genome_fa, self.tmp_dir) # likely duplicating effort here, but its fast enough.
 
             pileup_cmds = list()
             chromosome_pileups_list = list()
 
             for (chromosome, interval_file) in chromosome_interval_file_pairs:
                 
-                chromosome_pileup_file = os.path.sep.join([str_tmp_dir, "{}.pileups.table".format(chromosome)])
+                chromosome_pileup_file = os.path.sep.join([self.tmp_dir, "{}.pileups.table".format(chromosome)])
                 
                 interval_pileup_cmd = " ".join([ *pileup_core_params, " -L {} -O {}".format(interval_file, chromosome_pileup_file)])
 
@@ -1709,8 +1709,8 @@ class RnaseqSnp:
             
 
             ## now need to merge stuff
-            dict_file = self.func_switch_ext(genome_fa, ".dict")
-            merge_pileups_cmdstr = " ".join(["java -jar {}".format(gatk_path),
+            dict_file = self.func_switch_ext(self.genome_fa, ".dict")
+            merge_pileups_cmdstr = " ".join(["java -jar {}".format(self.gatk_path),
                                              "GatherPileupSummaries",
                                              "--sequence-dictionary {}".format(dict_file),
                                              *["-I {} ".format(pileup_file) for pileup_file in chromosome_pileups_list],
