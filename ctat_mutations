@@ -244,10 +244,12 @@ class RnaseqSnp:
 
         # If running in CNN mode, check to see if gatk enviornment is being used 
         if args_parsed.HaplotypeCaller_CNN:
-            check_env_path = os.environ["CONDA_PREFIX"]
-            check_path_base = os.path.basename(check_env_path)
-            if check_path_base != 'gatk':
+            # If the CONDA_PREFIX is not found in the environment, then end 
+            if not ("CONDA_PREFIX" in os.environ):
                 exit("Error: If Running in CNN mode, make sure to have the conda virtual enviornment \'gatk\' set before running.")
+                # check if the GATK conda environment is being ran, if not end 
+                if not re.search("gatk", os.environ["CONDA_PREFIX"]):
+                    exit("Error: If Running in CNN mode, make sure to have the conda virtual enviornment \'gatk\' set before running.")
 
 
         ###############################################
