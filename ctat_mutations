@@ -928,8 +928,8 @@ class RnaseqSnp:
 
             elif args_parsed.str_gatk_variant_call_method == STR_GATK_MUTECT2:
                 
-                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_Mutect2(str_bam_for_var_calling = bam_target_for_var_calling,
-                                                                                             str_bam_for_var_annotation = bam_target_for_var_annotation)
+                (variant_calling_cmd, variants_vcf_file) = self.Variant_Calling_GATK_Mutect2(str_bam_file_for_var_calling = bam_target_for_var_calling,
+                                                                                             str_bam_file_for_var_annotation = bam_target_for_var_annotation)
                 
 
             else:
