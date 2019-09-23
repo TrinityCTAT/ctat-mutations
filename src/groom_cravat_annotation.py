@@ -102,6 +102,10 @@ if args.str_input_file:
           if len( str_chrom ) == 1:
             str_chrom = "0" + str_chrom
         i_pos = int( lstr_line[ i_pos_index ] )
+
+        # fix MuPIT
+        lstr_line[ i_mupit ] = lstr_line[ i_mupit ].replace('..', 'https://mupit.icm.jhu.edu')
+
         llstr_tab.append( [ str_chrom, i_pos, STR_TAB_DELIMITER.join( [ lstr_line[ i_index ] if i_index > 0 else "NA" for i_index in lstr_header_order ] ) ] )
 
     # Sort by chr and pos
