@@ -26,6 +26,12 @@ parser.add_argument("--genome_lib_dir" ,dest="genome_lib_dir", type=str,
                                         help="genome lib directory - see http://FusionFilter.github.io for details. Uses env var CTAT_GENOME_LIB as default")
 args=parser.parse_args()
 
+
+genome_lib_dir = args.genome_lib_dir
+
+if not genome_lib_dir:
+    sys.exit("Error, genome lib dir not set...  see usage")
+
 csv.field_size_limit(sys.maxsize)
 
 #Check for Picard env
