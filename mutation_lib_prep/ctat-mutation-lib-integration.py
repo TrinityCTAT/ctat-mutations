@@ -74,7 +74,7 @@ else:
 splice_adjacent_bed_file = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed")
 
 if not os.path.exists(splice_adjacent_bed_file + ".gz.tbi"):
-
+    logger.info("extracting splice-adjacent regions")
     cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_splice_adjacent_regions.pl") +
               " " + os.path.join(genome_lib_dir, "ref_annot.gtf") +
               " > {}".format(splice_adjacent_bed_file) )
@@ -92,6 +92,8 @@ refGene_sorted_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.sort.bed"
 
 if not os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
 
+    logger.info("prepping gene regions bed")
+    
     refGene_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.bed")
 
     cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_bed.pl") +
