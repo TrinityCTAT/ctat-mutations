@@ -19,11 +19,12 @@ FORMAT = "%(asctime)-15s: %(message)s"
 logger = logging.getLogger()
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
+UTILDIR = os.path.dirname(__file__)
+
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--genome_lib_dir" ,dest="genome_lib_dir", type=str,
-                                        default=os.environ.get('CTAT_GENOME_LIB'),
-                                        help="genome lib directory - see http://FusionFilter.github.io for details. Uses env var CTAT_GENOME_LIB as default")
+parser.add_argument("--genome_lib_dir", dest="genome_lib_dir", type=str, required=True,
+                    help="CTAT genome lib build dir")
 args=parser.parse_args()
 
 
@@ -39,6 +40,12 @@ picard_path=os.environ.get("PICARD_HOME")
 
 if not picard_path:
     sys.exit("Set $PICARD_HOME to your picard software")
+
+
+
+ctat_mutation_lib_dir = os.path.join(genome_lib_dir, "ctat_mutation_lib")
+if not os.path.exists(ctat_mutation_lib_dir):
+    sys.exit("Error, please be sure to unpack the ctat_mutation_lib.tar.gz in the ctat genome lib dir first")
 
 
 #Generating ref_genome.dict in ctat_genome_lib
@@ -60,6 +67,48 @@ if os.path.exists(ref_dict):
 else:
     raise RuntimeError("Error, ref dict could not be generated with picard")
 
+
+
+# Generate splice adjacent targets
+
+splice_adjacent_bed_file = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed")
+
+if not os.path.exists(splice_adjacent_bed_file + ".gz.tbi"):
+
+    cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_splice_adjacent_regions.pl") +
+              " " + os.path.join(genome_lib_dir, "ref_annot.gtf") +
+              " > {}".format(splice_adjacent_bed_file) )
+    subprocess.check_call(cmd, shell=True)
+
+    cmd = "bgzip {}".format(splice_adjacent_bed_file)
+    subprocess.check_call(cmd, shell=True)
+
+    cmd = "tabix -p bed {}.gz".format(splice_adjacent_bed_file)
+    subprocess.check_call(cmd, shell=True)
+
+
+
+refGene_sorted_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.sort.bed")
+
+if not os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
+
+    refGene_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.bed")
+
+    cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_bed.pl") +
+              " " + os.path.join(genome_lib_dir, "ref_annot.gtf") +
+              " > {}".format(refGene_bed_file) )
+    subprocess.check_call(cmd, shell=True)
+
+    cmd = "sort -k 1,1 -k2,2g -k3,3g < {} > {}".format(refGene_bed_file, refGene_sorted_bed_file)
+    subprocess.check_call(cmd, shell=True)
+
+    cmd = "bgzip {}".format(refGene_sorted_bed_file)
+    subprocess.check_call(cmd, shell=True)
+
+    cmd = "tabix -p bed {}.gz".format(refGene_sorted_bed_file)
+    subprocess.check_call(cmd, shell=True)
+
+    
 
 logger.info("Done prepping ctat mutation lib.")
 
