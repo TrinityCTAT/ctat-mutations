@@ -3,18 +3,24 @@ FROM ubuntu:18.04
 
 MAINTAINER bhaas@broadinstitute.org
 
-RUN apt-get update && apt-get install -y gcc g++ perl python automake make git \
-                                       wget git curl libdb-dev \
-                                       zlib1g-dev bzip2 libncurses5-dev \
-                                       texlive-latex-base \
-                                       default-jre \
-                                       python-pip python-dev \
-                                       gfortran \
-                                       build-essential libghc-zlib-dev libncurses-dev libbz2-dev liblzma-dev libpcre3-dev libxml2-dev \
-                                       libblas-dev gfortran git unzip ftp libzmq3-dev nano ftp fort77 libreadline-dev \
-                                       libcurl4-openssl-dev libx11-dev libxt-dev \
-                                       x11-common libcairo2-dev libpng-dev libreadline-dev libjpeg-dev pkg-config libtbb-dev \
-                   && apt-get clean
+
+RUN apt-get update && apt-get install -y gcc g++ perl python3 automake make \
+                                       wget curl libdb-dev \
+                                       bzip2 zlibc zlib1g zlib1g-dev  default-jre \
+                       python3-setuptools python3-dev build-essential python3-distutils \
+                                       unzip libbz2-dev  liblzma-dev && \
+    apt-get clean
+
+
+# make python3 be the default python
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+  python get-pip.py
+
+
+
+RUN pip install igv-reports requests 
 
 
 
@@ -53,29 +59,11 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
                
 
 
-
-## NCIP CTAT mutations
-
-WORKDIR $SRC
-
-ENV CTAT_MUTATIONS_COMMIT 881ace2aa8dacdacf0bbe3f3cd48722c686edf06
-
-RUN git clone https://github.com/NCIP/ctat-mutations.git && \
-    cd ctat-mutations && \
-    git checkout ${CTAT_MUTATIONS_COMMIT}
-
-
 ## BCFtools
 WORKDIR $SRC
 RUN wget https://github.com/samtools/bcftools/releases/download/1.9/bcftools-1.9.tar.bz2 && \
     tar xvf bcftools-1.9.tar.bz2 && \
     cd bcftools-1.9 && ./configure && make && make install
-
-
-## remaining python config for IGV-reports and web-cravat
-
-RUN pip install igv-reports
-
 
 
 
@@ -89,7 +77,26 @@ RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" 
             mv $SRC/STAR-${STAR_VERSION}/bin/Linux_x86_64_static/STAR /usr/local/bin
 
 
+## Bedtools
+RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools-2.28.0.tar.gz && \
+   tar -zxvf bedtools-2.28.0.tar.gz && \
+   cd bedtools2 && \
+   make && \
+   cp bin/* $BIN/
 
+
+
+## NCIP CTAT mutations
+
+WORKDIR $SRC
+
+RUN apt-get install -y git && apt-get clean
+
+ENV CTAT_MUTATIONS_COMMIT 958801d46bc0951aca55c4de1a0469a839b0527f
+
+RUN git clone https://github.com/NCIP/ctat-mutations.git && \
+    cd ctat-mutations && \
+    git checkout ${CTAT_MUTATIONS_COMMIT}
 
 
 
