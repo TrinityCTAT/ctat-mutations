@@ -1767,10 +1767,6 @@ def make_menu():
 
 
     # STAR alignment
-    optional.add_argument("--alignment_mode", metavar = "Alignment_mode", dest = "str_alignment_mode",
-                          default = STR_ALIGN_STAR, 
-                          help = "Specifies the alignment and indexing algorithm to use.")
-
     optional.add_argument("--star_memory", metavar = "Star_memory", dest = "str_star_memory_limit",
                           default = None,
                           help = "Memory limit for star index. This should be used to increase memory if needed. Reducing memory consumption should be performed with the STAR Limited mod.")
