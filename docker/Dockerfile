@@ -58,7 +58,7 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
 
 WORKDIR $SRC
 
-ENV CTAT_MUTATIONS_COMMIT b706f01
+ENV CTAT_MUTATIONS_COMMIT 881ace2aa8dacdacf0bbe3f3cd48722c686edf06
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
