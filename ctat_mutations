@@ -26,7 +26,8 @@ import urllib.request
   \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
 """
 
-VERSION = "__BLEEDING_EDGE__"
+#VERSION = "__BLEEDING_EDGE__"
+VERSION = "2.3.0"
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
