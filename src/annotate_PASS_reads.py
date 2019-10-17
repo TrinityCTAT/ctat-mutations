@@ -120,7 +120,7 @@ def evaluate_PASS_reads(i, bamFile):
     # Run Samtools view on the BAM file with the given location
 
     cmd = "samtools view {} {}".format(bamFile, bamposition)
-    sam_output = subprocess.check_output(cmd, shell=True, encoding='utf8')
+    sam_output = subprocess.check_output(cmd, shell=True).decode()
     
     # separate the Samtools view output by lines (rstrip to remove last \n)
     sam_output = sam_output.rstrip().split("\n")
