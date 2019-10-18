@@ -41,10 +41,10 @@ def main():
 
     ## identify repeat feature overlaps:
     rpt_intersect_file = "{}.rpt_intersect".format(output_vcf_file)
-    cmd = "bedtools intersect -wb -a {} -b {} | cut -f1,2,14 > {}".format(input_vcf_file,
-                                                                          repeats_bed_file,
-                                                                          rpt_intersect_file)
-
+    cmd = "bash -c \"set -eou pipefail; bedtools intersect -wb -a {} -b {} | cut -f1,2,14 > {}\"".format(input_vcf_file,
+                                                                                                         repeats_bed_file,
+                                                                                                         rpt_intersect_file)
+    
     logger.info("CMD: {}".format(cmd))
     subprocess.check_call(cmd, shell=True)
 
