@@ -46,8 +46,11 @@ def processVCFHead(line, outfile):
             outfile.write("##INFO=<ID=VAF,Number=1,Type=Float,Description=\"Variant allele fraction (VPR / TPR) \">\n")
             outfile.write("##INFO=<ID=TMMR,Number=1,Type=Integer,Description=\"Total multi-mapped reads at site\">\n")
             outfile.write("##INFO=<ID=MMF,Number=1,Type=Float,Description=\"Multi-mapped read fraction (TMMR / TPR) \">\n")
+            outfile.write("##INFO=<ID=VMMR,Number=1,Type=Float,Description=\"Total variant-supporting multi-mapped reads \">\n")
+            outfile.write("##INFO=<ID=VMMF,Number=1,Type=Float,Description=\"Variant-supporting multi-mapped read fraction (VMMR / VPR) \">\n")
+            
+        outfile.write(line) #writes the CHROM line
 
-        outfile.write(line)
 
 def check_reverse_strand(sam_flag):
     #----------------------------------------------------
@@ -103,6 +106,7 @@ def evaluate_PASS_reads(i, bamFile):
     basequalFail, readPosFail = 0, 0
     duplicateMarked = 0
     multimappedReadCount = 0
+    variantMultimappedReadCount = 0
     output =""
     output_failed =""
     
@@ -195,14 +199,18 @@ def evaluate_PASS_reads(i, bamFile):
 
                     ## see if it's a multi-mapped read  NH:i:(x)  where (x) > 1
                     m = re.search("\tNH:i:(\d+)", line)
+                    is_multimapped_read = False
                     if m:
                         num_mappings = int(m.group(1))
                         if num_mappings > 1:
                             multimappedReadCount += 1
-                    
+                            is_multimapped_read = True
+                            
                     # check if the read base is the variant
                     if (sequencebases[base_readpos-1] == editnuc):
                         newmismatch+=1
+                        if is_multimapped_read:
+                            variantMultimappedReadCount += 1
                 else:
                     ## Not a PASS read
                     basequalFail=1
@@ -220,7 +228,10 @@ def evaluate_PASS_reads(i, bamFile):
     lstr_outvcfline[7] += ";TDM={}".format(duplicateMarked)
     lstr_outvcfline[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
     lstr_outvcfline[7] += ";TMMR={}".format(multimappedReadCount)
+    lstr_outvcfline[7] += ";VMMR={}".format(variantMultimappedReadCount)
+    
     lstr_outvcfline[7] += ";MMF={:0.3f}".format(multimappedReadCount/newcov if newcov > 0 else 0)
+    lstr_outvcfline[7] += ";VMMF={:0.3f}".format(variantMultimappedReadCount/newmismatch if newmismatch > 0 and variantMultimappedReadCount > 0 else 0)
     
     # variant frequency if needed 
     # varfreq = (newmismatch/newcov)
