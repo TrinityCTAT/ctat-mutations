@@ -11,6 +11,7 @@ import logging
 import subprocess
 import multiprocessing as mp
 import gzip
+import time
 
 logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
 
@@ -241,6 +242,7 @@ def evaluate_PASS_reads(i, bamFile):
     # duplicateMarked : number of duplicate-marked reads 
     new_line = "\t".join(lstr_outvcfline)
 
+    
     return(new_line)
 
 
@@ -296,18 +298,55 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # now need to reopen the VCF file 
     infile = open_file_for_reading(vcf)
     
-    # set up the parallelization 
-    # pool = mp.Pool(mp.cpu_count())
-
-    pool = mp.Pool(cpu)
-
     # Now process each variant in the VCF and print the variants that pass to the output VCF product 
     # results = [step3_processing(i, bamFile) for i in infile.readlines() if i[0][0] != "#"]
 
     vcf_lines = infile.readlines()
 
-    results = [pool.apply(evaluate_PASS_reads, args=(vcfline, bamFile)) for vcfline in vcf_lines if vcfline[0] != "#"]
+
+    def progress_bar(progress_percent):
+        #-------------------------
+        # Create the Progress bar 
+        #-------------------------
+        # Create progress bar to monitor the progress of the multiprocessing 
+        ## Remove the line from before 
+        sys.stdout.write("\r")
+        sys.stdout.flush()
+        ## print the progress bar and percent 
+        if progress_percent == 100:
+            sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%\n"))
+        else:
+            sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%"))
+
+
+    # list to hold the outputs for the multiprocessing process 
+    results = []
+    def logging_return(line):
+        results.append(line)
+
+
+    # set up the parallelization 
+    pool = mp.Pool(cpu)
+    # results = [ pool.apply_async(evaluate_PASS_reads, args=(vcfline, bamFile), callback = logging_return) for vcfline in vcf_lines if vcfline[0] != "#"]
+    for vcfline in vcf_lines: 
+        if vcfline[0] != "#":
+            pool.apply_async(evaluate_PASS_reads, args=(vcfline, bamFile),callback = logging_return)
+    pool.close()
+
+    while len(results) != variant_count:
+        # check if done with the processing, if so break 
+        if len(results) == variant_count: 
+            break
+        # get the total progress made as a percentage
+        progress_percent = int(len(results)/variant_count * 100)
+        # Print the progress percentage to the terminal
+        progress_bar(progress_percent)
     
+        time.sleep(2)
+    # make sure to finish the progress bar with 100%
+    progress_bar(100)
+#-------------
+
     # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
     if variant_count != len(results):
         "The output VCF has a different number of variants than the input VCF"
@@ -323,15 +362,16 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
             chr_val = chr_val.replace("chr", "chr0") # ensure chr08 comes before chr12, etc.
         
         return(chr_val, pos_val)
-
     # sort it
+    
     results = sorted(results, key=chr_pos_retriever)
+    
 
     # output results
     for i in results:
         outfile.write(i)
 
-    pool.close()
+    # pool.close()
     
     infile.close()
     outfile.close()
