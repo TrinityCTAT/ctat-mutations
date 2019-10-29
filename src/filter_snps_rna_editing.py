@@ -91,15 +91,15 @@ if args.str_rediportal_db:
       inrna = lstr_line[I_INRNA_REDIPORTAL]
 
 
-      if lstr_line[I_STRAND_REDIPORTAL] == "+":
+      if lstr_line[I_STRAND_REDIPORTAL] == "+" or lstr_line[I_STRAND_REDIPORTAL] == "-":
         str_rpos = lstr_line[I_CHR_REDIPORTAL].lower()+"-"+lstr_line[I_POS_REDIPORTAL]
         dict_rediportal[str_rpos] = [dict_seq_interp[inchr],
                                  dict_seq_interp[inrna]]
 
-      elif lstr_line[I_STRAND_REDIPORTAL] == "-":
-        str_rneg = lstr_line[I_CHR_REDIPORTAL].lower()+"-"+lstr_line[I_POS_REDIPORTAL]
-        dict_rediportal[str_rneg] = [dict_seq_comp[dict_seq_interp[inchr]],
-                                 dict_seq_comp[dict_seq_interp[inrna]]]
+      # elif lstr_line[I_STRAND_REDIPORTAL] == "-":
+      #   str_rneg = lstr_line[I_CHR_REDIPORTAL].lower()+"-"+lstr_line[I_POS_REDIPORTAL]
+      #   dict_rediportal[str_rneg] = [dict_seq_comp[dict_seq_interp[inchr]],
+      #                            dict_seq_comp[dict_seq_interp[inrna]]]
 
 
 # Stores the vcf info
