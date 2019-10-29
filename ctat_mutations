@@ -1059,12 +1059,13 @@ class RnaseqSnp:
         
 
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_PASS_reads.py"),
-                                         "--vcf", str_target_vcf_file,
-                                         "--bam", str_align_bam_file,
-                                         "--output_vcf", pass_read_annotated_vcf_file])
+                            "--vcf", str_target_vcf_file,
+                            "--bam", str_align_bam_file,
+                            "--output_vcf", pass_read_annotated_vcf_file,
+                            "--threads {}".format(self.args.i_number_threads) ])
 
         lcmd_commands.append(Command(cmdstr,'annot_PASSreads.ok'))
-
+        
         lcmd_commands = self.tabix_if_needed(lcmd_commands, pass_read_annotated_vcf_file)
 
         return (lcmd_commands, "{}.gz".format(pass_read_annotated_vcf_file) )
