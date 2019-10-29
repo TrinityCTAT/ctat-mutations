@@ -1379,7 +1379,7 @@ class RnaseqSnp:
         
         # Filter based on Predictions
         str_pred_filtered_vcf = os.path.join(self.tmp_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
-        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_predictions.py"]),
+        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_prediction_report.py"]),
                                                str_variants_vcf_file,
                                                str_pred_filtered_vcf])
         lcmd_commands.append(Command(str_cmd_filter_predictions,'extract_cancer_predictions.ok'))
