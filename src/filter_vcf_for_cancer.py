@@ -90,7 +90,7 @@ with open(args.str_output_file, "w") as hndl_out:
 
         ## 
         # FATHMM=PATHOGENIC
-        if STR_FATHMM in dict_info_tokens and dict_info_tokens[STR_FATHMM] in ("PATHOGENIC"):
+        if STR_FATHMM in dict_info_tokens and dict_info_tokens[STR_FATHMM] in ("PATHOGENIC","CANCER"):
             # Store passing variant
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
             pass_counter += 1
