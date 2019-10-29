@@ -24,6 +24,7 @@ import urllib.request
  | |       | | / /\ \ | |    |______| | |\/| | |  | |  | | / /\ \ | |    | || |  | | . ` |
  | |____   | |/ ____ \| |             | |  | | |__| |  | |/ ____ \| |   _| || |__| | |\  |
   \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
+
 """
 
 VERSION = "__BLEEDING_EDGE__"
@@ -1028,8 +1029,7 @@ class RnaseqSnp:
         # Annotate combined sample vcf files
         # bcftools annotate --annotations str_dbsnp_vcf -c
         # PM variant is clinicall precious (clinical and pubmed cited)
-        # NSF, NSM, NSN, COMMON, SAO, KGPROD, KGVALIDATED, MUT, WTD, VLD, RS, PMC
-
+        
         str_dbsnp_annotated_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_dbsnp.vcf.gz")))
         
         str_annotate_command = "".join(["bcftools", " annotate",
@@ -1037,11 +1037,10 @@ class RnaseqSnp:
                                         " --annotations ",
                                         self.dbsnp_vcf_file,
                                         " --columns ",
-                                        "INFO/COMMON,INFO/PM,INFO/NSF,",
-                                        "INFO/NSM,INFO/NSN,INFO/SAO,",
-                                        "INFO/KGPROD,INFO/KGValidated,",
-                                        "INFO/MUT,INFO/WTD,INFO/VLD,",
-                                        "INFO/RS,INFO/PMC", " --output ",
+                                        "INFO/OM,",
+                                        "INFO/PM,",
+                                        "INFO/SAO,",
+                                        "INFO/RS", " --output ",
                                         str_dbsnp_annotated_vcf,
                                         " ", str_target_vcf_file])
         
@@ -1152,6 +1151,9 @@ class RnaseqSnp:
         
         ## SnpEff annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_SnpEff(lcmd_commands, str_target_vcf_file)
+
+        ## dbSNP common variant annotations:
+        (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
         
         ## RNAediting annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
