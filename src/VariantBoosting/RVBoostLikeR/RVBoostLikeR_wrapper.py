@@ -17,7 +17,7 @@ logger = logging.getLogger('ctat_mutations')
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../../PyLib"]))
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../../../PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
 
 RVB_UTILDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "util"])
@@ -34,7 +34,7 @@ def main():
 
 
     parser.add_argument("--attributes", type=str, required=False, help="vcf info attributes to use for scoring purposes",
-                        default="QD,ReadPosRankSum,QD,FS,ED,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT")
+                        default="QD,ReadPosRankSum,FS,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT")
     
 
     parser.add_argument("--score_threshold", type=float, required=False, default=0.05, help="score threshold for filtering rvboost results")
@@ -66,7 +66,7 @@ def main():
     
     # run rvboost-like-R
     boost_scores_file = os.path.join(args.output_dir, "RVB_like_R.var_scores")
-    cmd = " ".join([ os.path.join(UTILDIR, "RVBoostLike.R"),
+    cmd = " ".join([ os.path.join(RVB_UTILDIR, "RVBoostLike.R"),
                     matrix_file,
                     boost_scores_file,
                     args.attributes ])
@@ -75,9 +75,9 @@ def main():
     
     # incorporate score annotations into vcf file:
     vcf_w_rvb_score_filename = os.path.join(args.output_dir, os.path.splitext(os.path.basename(args.input_vcf))[0] + ".RVBLR.vcf")
-    cmd = " ".join([ os.path.join(UTILDIR, "annotate_RVBoostLikeR_scores_in_vcf.py"),
+    cmd = " ".join([ os.path.join(RVB_UTILDIR, "annotate_RVBoostLikeR_scores_in_vcf.py"),
                      "--input_vcf", args.input_vcf,
-                     "--rvboost_outdir", rvboost_score_dir,
+                     "--scores", boost_scores_file,
                      "--output_vcf", vcf_w_rvb_score_filename ])
     
     pipeliner.add_commands([Command(cmd, "annot_rvb_score.ok")])
@@ -87,7 +87,7 @@ def main():
 
     score_filtered_vcf = os.path.join(args.output_dir, os.path.splitext(os.path.basename(vcf_w_rvb_score_filename))[0] + ".filt_Q{}.vcf".format(args.score_threshold))
     
-    cmd = " ".join([ os.path.join(UTILDIR, "filter_rvboost_by_Qscore.pl"),
+    cmd = " ".join([ os.path.join(RVB_UTILDIR, "filter_rvboost_by_Qscore.pl"),
                      vcf_w_rvb_score_filename,
                      str(args.score_threshold),
                      " > {} ".format(score_filtered_vcf) ])

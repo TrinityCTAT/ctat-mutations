@@ -1,22 +1,22 @@
 #!/usr/bin/env Rscript
 
 ### use these attributes from VCF file to make a model
-attributes = c("QD","ReadPosRankSum", "QD", "FS", "VPR", "VAF", "VMMF", "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT")
+attributes = c("QD","ReadPosRankSum", "FS", "VPR", "VAF", "VMMF", "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT")
 
-stdin = commandArgs(TRUE)
-if(length(stdin) < 2 || length(stdin) > 3) {
+args = commandArgs(TRUE)
+if(length(args) < 2 || length(args) > 3) {
     stop(sprintf("\n\nIncorrect number of arguments. \nUSAGE: RVboost.R input_matrix output_file [attrs=\"%s\"] \n\n", paste(attributes, collapse=",")))
 }
 
 ###arguments
-input_matrix = stdin[1]
-output = stdin[2]
+input_matrix = args[1]
+output = args[2]
 
 
 
 
-if (length(stdin) == 3) {
-    attributes = strsplit(stdin[3], ",")[[1]]
+if (length(args) == 3) {
+    attributes = strsplit(args[3], ",")[[1]]
 }
 message("Using attribute list: ", paste(attributes, collapse=","))
 
@@ -36,7 +36,7 @@ RS = ifelse(is.na(RS), 0, 1)
 
 data = data[,-RS_col]
 
-data = data[, attributes] # restrict to what we want to analyze here.
+data = data[, colnames(data) %in% attributes] # restrict to what we want to analyze here.
 
 ###########################
 ## adjust data where needed.
