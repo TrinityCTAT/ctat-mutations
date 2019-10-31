@@ -20,7 +20,9 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../../PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
 
-UTILDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "util"])
+RVB_UTILDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "util"])
+CTAT_UTILDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../.."])
+
 
 def main():
 
@@ -51,17 +53,29 @@ def main():
     
     ## build pipeline
 
+    # extract feature matrix
+    matrix_file = os.path.join(args.output_dir, "features.matrix")
+
+    cmd = " ".join([ os.path.join(CTAT_UTILDIR, "extract_attribute_annotation_matrix.pl"),
+                    args.input_vcf,
+                    args.attributes,
+                    ">",
+                    matrix_file])
+    pipeliner.add_commands([Command(cmd, "feature_extraction_to_matrix.ok")])
+    
+    
     # run rvboost-like-R
+    boost_scores_file = os.path.join(args.output_dir, "RVB_like_R.var_scores")
     cmd = " ".join([ os.path.join(UTILDIR, "RVBoostLike.R"),
-                     args.input_vcf,
-                     rvboost_score_dir,
-                     args.attributes ])
+                    matrix_file,
+                    boost_scores_file,
+                    args.attributes ])
     
     pipeliner.add_commands([Command(cmd, "rvboost_core.ok")])
     
     # incorporate score annotations into vcf file:
-    vcf_w_rvb_score_filename = os.path.join(args.output_dir, os.path.splitext(os.path.basename(args.input_vcf))[0] + ".RVB.vcf")
-    cmd = " ".join([ os.path.join(UTILDIR, "my.RVboost.add_score_annotations.py"),
+    vcf_w_rvb_score_filename = os.path.join(args.output_dir, os.path.splitext(os.path.basename(args.input_vcf))[0] + ".RVBLR.vcf")
+    cmd = " ".join([ os.path.join(UTILDIR, "annotate_RVBoostLikeR_scores_in_vcf.py"),
                      "--input_vcf", args.input_vcf,
                      "--rvboost_outdir", rvboost_score_dir,
                      "--output_vcf", vcf_w_rvb_score_filename ])

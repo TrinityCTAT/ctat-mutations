@@ -72,7 +72,7 @@ if ("RNAEDIT" %in% attributes) {
     data[,RNAEDIT_col] = 0
     data[! is_NA_rnaedit,RNAEDIT_col] = 1
 
-    
+
     if (sum(data[,RNAEDIT_col]) == 0) {
         message("warning, no RNAEDIT events assigned. Removing column")
         data = data[,-RNAEDIT_col]
@@ -110,4 +110,4 @@ fitted_value_scores = ecdf_func(fitted_values)
 
 result_table = data.frame(variants=rownames(data), RVBfitval=fitted_values, RVBscore=fitted_value_scores)
 
-write.table(result_table, file=output, quote=F, row.names=F)
+write.table(result_table, file=output, quote=F, row.names=F, sep="\t")
