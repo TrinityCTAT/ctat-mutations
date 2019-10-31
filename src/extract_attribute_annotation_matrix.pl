@@ -23,7 +23,7 @@ main: {
 
     my $fh;
     if ($vcf_file =~ /\.gz$/) {
-        open($fh, "gunzip -c $file | ") or die "Error, cannot gunzip file";
+        open($fh, "gunzip -c $vcf_file | ") or die "Error, cannot gunzip file $vcf_file";
     }
     else {
         open($fh, $vcf_file) or die "Error, cannot open file: $vcf_file";
