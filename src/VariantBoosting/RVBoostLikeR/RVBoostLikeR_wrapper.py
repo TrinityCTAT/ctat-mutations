@@ -17,14 +17,14 @@ logger = logging.getLogger('ctat_mutations')
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../pylib"]))
+sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../../PyLib"]))
 from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
 
 UTILDIR = os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "util"])
 
 def main():
 
-    parser = argparse.ArgumentParser(description="wrapper for running rvboost", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description="wrapper for running rvboost-like-R", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument("--input_vcf", type=str, required=True, help="input vcf file")
 
@@ -32,7 +32,7 @@ def main():
 
 
     parser.add_argument("--attributes", type=str, required=False, help="vcf info attributes to use for scoring purposes",
-                        default="DJ,PctExtPos,ReadPosRankSum,QD,FS,ED")
+                        default="QD,ReadPosRankSum,QD,FS,ED,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT")
     
 
     parser.add_argument("--score_threshold", type=float, required=False, default=0.05, help="score threshold for filtering rvboost results")
@@ -51,9 +51,8 @@ def main():
     
     ## build pipeline
 
-    # run rvboost
-    rvboost_score_dir = os.path.join(args.output_dir, "rvboost_dir")
-    cmd = " ".join([ os.path.join(UTILDIR, "my.RVboost.R"),
+    # run rvboost-like-R
+    cmd = " ".join([ os.path.join(UTILDIR, "RVBoostLike.R"),
                      args.input_vcf,
                      rvboost_score_dir,
                      args.attributes ])

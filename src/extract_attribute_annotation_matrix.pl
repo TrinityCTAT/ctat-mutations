@@ -21,7 +21,14 @@ main: {
     # print header for output
     print join("\t", "chrpos", @ATTRIBUTE_LIST) . "\n";
 
-    open(my $fh, $vcf_file) or die $!;
+    my $fh;
+    if ($vcf_file =~ /\.gz$/) {
+        open($fh, "gunzip -c $file | ") or die "Error, cannot gunzip file";
+    }
+    else {
+        open($fh, $vcf_file) or die "Error, cannot open file: $vcf_file";
+    }
+    
     while(<$fh>) {
         if (/^\#/) { next; }
         chomp;
