@@ -70,6 +70,15 @@ use_vcf_GRCh38:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/variants.GRCh38.vcf --out_dir example.use_vcf_GRCh38
 
 
+
+##############################3
+## Variant Boosting
+
+RVBLR_GRCh38:
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method RVBLR --out_dir example.boosting.RVBLR_GRCH38
+
+
+
 ####################
 ## igv_reports test:
 
