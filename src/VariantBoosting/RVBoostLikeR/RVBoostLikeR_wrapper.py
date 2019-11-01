@@ -30,8 +30,7 @@ def main():
     
     parser.add_argument("--input_vcf", type=str, required=True, help="input vcf file")
 
-    parser.add_argument("--output_dir", type=str, required=True, help="output directory name")
-
+    parser.add_argument("--work_dir", type=str, required=True, help="working directory name for intermediates")
 
     parser.add_argument("--attributes", type=str, required=False, help="vcf info attributes to use for scoring purposes",
                         default="QD,ReadPosRankSum,FS,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT")
@@ -39,11 +38,14 @@ def main():
 
     parser.add_argument("--score_threshold", type=float, required=False, default=0.05, help="score threshold for filtering rvboost results")
 
+
+    parser.add_argument("--output_filename", required=True, help="name of output file containing final list of variants")
+    
     args = parser.parse_args()
     
     
     ## prep for run
-    output_dir = args.output_dir
+    output_dir = args.work_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -54,7 +56,7 @@ def main():
     ## build pipeline
 
     # extract feature matrix
-    matrix_file = os.path.join(args.output_dir, "features.matrix")
+    matrix_file = os.path.join(output_dir, "features.matrix")
 
     # ensure we capture the common variant annots
     if "RS" not in args.attributes.split(","):
@@ -70,7 +72,7 @@ def main():
     
     
     # run rvboost-like-R
-    boost_scores_file = os.path.join(args.output_dir, "RVB_like_R.var_scores")
+    boost_scores_file = os.path.join(output_dir, "RVB_like_R.var_scores")
     cmd = " ".join([ os.path.join(RVB_UTILDIR, "RVBoostLike.R"),
                     matrix_file,
                     boost_scores_file,
@@ -79,7 +81,7 @@ def main():
     pipeliner.add_commands([Command(cmd, "rvboost_core.ok")])
     
     # incorporate score annotations into vcf file:
-    vcf_w_rvb_score_filename = os.path.join(args.output_dir, os.path.splitext(os.path.basename(args.input_vcf))[0] + ".RVBLR.vcf")
+    vcf_w_rvb_score_filename = os.path.join(output_dir, os.path.splitext(os.path.basename(args.input_vcf))[0] + ".RVBLR.vcf")
     cmd = " ".join([ os.path.join(RVB_UTILDIR, "annotate_RVBoostLikeR_scores_in_vcf.py"),
                      "--input_vcf", args.input_vcf,
                      "--scores", boost_scores_file,
@@ -90,7 +92,7 @@ def main():
 
     # apply a filter on the score threshold:
 
-    score_filtered_vcf = os.path.join(args.output_dir, os.path.splitext(os.path.basename(vcf_w_rvb_score_filename))[0] + ".filt_Q{:.3f}.vcf".format(args.score_threshold))
+    score_filtered_vcf = args.output_filename
     
     cmd = " ".join([ os.path.join(RVB_UTILDIR, "filter_by_RVBLRQ.pl"),
                      vcf_w_rvb_score_filename,

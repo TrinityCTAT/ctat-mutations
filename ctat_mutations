@@ -916,7 +916,8 @@ class RnaseqSnp:
             lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
             lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
             
-
+            variants_vcf_file = variants_wAnnot_vcf
+            
         else:
 
             # must run a variant caller:
@@ -941,11 +942,13 @@ class RnaseqSnp:
             lcmd_commands.extend(variant_calling_cmd)
 
 
+
         if self.args.boosting_method != "none":
             (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(variants_vcf_file)
             lcmd_commands.extend(variant_boosting_cmds)
+            lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
         
-
+        
         ########################################
         # Clean up VCF file after variant caller
         ########################################
@@ -956,7 +959,7 @@ class RnaseqSnp:
                                       str_clean_vcf])
         
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
-                
+        
 
 
         ## make the pretty igv.js report html for the cancer variants:
@@ -1761,21 +1764,16 @@ class RnaseqSnp:
 
         cmds_list = list()
 
+        final_variants_vcf_filename = os.path.join(outdir, os.path.basename(variants_vcf_file) + ".RVBLR_min{:.3f}.vcf".format(score_threshold))
+
         cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
                          "--input_vcf", variants_vcf_file,
-                         "--output_dir", boost_workdir,
-                         "--score_threshold {}".format(score_threshold) ])
+                         "--work_dir", boost_workdir,
+                         "--score_threshold {}".format(score_threshold),
+                         "--output_filename {}".format(final_variants_vcf_filename)])
         
-        cmds_list.append(Command(cmd, "rvblr.ok"))
-
-        boosted_filter_vcf_file = os.path.join(boost_workdir, os.path.basename(variants_vcf_file) + ".RVBLR.filt_Q{:.3f}.vcf".format(score_threshold))
-
-
-        final_variants_vcf_filename = os.path.join(outdir, os.path.basename(boosted_filter_vcf_file))
+        cmds_list.append(Command(cmd, "rvblr_min{:.3f}.ok".format(score_threshold)))
         
-        cmd = "cp {} {}".format(boosted_filter_vcf_file, final_variants_vcf_filename)
-
-        cmds_list.append(Command(cmd, "cp_rvblr_final.ok"))
 
         return (cmds_list, final_variants_vcf_filename)
     
