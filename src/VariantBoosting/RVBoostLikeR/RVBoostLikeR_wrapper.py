@@ -56,6 +56,11 @@ def main():
     # extract feature matrix
     matrix_file = os.path.join(args.output_dir, "features.matrix")
 
+    # ensure we capture the common variant annots
+    if "RS" not in args.attributes.split(","):
+        args.attributes += ",RS"
+    
+    
     cmd = " ".join([ os.path.join(CTAT_UTILDIR, "extract_attribute_annotation_matrix.pl"),
                     args.input_vcf,
                     args.attributes,
