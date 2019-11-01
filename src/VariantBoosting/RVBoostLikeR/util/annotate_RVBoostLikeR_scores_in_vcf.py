@@ -67,7 +67,7 @@ def main():
                 
                 if re.match("#CHROM\tPOS", line):
                     print("##INFO=<ID=RVBLR,Number=1,Type=Float,Description=\"RVBLR Boosting Original score\">\n" +
-                          "##INFO=<ID=QScore,Number=1,Type=Float,Description=\"RVLR Boosting algorithm Q-Score according to ecdf of RVBLR on common variants\">",
+                          "##INFO=<ID=RVBLRQ,Number=1,Type=Float,Description=\"RVBLR Boosting algorithm Q-Score according to ecdf of RVBLR on common variants\">",
                           file=ofh)
                 
                 
