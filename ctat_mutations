@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #from __future__ import (absolute_import, division,
@@ -941,7 +941,10 @@ class RnaseqSnp:
             lcmd_commands.extend(variant_calling_cmd)
 
 
-
+        if self.args.boosting_method != "none":
+            (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(variants_vcf_file)
+            lcmd_commands.extend(variant_boosting_cmds)
+        
 
         ########################################
         # Clean up VCF file after variant caller
@@ -1733,6 +1736,49 @@ class RnaseqSnp:
 
     
 
+    def BoostVariants(self, variants_vcf_file):
+
+        boost_method = self.args.boosting_method
+
+        if boost_method == "RVBLR":
+            cmds, variants_vcf_file = self.run_boosting_RVBLR(variants_vcf_file)
+            return (cmds, variants_vcf_file)
+
+        raise RuntimeError("Error, not recognizing boost method: {}".format(boost_method))
+
+
+    def run_boosting_RVBLR(self, variants_vcf_file):
+
+        tmpdir = self.tmp_dir
+        outdir = self.out_dir
+
+        boost_workdir = os.path.join(tmpdir, "RVBLR_workdir")
+        if not os.path.exists(boost_workdir):
+            os.makedirs(boost_workdir)
+
+        score_threshold = self.args.boosting_score_threshold
+
+
+        cmds_list = list()
+
+        cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
+                         "--input_vcf", variants_vcf_file,
+                         "--output_dir", boost_workdir,
+                         "--score_threshold {}".format(score_threshold) ])
+        
+        cmds_list.append(Command(cmd, "rvblr.ok"))
+
+        boosted_filter_vcf_file = os.path.join(boost_workdir, os.path.basename(variants_vcf_file) + ".RVBLR.filt_Q{:.3f}.vcf".format(score_threshold))
+
+
+        final_variants_vcf_filename = os.path.join(outdir, os.path.basename(boosted_filter_vcf_file))
+        
+        cmd = "cp {} {}".format(boosted_filter_vcf_file, final_variants_vcf_filename)
+
+        cmds_list.append(Command(cmd, "cp_rvblr_final.ok"))
+
+        return (cmds_list, final_variants_vcf_filename)
+    
 
 
 def make_menu():
@@ -1835,6 +1881,13 @@ def make_menu():
     optional.add_argument("--Mutect2_include_contamination_estimates", dest="Mutect2_include_contamination_estimates",
                           action='store_true', default=False,
                           help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
+
+
+    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR"],
+                          help="variant calling boosting method")
+
+    optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
+                          help="minimum score threshold for boosted variant selection")
     
 
     ## Email for CRAVAT

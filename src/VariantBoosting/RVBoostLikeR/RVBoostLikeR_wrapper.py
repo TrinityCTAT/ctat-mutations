@@ -90,7 +90,7 @@ def main():
 
     # apply a filter on the score threshold:
 
-    score_filtered_vcf = os.path.join(args.output_dir, os.path.splitext(os.path.basename(vcf_w_rvb_score_filename))[0] + ".filt_Q{}.vcf".format(args.score_threshold))
+    score_filtered_vcf = os.path.join(args.output_dir, os.path.splitext(os.path.basename(vcf_w_rvb_score_filename))[0] + ".filt_Q{:.3f}.vcf".format(args.score_threshold))
     
     cmd = " ".join([ os.path.join(RVB_UTILDIR, "filter_by_RVBLRQ.pl"),
                      vcf_w_rvb_score_filename,
