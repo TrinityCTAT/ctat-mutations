@@ -537,22 +537,29 @@ class RnaseqSnp:
 
         
         ## annotate
-        (lcmd_gatk_variants_command, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
-                                                                                 str_variants_file,
-                                                                                 str_bam_for_var_annotation)
+        (lcmd_gatk_variants_commands, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
+                                                                                  str_variants_file,
+                                                                                  str_bam_for_var_annotation)
 
         ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
 
         variants_init_vcf = os.path.join(self.out_dir, "variants.HC_init.wAnnot.vcf.gz")
-        lcmd_gatk_variants_command.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
-        lcmd_gatk_variants_command = self.tabix_if_needed(lcmd_gatk_variants_command, variants_init_vcf)
+        lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
+        lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, variants_init_vcf)
     
                 
         ## apply filters
+        if self.args.boosting_method != "none":
+            (variant_boosting_cmds, str_variants_file) = self.BoostVariants(variants_init_vcf)
+            lcmd_gatk_variants_commands.extend(variant_boosting_cmds)
+            lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, str_variants_file)
+        
+        else:
             
-        (lcmd_gatk_variants_command, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
-                                                                                                   str_variants_file,
-                                                                                                   str_bam_for_var_calling)
+            ## Hard filtering
+            (lcmd_gatk_variants_commands, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
+                                                                                                        str_variants_file,
+                                                                                                        str_bam_for_var_calling)
         
         return (lcmd_gatk_variants_commands, str_variants_file)
 
@@ -917,6 +924,12 @@ class RnaseqSnp:
             lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
             
             variants_vcf_file = variants_wAnnot_vcf
+
+            if self.args.boosting_method != "none":
+                (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(variants_vcf_file)
+                lcmd_commands.extend(variant_boosting_cmds)
+                lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
+            
             
         else:
 
@@ -943,12 +956,6 @@ class RnaseqSnp:
 
 
 
-        if self.args.boosting_method != "none":
-            (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(variants_vcf_file)
-            lcmd_commands.extend(variant_boosting_cmds)
-            lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
-        
-        
         ########################################
         # Clean up VCF file after variant caller
         ########################################
