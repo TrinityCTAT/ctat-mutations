@@ -34,9 +34,9 @@ RS_col = which(colnames(data) %in% "RS")
 RS = data[, RS_col, drop=T]
 RS = ifelse(is.na(RS), 0, 1)
 
-data = data[,-RS_col]
+data = data[,-RS_col, drop=F]
 
-data = data[, colnames(data) %in% attributes] # restrict to what we want to analyze here.
+data = data[, colnames(data) %in% attributes, drop=F] # restrict to what we want to analyze here.
 
 ###########################
 ## adjust data where needed.
