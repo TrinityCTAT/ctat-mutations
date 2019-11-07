@@ -14,12 +14,12 @@ STR_VCF_DELIMITER = "\t"
 I_INFO_INDEX = 7
 CHR_INFO_DELIMITER = ";"
 STR_COSMIC_ID = "COSMIC_ID"
-STR_COMMON_VARIANT = "COMMON"
+STR_COMMON_VARIANT = "RS"
 STR_DEPTH = "DP"
-STR_ORIGIN = "SAO"
-STR_ORIGIN_GERMLINE = "1"
+#STR_ORIGIN = "SAO"
+#STR_ORIGIN_GERMLINE = "1"
 STR_FATHMM = "FATHMM"
-STR_FATHMM_NEUTRAL = "PASSENGER/OTHER"
+#STR_FATHMM_NEUTRAL = "NEUTRAL"
 STR_RNAEDIT = "RNAEDIT"
 
 
@@ -88,6 +88,15 @@ with open(args.str_output_file, "w") as hndl_out:
             pass_counter += 1
             continue
 
+        ## 
+        # FATHMM=PATHOGENIC
+        if STR_FATHMM in dict_info_tokens and dict_info_tokens[STR_FATHMM] in ("PATHOGENIC","CANCER"):
+            # Store passing variant
+            lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
+            pass_counter += 1
+            continue
+        
+
         #########################
         ## Negative filters below
 
@@ -99,7 +108,7 @@ with open(args.str_output_file, "w") as hndl_out:
 
         ## Filter out common variant that do not have cosmic ids
         if STR_COMMON_VARIANT in dict_info_tokens:
-            if (dict_info_tokens[STR_COMMON_VARIANT] == "1"):
+            if (dict_info_tokens[STR_COMMON_VARIANT]):
                filter_counter['common'] += 1
                filter_flag = True
 
@@ -109,20 +118,16 @@ with open(args.str_output_file, "w") as hndl_out:
                filter_counter['insufficient_depth'] += 1
                filter_flag = True
 
-        """  ##-removing these two filters below to be more liberal on what's submitted to cravat
-        ## Filter out SAO = Germline unless in COSMIC
-        if STR_ORIGIN in dict_info_tokens:
-            if (dict_info_tokens[STR_ORIGIN] == STR_ORIGIN_GERMLINE):
-               filter_counter['germline'] += 1
-               continue
 
-        ## Filter out FATHMM = Neutral or passenger unless in COSMIC
-        if STR_FATHMM in dict_info_tokens:
-            if (dict_info_tokens[STR_FATHMM] == STR_FATHMM_NEUTRAL):
-               i_fathmm = i_fathmm + 1
-               continue
-        """
+        ## No gene match
+        if not dict_info_tokens["GENE"]:
+            filter_counter['no_gene'] += 1
+            filter_flag = True
+        
 
+        ############################
+        ############################
+        
         # Store passing variant
         if not filter_flag:
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))

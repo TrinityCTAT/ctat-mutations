@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #from __future__ import (absolute_import, division,
@@ -24,6 +24,7 @@ import urllib.request
  | |       | | / /\ \ | |    |______| | |\/| | |  | |  | | / /\ \ | |    | || |  | | . ` |
  | |____   | |/ ____ \| |             | |  | | |__| |  | |/ ____ \| |   _| || |__| | |\  |
   \_____|  |_/_/    \_\_|             |_|  |_|\____/   |_/_/    \_\_|  |_____\____/|_| \_|
+
 """
 
 VERSION = "__BLEEDING_EDGE__"
@@ -536,22 +537,29 @@ class RnaseqSnp:
 
         
         ## annotate
-        (lcmd_gatk_variants_command, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
-                                                                                 str_variants_file,
-                                                                                 str_bam_for_var_annotation)
+        (lcmd_gatk_variants_commands, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
+                                                                                  str_variants_file,
+                                                                                  str_bam_for_var_annotation)
 
         ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
 
         variants_init_vcf = os.path.join(self.out_dir, "variants.HC_init.wAnnot.vcf.gz")
-        lcmd_gatk_variants_command.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
-        lcmd_gatk_variants_command = self.tabix_if_needed(lcmd_gatk_variants_command, variants_init_vcf)
+        lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
+        lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, variants_init_vcf)
     
                 
         ## apply filters
+        if self.args.boosting_method != "none":
+            (variant_boosting_cmds, str_variants_file) = self.BoostVariants(variants_init_vcf)
+            lcmd_gatk_variants_commands.extend(variant_boosting_cmds)
+            lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, str_variants_file)
+        
+        else:
             
-        (lcmd_gatk_variants_command, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
-                                                                                                   str_variants_file,
-                                                                                                   str_bam_for_var_calling)
+            ## Hard filtering
+            (lcmd_gatk_variants_commands, str_variants_file) = self.filter_HaplotypeCaller_raw_variants(lcmd_gatk_variants_commands,
+                                                                                                        str_variants_file,
+                                                                                                        str_bam_for_var_calling)
         
         return (lcmd_gatk_variants_commands, str_variants_file)
 
@@ -915,7 +923,14 @@ class RnaseqSnp:
             lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
             lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
             
+            variants_vcf_file = variants_wAnnot_vcf
 
+            if self.args.boosting_method != "none":
+                (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(variants_vcf_file)
+                lcmd_commands.extend(variant_boosting_cmds)
+                lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
+            
+            
         else:
 
             # must run a variant caller:
@@ -941,7 +956,6 @@ class RnaseqSnp:
 
 
 
-
         ########################################
         # Clean up VCF file after variant caller
         ########################################
@@ -952,7 +966,7 @@ class RnaseqSnp:
                                       str_clean_vcf])
         
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
-                
+        
 
 
         ## make the pretty igv.js report html for the cancer variants:
@@ -1028,8 +1042,7 @@ class RnaseqSnp:
         # Annotate combined sample vcf files
         # bcftools annotate --annotations str_dbsnp_vcf -c
         # PM variant is clinicall precious (clinical and pubmed cited)
-        # NSF, NSM, NSN, COMMON, SAO, KGPROD, KGVALIDATED, MUT, WTD, VLD, RS, PMC
-
+        
         str_dbsnp_annotated_vcf = os.path.join(self.tmp_dir, os.path.basename(self.func_switch_ext(str_target_vcf_file, "_dbsnp.vcf.gz")))
         
         str_annotate_command = "".join(["bcftools", " annotate",
@@ -1037,11 +1050,10 @@ class RnaseqSnp:
                                         " --annotations ",
                                         self.dbsnp_vcf_file,
                                         " --columns ",
-                                        "INFO/COMMON,INFO/PM,INFO/NSF,",
-                                        "INFO/NSM,INFO/NSN,INFO/SAO,",
-                                        "INFO/KGPROD,INFO/KGValidated,",
-                                        "INFO/MUT,INFO/WTD,INFO/VLD,",
-                                        "INFO/RS,INFO/PMC", " --output ",
+                                        "INFO/OM,",
+                                        "INFO/PM,",
+                                        "INFO/SAO,",
+                                        "INFO/RS", " --output ",
                                         str_dbsnp_annotated_vcf,
                                         " ", str_target_vcf_file])
         
@@ -1060,12 +1072,13 @@ class RnaseqSnp:
         
 
         cmdstr = " ".join([ os.path.join(SCRIPTDIR, "annotate_PASS_reads.py"),
-                                         "--vcf", str_target_vcf_file,
-                                         "--bam", str_align_bam_file,
-                                         "--output_vcf", pass_read_annotated_vcf_file])
+                            "--vcf", str_target_vcf_file,
+                            "--bam", str_align_bam_file,
+                            "--output_vcf", pass_read_annotated_vcf_file,
+                            "--threads {}".format(self.args.i_number_threads) ])
 
         lcmd_commands.append(Command(cmdstr,'annot_PASSreads.ok'))
-
+        
         lcmd_commands = self.tabix_if_needed(lcmd_commands, pass_read_annotated_vcf_file)
 
         return (lcmd_commands, "{}.gz".format(pass_read_annotated_vcf_file) )
@@ -1152,6 +1165,9 @@ class RnaseqSnp:
         
         ## SnpEff annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_SnpEff(lcmd_commands, str_target_vcf_file)
+
+        ## dbSNP common variant annotations:
+        (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
         
         ## RNAediting annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
@@ -1377,7 +1393,7 @@ class RnaseqSnp:
         
         # Filter based on Predictions
         str_pred_filtered_vcf = os.path.join(self.tmp_dir, "cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
-        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_predictions.py"]),
+        str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_prediction_report.py"]),
                                                str_variants_vcf_file,
                                                str_pred_filtered_vcf])
         lcmd_commands.append(Command(str_cmd_filter_predictions,'extract_cancer_predictions.ok'))
@@ -1730,6 +1746,44 @@ class RnaseqSnp:
 
     
 
+    def BoostVariants(self, variants_vcf_file):
+
+        boost_method = self.args.boosting_method
+
+        if boost_method == "RVBLR":
+            cmds, variants_vcf_file = self.run_boosting_RVBLR(variants_vcf_file)
+            return (cmds, variants_vcf_file)
+
+        raise RuntimeError("Error, not recognizing boost method: {}".format(boost_method))
+
+
+    def run_boosting_RVBLR(self, variants_vcf_file):
+
+        tmpdir = self.tmp_dir
+        outdir = self.out_dir
+
+        boost_workdir = os.path.join(tmpdir, "RVBLR_workdir")
+        if not os.path.exists(boost_workdir):
+            os.makedirs(boost_workdir)
+
+        score_threshold = self.args.boosting_score_threshold
+
+
+        cmds_list = list()
+
+        final_variants_vcf_filename = os.path.join(outdir, os.path.basename(variants_vcf_file) + ".RVBLR_min{:.3f}.vcf".format(score_threshold))
+
+        cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
+                         "--input_vcf", variants_vcf_file,
+                         "--work_dir", boost_workdir,
+                         "--score_threshold {}".format(score_threshold),
+                         "--output_filename {}".format(final_variants_vcf_filename)])
+        
+        cmds_list.append(Command(cmd, "rvblr_min{:.3f}.ok".format(score_threshold)))
+        
+
+        return (cmds_list, final_variants_vcf_filename)
+    
 
 
 def make_menu():
@@ -1832,6 +1886,13 @@ def make_menu():
     optional.add_argument("--Mutect2_include_contamination_estimates", dest="Mutect2_include_contamination_estimates",
                           action='store_true', default=False,
                           help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
+
+
+    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR"],
+                          help="variant calling boosting method")
+
+    optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
+                          help="minimum score threshold for boosted variant selection")
     
 
     ## Email for CRAVAT

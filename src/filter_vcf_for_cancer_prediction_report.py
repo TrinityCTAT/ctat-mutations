@@ -82,25 +82,27 @@ if args.str_input_file:
                                     in lstr_line[I_INFO_INDEX].split(CHR_INFO_DELIMITER)])
             #print dict_info_tokens
 
-            # Keep everything that is a COSMIC ID at this point.
+            
             # Otherwise require CRAVAT or VEST to have an annotation.
-            if STR_CHASM_FDR in dict_info_tokens:
-                if( float(dict_info_tokens.get(STR_CHASM_FDR, "2")) <= I_FDR):
+            if STR_CHASM_FDR in dict_info_tokens and float(dict_info_tokens.get(STR_CHASM_FDR, "2")) <= I_FDR:
                     f_keep = True
-            elif(float(dict_info_tokens.get(STR_CHASM_PVALUE, "2")) <= I_PVALUE):
+                    
+            if STR_CHASM_PVALUE in dict_info_tokens and (float(dict_info_tokens.get(STR_CHASM_PVALUE, "2")) <= I_PVALUE):
                 f_keep = True
-            if STR_VEST_FDR in dict_info_tokens:
-                if( float(dict_info_tokens.get(STR_VEST_FDR, "2")) <= I_FDR):
+                
+            if STR_VEST_FDR in dict_info_tokens and float(dict_info_tokens.get(STR_VEST_FDR, "2")) <= I_FDR:
                     f_keep = True
-            elif(float(dict_info_tokens.get(STR_VEST_PVALUE, "2")) <= I_PVALUE):
+                    
+            if STR_VEST_PVALUE in dict_info_tokens and float(dict_info_tokens.get(STR_VEST_PVALUE, "2")) <= I_PVALUE:
                 f_keep = True
-
+            
             #print dict_info_tokens
 
+            # Keep everything that is a COSMIC ID at this point.
+            
             # Keep FATHMM = Cancer and FATHMM=PATHOGENIC
-            if( STR_COSMIC_ID in dict_info_tokens and
+            if( STR_COSMIC_ID in dict_info_tokens or
                 dict_info_tokens.get(STR_FATHMM, "") in STR_CANCER):
-                #and dict_info_tokens.get(STR_TISSUE, "") == args.tissue_type):
                 f_keep = True
 
             # Store passing variant
@@ -113,3 +115,4 @@ if args.str_input_file:
 
 # Close input handle
 hndl_vcf.close()
+
