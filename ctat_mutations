@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 #from __future__ import (absolute_import, division,
@@ -589,6 +589,7 @@ class RnaseqSnp:
                                            "--filter-name FS",
                                            "-filter \"FS > 30.0\"",
                                            "--filter-name QD","-filter \"QD < 2.0\"",
+                                           "--filter-name SPLICEADJ", "-filter \"SPLICEADJ < 3\"",
                                            "-O", str_hc_filter_output])
             
             cmd_variant_filtration = Command(str_filter_command, 'gatk_HC_hard_cutoffs_variant_filter.ok')
@@ -605,6 +606,10 @@ class RnaseqSnp:
                                             "-O", str_filtered_variants_file])
             cmd_variant_filtration = Command(str_filter_command,'gatk_HC_hard_cutoff.variant_select.ok')
             lcmd_gatk_variants_commands.append(cmd_variant_filtration)
+
+
+            
+
             
             ## Retain a copy of this variants file as a primary output:
             HC_hard_cutoffs_applied_vcf = os.path.join(self.out_dir, "variants.HC_hard_cutoffs_applied.vcf")
@@ -1173,7 +1178,9 @@ class RnaseqSnp:
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
 
         ## PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
-        (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
+        ## slow, so making optional for now:
+        if self.args.include_read_var_pos_annotations:
+            (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
 
         ## RepeatMasker annotations (mobile elements, etc.)
         (lcmd_commands, str_target_vcf_file) = self.annotate_repetitive_elements(lcmd_commands, str_target_vcf_file)
@@ -1773,6 +1780,11 @@ class RnaseqSnp:
 
         final_variants_vcf_filename = os.path.join(outdir, os.path.basename(variants_vcf_file) + ".RVBLR_min{:.3f}.vcf".format(score_threshold))
 
+        boost_attribute_list = ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT"]
+        
+        if self.args.include_read_var_pos_annotations:
+            boost_attribute_list.extend(["VPR","VAF","VMMF"])
+
         cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
                          "--input_vcf", variants_vcf_file,
                          "--work_dir", boost_workdir,
@@ -1893,6 +1905,9 @@ def make_menu():
 
     optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
                           help="minimum score threshold for boosted variant selection")
+
+    optional.add_argument("--include_read_var_pos_annotations", action="store_true", default=False,
+                          help="include read variant position in read annotations")
     
 
     ## Email for CRAVAT
