@@ -41,7 +41,7 @@ add_header_lines = [
 #COSMIC_ID,TISSUE,TUMOR,FATHMM,SOMATIC,PUBMED_COSMIC,GENE,STRAND,GENE,STRAND,CDS,AA,CNT
 mutant_dict_necessary_info={}
 logger.info("Capturing info from: {}".format(args.CosmicMutantExport))
-with gzip.open(args.CosmicMutantExport,"r") as mt:
+with gzip.open(args.CosmicMutantExport,"rt") as mt:
     mutant_reader=csv.DictReader(mt, delimiter=str("\t"), quoting=csv.QUOTE_NONE)
     for row in mutant_reader:
         info_items=["COSMIC_ID="+row.get("Mutation ID",""),
@@ -62,7 +62,7 @@ with gzip.open(args.CosmicMutantExport,"r") as mt:
 logger.info("Capturing info from {}".format(args.CosmicCodingMuts))
 comments=[]
 entries=[]
-with gzip.open(args.CosmicCodingMuts,"r") as cv:
+with gzip.open(args.CosmicCodingMuts,"rt") as cv:
     for row in cv:
         if row.startswith("##"):
             comments.append(row)   
