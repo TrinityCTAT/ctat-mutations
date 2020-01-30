@@ -1179,7 +1179,7 @@ class RnaseqSnp:
 
         ## PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
         ## slow, so making optional for now:
-        if self.args.include_read_var_pos_annotations:
+        if not self.args.no_include_read_var_pos_annotations: # double negative = true  :-)
             (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
 
         ## RepeatMasker annotations (mobile elements, etc.)
@@ -1906,8 +1906,8 @@ def make_menu():
     optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
                           help="minimum score threshold for boosted variant selection")
 
-    optional.add_argument("--include_read_var_pos_annotations", action="store_true", default=False,
-                          help="include read variant position in read annotations")
+    optional.add_argument("--no_include_read_var_pos_annotations", action="store_true", default=False,
+                          help="do not include read variant position in read annotations (debugging/troubleshooting purposes only)")
     
 
     ## Email for CRAVAT
