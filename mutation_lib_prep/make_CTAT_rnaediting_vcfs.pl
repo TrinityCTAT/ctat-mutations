@@ -56,10 +56,30 @@ main: {
     close $ofh_37;
     close $ofh_38;
 
-    print STDERR "\ndone.\n\n";
+    print STDERR "\ndone, now indexing.";
+
+
+    foreach my $vcf_file ("GRCh37.RNAediting.vcf", "GRCh38.RNAediting.vcf") {
+
+        &process_cmd("set -eou pipefail; cat $vcf_file | awk '\$1 ~ /^#/ {print \$0;next} {print \$0 | \"sort -k1,1 -k2,2n\"}' > tmp.sorted.vcf");
+        &process_cmd("mv tmp.sorted.vcf $vcf_file");
+        
+        &process_cmd("bgzip -f $vcf_file");
+        &process_cmd("bcftools index $vcf_file.gz");
+    }
+        
 
     exit(0);
     
+}
+
+sub process_cmd {
+    my ($cmd) = @_;
+    print STDERR "CMD: $cmd\n";
+    my $ret = system($cmd);
+    if ($ret) {
+        die "Error, cmd: $cmd died with ret $ret";
+    }
 }
 
 ####
