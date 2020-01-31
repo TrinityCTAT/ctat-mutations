@@ -33,6 +33,7 @@ main: {
         
         my $chr_hg38 = $x[0];
         my $pos_hg38 = $x[1];
+        $pos_hg38++; # zero-based, unlike hg19 below
 
         my $chr_hg19 = $x[2];
         my $pos_hg19 = $x[3];
