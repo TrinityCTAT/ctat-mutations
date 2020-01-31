@@ -55,7 +55,7 @@ logger.info("Capturing info from: {}".format(args.CosmicMutantExport))
 with gzip.open(args.CosmicMutantExport,"rt") as mt:
     mutant_reader=csv.DictReader(mt, delimiter=str("\t"), quoting=csv.QUOTE_NONE)
     for row in mutant_reader:
-        info_items=["COSMIC_ID="+row.get("Mutation_ID",""),
+        info_items=["COSMIC_ID="+row.get("GENOMIC_MUTATION_ID",""),
                     "TISSUE="+row.get("Primary site",""),
                     "TUMOR="+row.get("Primary histology","")+" -- "+row.get("Histology subtype 1",""),
                     "FATHMM="+row.get("FATHMM prediction",""),
@@ -94,6 +94,7 @@ with gzip.open(args.CosmicCodingMuts,"rt") as fh:
         
         line = line.rstrip()
         vals = line.split("\t")
+        vals[0] = "chr" + vals[0]
         cosmic_id = vals[2]
         if cosmic_id in mutant_dict_necessary_info:
             current_info = vals[7]
