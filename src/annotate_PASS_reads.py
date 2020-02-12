@@ -251,7 +251,7 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
     lstr_outvcfline[7] += ";VPR={}".format(newmismatch)
     lstr_outvcfline[7] += ";TPR={}".format(newcov)
     lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
-    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format(newmismatch/total_covered_reads if total_covered_reads > 0 else 0)
+    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format(1-(newmismatch/total_covered_reads) if total_covered_reads > 0 else 0)
     lstr_outvcfline[7] += ";TDM={}".format(duplicateMarked)
     lstr_outvcfline[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
     lstr_outvcfline[7] += ";TMMR={}".format(multimappedReadCount)
