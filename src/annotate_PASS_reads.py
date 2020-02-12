@@ -12,6 +12,10 @@ import subprocess
 import multiprocessing as mp
 import gzip
 import time
+import traceback
+
+
+
 
 logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
 
@@ -30,6 +34,8 @@ def processVCFHead(line, outfile):
     Add the annotation flag description to the head of the VCF 
         VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
         TPR : Total Passed Reads , reads that PASS filtering 
+        TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.
+        PctExtPos: Fraction of variant-supporting reads with variant positions in the first six bases of the reads 
         TDM : Total Duplicate Marked, number of reads that are duplicate marked
         VAF: Variant allele fraction
         TMMR: Number of multi-mapped reads
@@ -43,6 +49,8 @@ def processVCFHead(line, outfile):
             #       write the new INFO annotations above the #CHROM header line 
             outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
             outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
+            outfile.write("##INFO=<ID=TCR,Number=1,Type=Integer,Description=\"TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.\">\n")
+            outfile.write("##INFO=<ID=PctExtPos,Number=1,Type=Integer,Description=\"Fraction of variant-supporting reads with variant positions in the first six bases of the reads\">\n")
             outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
             outfile.write("##INFO=<ID=VAF,Number=1,Type=Float,Description=\"Variant allele fraction (VPR / TPR) \">\n")
             outfile.write("##INFO=<ID=TMMR,Number=1,Type=Integer,Description=\"Total multi-mapped reads at site\">\n")
@@ -87,11 +95,19 @@ def check_duplicate_marked(sam_flag):
     
 
 
-def evaluate_PASS_reads(i, bamFile):
+def evaluate_PASS_reads(i, vcf_line, bamFile):
 
-    vals = i.split("\t")
+    try:
+        return worker_evaluate_PASS_reads(i, vcf_line, bamFile)
+    except Exception as e:
+        traceback.print_exc()
+        return("ERROR: " + str(e))
+    
 
-    #sys.stderr.write("[{}]\n".format(vals[0] + "::" + vals[1]))
+
+def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
+
+    vals = vcf_line.split("\t")
 
     #--------------
     # Constants 
@@ -110,9 +126,10 @@ def evaluate_PASS_reads(i, bamFile):
     variantMultimappedReadCount = 0
     output =""
     output_failed =""
+    total_covered_reads = 0
     
     # process the input line 
-    lstr_vcfline = i.split("\t")
+    lstr_vcfline = vcf_line.split("\t")
     editnuc = lstr_vcfline[4]
     chrom, position = lstr_vcfline[0], lstr_vcfline[1]
     bamposition = chrom + ':' + position + '-' + position
@@ -127,11 +144,11 @@ def evaluate_PASS_reads(i, bamFile):
     cmd = "samtools view {} {}".format(bamFile, bamposition)
     sam_output = subprocess.check_output(cmd, shell=True).decode()
     
+    
     # separate the Samtools view output by lines (rstrip to remove last \n)
     sam_output = sam_output.rstrip().split("\n")
 
     for line in sam_output:
-
         if not re.match("\w", line):
             continue # sometimes get a blank line for some reason
 
@@ -150,7 +167,7 @@ def evaluate_PASS_reads(i, bamFile):
         
         # get the current position 
         currentpos, readpos = int(readstart), 1
-        base_readpos = []
+        base_readpos = None
         
         # letters 
         cigarletters = re.findall(r'[MIDNSHP=X]',cigar)
@@ -184,17 +201,21 @@ def evaluate_PASS_reads(i, bamFile):
                     readpos += 1
 
         read_end_pos = readpos
+
         
         if base_readpos:
-            #----------------------------------------------------
-            # check is within 6 bases of the ends and quality score 
-            #----------------------------------------------------
-            # If the base position is within the 6 base pairs of either side of the sequence -> Pass
-            if (int(base_readpos) > 6) and (base_readpos < read_end_pos - 5):
-                # If quality score is greater than or equal to the cutoff  --> PASS
+            
+            if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
+                ## counting as a PASS read, contributes to total coverage (newcov)
 
-                if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
-                    ## counting as a PASS read, contributes to total coverage (newcov)
+                total_covered_reads += 1
+                
+                # ----------------------------------------------------
+                # check is within 6 bases of the ends and quality score 
+                # ----------------------------------------------------
+                # If the base position is within the 6 base pairs of either side of the sequence -> Pass
+                if (int(base_readpos) > 6) and (base_readpos < read_end_pos - 5):
+                    # If quality score is greater than or equal to the cutoff  --> PASS
 
                     newcov += 1
 
@@ -212,11 +233,12 @@ def evaluate_PASS_reads(i, bamFile):
                         newmismatch+=1
                         if is_multimapped_read:
                             variantMultimappedReadCount += 1
+                        
                 else:
-                    ## Not a PASS read
-                    basequalFail=1
+                    readPosFail=1
             else:
-                readPosFail=1
+                ## Not a PASS read
+                basequalFail=1
 
     #-----------------------
     # output lines 
@@ -224,13 +246,16 @@ def evaluate_PASS_reads(i, bamFile):
     # VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
     # TPR : Total Passed Reads , reads that PASS filtering 
     # TDM : Total Duplicate Marked, number of reads that are duplicate marked
+
+    
     lstr_outvcfline[7] += ";VPR={}".format(newmismatch)
     lstr_outvcfline[7] += ";TPR={}".format(newcov)
+    lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
+    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format(newmismatch/total_covered_reads if total_covered_reads > 0 else 0)
     lstr_outvcfline[7] += ";TDM={}".format(duplicateMarked)
     lstr_outvcfline[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
     lstr_outvcfline[7] += ";TMMR={}".format(multimappedReadCount)
     lstr_outvcfline[7] += ";VMMR={}".format(variantMultimappedReadCount)
-    
     lstr_outvcfline[7] += ";MMF={:0.3f}".format(multimappedReadCount/newcov if newcov > 0 else 0)
     lstr_outvcfline[7] += ";VMMF={:0.3f}".format(variantMultimappedReadCount/newmismatch if newmismatch > 0 and variantMultimappedReadCount > 0 else 0)
     
@@ -242,7 +267,6 @@ def evaluate_PASS_reads(i, bamFile):
     # duplicateMarked : number of duplicate-marked reads 
     new_line = "\t".join(lstr_outvcfline)
 
-    
     return(new_line)
 
 
@@ -285,7 +309,6 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # Process the head of the VCF first and print it to the new file
     for line in infile:
         line = str(line)
-        #print(line)
         if line[0] == "#":
             processVCFHead(line, outfile)
         else:
@@ -328,21 +351,35 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     # set up the parallelization 
     pool = mp.Pool(cpu)
     # results = [ pool.apply_async(evaluate_PASS_reads, args=(vcfline, bamFile), callback = logging_return) for vcfline in vcf_lines if vcfline[0] != "#"]
+
+    pos=0
     for vcfline in vcf_lines: 
         if vcfline[0] != "#":
-            pool.apply_async(evaluate_PASS_reads, args=(vcfline, bamFile),callback = logging_return)
+            pos += 1
+            pool.apply_async(evaluate_PASS_reads, args=(pos, vcfline, bamFile), callback = logging_return)
     pool.close()
 
-    while len(results) != variant_count:
-        # check if done with the processing, if so break 
-        if len(results) == variant_count: 
-            break
+
+    prev_results_len = 0;
+    while len(results) < variant_count:
+
+        curr_results_len = len(results)
+        if curr_results_len > prev_results_len:
+            ## check for errors
+            for idx in range(prev_results_len, curr_results_len):
+                if results[idx].startswith("ERROR: "):
+                    # error detected
+                    raise results[idx]
+                
+            prev_results_len = curr_results_len
+                        
         # get the total progress made as a percentage
         progress_percent = int(len(results)/variant_count * 100)
         # Print the progress percentage to the terminal
         progress_bar(progress_percent)
     
         time.sleep(2)
+        
     # make sure to finish the progress bar with 100%
     progress_bar(100)
 #-------------
