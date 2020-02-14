@@ -15,6 +15,10 @@ import glob
 import logging
 
 
+
+##
+## This script decorates the Cosmic coding variants with cancer census annotations.
+
 FORMAT = "%(asctime)-15s: %(message)s"
 logger = logging.getLogger()
 logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
@@ -22,7 +26,9 @@ logging.basicConfig(stream=sys.stderr, format=FORMAT, level=logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--CosmicCodingMuts", required = True ,help="CosmicCodingMut VCF file")
-parser.add_argument("--CosmicMutantExport" ,required = True ,help="CosmicMutantExport TSV file")
+parser.add_argument("--CosmicMutantExport", required = True ,help="CosmicMutantExport TSV file")
+parser.add_argument("--output_vcf", required=True, help="output vcf file")
+
 args=parser.parse_args()
 
 csv.field_size_limit(sys.maxsize)
@@ -37,14 +43,19 @@ add_header_lines = [
 '##INFO=<ID=PUBMED_COSMIC,Type=String,Description="The PUBMED ID for the paper that the sample was noted in COSMIC.">\n'
 ]
 
+
+
+####################################
+# parsing the cancer gene census: CosmicMutantExport
+
 #GENE,STRAND,CDS,AA,CNT
 #COSMIC_ID,TISSUE,TUMOR,FATHMM,SOMATIC,PUBMED_COSMIC,GENE,STRAND,GENE,STRAND,CDS,AA,CNT
 mutant_dict_necessary_info={}
 logger.info("Capturing info from: {}".format(args.CosmicMutantExport))
-with gzip.open(args.CosmicMutantExport,"r") as mt:
+with gzip.open(args.CosmicMutantExport,"rt") as mt:
     mutant_reader=csv.DictReader(mt, delimiter=str("\t"), quoting=csv.QUOTE_NONE)
     for row in mutant_reader:
-        info_items=["COSMIC_ID="+row.get("Mutation ID",""),
+        info_items=["COSMIC_ID="+row.get("GENOMIC_MUTATION_ID",""),
                     "TISSUE="+row.get("Primary site",""),
                     "TUMOR="+row.get("Primary histology","")+" -- "+row.get("Histology subtype 1",""),
                     "FATHMM="+row.get("FATHMM prediction",""),
@@ -55,63 +66,57 @@ with gzip.open(args.CosmicMutantExport,"r") as mt:
                     "CDS="+row.get("Mutation CDS",""),
                     "AA="+row.get("Mutation AA","")]
         info=";".join(info_items)
-        mutant_dict_necessary_info[row["Mutation ID"]]=info
+        mutant_dict_necessary_info[row["GENOMIC_MUTATION_ID"]]=info
 
 
 
-logger.info("Capturing info from {}".format(args.CosmicCodingMuts))
-comments=[]
-entries=[]
-with gzip.open(args.CosmicCodingMuts,"r") as cv:
-    for row in cv:
-        if row.startswith("##"):
-            comments.append(row)   
-        elif row.startswith("#"):
-            header=row
-        else:
-            entries.append(row)
 
-only_entries=os.path.join(ctat_mutation_lib,"only_entries_tmp.tsv.gz")
-with gzip.open(only_entries,"w") as oe:
-    lines=[header]+entries
-    oe.writelines(lines)
+logger.info("Now annotating {}".format(args.CosmicCodingMuts))
 
-# should close oe?
+coding_muts_gzip_fh = gzip.open(args.CosmicCodingMuts,"rt")
 
-logger.info("made temp file with header and entries only")
-
-# write cosmic summary file
-cosmic_vcf=os.path.join(ctat_mutation_lib,"cosmic.vcf")
+cosmic_vcf=os.path.join(args.output_vcf)
 logger.info("writing summary file: {}".format(cosmic_vcf))
-with gzip.open(only_entries,"r") as oer:
-    only_entries=csv.DictReader(oer,delimiter=str("\t"),quoting=csv.QUOTE_NONE)
-    logger.debug("entries read into dict")
-    with open(cosmic_vcf,"w") as iw:
-         final_entries=[]
-         for entry in only_entries:
-             info=mutant_dict_necessary_info[entry["ID"]]
-             CNT=entry["INFO"].split(";")[-1]
-             full_info=";".join([info,CNT])
-             if not entry["#CHROM"].startswith("chr"):
-                 entry["#CHROM"]="chr"+entry["#CHROM"] 
-             final_entries.append("\t".join([entry["#CHROM"],
-                                                entry["POS"],
-                                                entry["ID"],
-                                                entry["REF"],
-                                                entry["ALT"],
-                                                entry["QUAL"],
-                                                entry["FILTER"],
-                                                full_info])+"\n")
-         final_lines=comments+add_header_lines+[header]+final_entries
-         iw.writelines(final_lines)  
+ofh = open(cosmic_vcf, 'wt')
+
+annotated_set = set()
+not_annotated = set()
+
+with gzip.open(args.CosmicCodingMuts,"rt") as fh:
+    for line in fh:
+        if line.startswith("##"):
+            ofh.write(line)
+            continue
+        if line.startswith("#CHROM"):
+            ofh.write("".join(add_header_lines))
+            ofh.write(line)
+            continue
+        
+        line = line.rstrip()
+        vals = line.split("\t")
+        vals[0] = "chr" + vals[0]
+        cosmic_id = vals[2]
+        if cosmic_id in mutant_dict_necessary_info:
+            current_info = vals[7]
+            vals[7] += ";" + mutant_dict_necessary_info[cosmic_id]
+            annotated_set.add(cosmic_id)
+        else:
+            not_annotated.add(cosmic_id)
+
+        ofh.write("\t".join(vals) + "\n")
+
+ofh.close()
+
+logger.info("-number of variants with annotations added: {}".format(len(annotated_set)))
+logger.info("-number of variants w/o added annotations: {}".format(len(not_annotated)))
 
 
 logger.info("bgzip compressing {}".format(cosmic_vcf))
-subprocess.check_call(["bgzip", cosmic_vcf])
+subprocess.check_call("bgzip -f {}".format(cosmic_vcf), shell=True)
 
 logger.info("indexing {}".format(cosmic_vcf))
 subprocess.check_call(["bcftools", "index", "{}.gz".format(cosmic_vcf)])
 
-logger.info("Done prepping ctat mutation lib.")
+logger.info("Done prepping cosmic vcf: {}".format(cosmic_vcf))
 
 sys.exit(0)

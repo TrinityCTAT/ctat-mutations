@@ -100,6 +100,15 @@ cravat_groom:
 	../src/groom_cravat_annotation.py __misc_data/cravat.Variant.Result.tsv example.cravat.groomed
 
 
+##############
+## other misc tests
+
+
+annotate_PASS_reads:
+	../src/annotate_PASS_reads.py  --vcf __misc_data/annot_pass_reads/HaplotypeCaller.raw_variants.vcf --bam __misc_data/annot_pass_reads/dedupped.bam --output_vcf test_annot_pass_reads.vcvf --threads 2
+
+
+
 ###########
 ## Cleanup
 
