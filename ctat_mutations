@@ -1782,8 +1782,8 @@ class RnaseqSnp:
 
         boost_attribute_list = ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT"]
         
-        if self.args.include_read_var_pos_annotations:
-            boost_attribute_list.extend(["VPR","VAF","VMMF"])
+        if not self.args.no_include_read_var_pos_annotations:
+            boost_attribute_list.extend(["VPR","VAF","VMMF", "PctExtPos"])
 
         cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
                          "--input_vcf", variants_vcf_file,
