@@ -1787,6 +1787,7 @@ class RnaseqSnp:
 
         cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
                          "--input_vcf", variants_vcf_file,
+                         "--attributes {}".format(",".join(boost_attribute_list)),
                          "--work_dir", boost_workdir,
                          "--score_threshold {}".format(score_threshold),
                          "--output_filename {}".format(final_variants_vcf_filename)])
