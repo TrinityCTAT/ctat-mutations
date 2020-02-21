@@ -79,13 +79,24 @@ if ("RNAEDIT" %in% attributes) {
     }
 }
 
-
+# Set values with NA to the median value 
+for(j in 1:ncol(data)){
+    is_na <- which(is.na(data[ ,j]))
+    
+    if(!is.null(is_na)){
+        # get the median of the non NA values 
+        not_na <- which(!is.na(data[ ,j]))
+        median_value <- median(data[not_na,j])
+        # set the Na's to the median 
+        data[is_na,j] <- median_value
+    }
+}
 ############################
 ## Run adaboost
 
 message("Running adaboost - rvboost-style")
 
-NUMTREES = 5e3  #rvboost defaults
+NUMTREES = 2e4  #rvboost defaults
 
 data = data.matrix(data)
 
