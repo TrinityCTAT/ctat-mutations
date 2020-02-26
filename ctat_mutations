@@ -264,8 +264,7 @@ class RnaseqSnp:
         self.cosmic_vcf = cosmic_vcf
 
         # Fastq files or bam files must be given
-        if(not (args_parsed.str_sample_file_left_fq
-                and args_parsed.str_sample_file_right_fq)
+        if(not args_parsed.str_sample_file_left_fq
            and not args_parsed.str_bam_file):
            str_error = "".join(["RNASEQ MUTATION PIPELINE, please make",
                                 "sure to inclue a bam file or paired",
@@ -348,15 +347,12 @@ class RnaseqSnp:
 
         # Check if the files are gzipped or not
         str_ext_left = os.path.splitext(str_left)[1]
-        str_ext_right = os.path.splitext(str_right)[1]
-        if str_ext_left != str_ext_right:
-            str_error = " ".join(["Fastq files from a single sample should both",
-                                  "either be gzipped (.gz) or not compressed."])
-            cur_pipeline.logr_logger.error(str_error)
-            exit(8)
-        elif str_ext_left == ".gz":
+        if str_ext_left == ".gz":
             lstr_gzip = ["--readFilesCommand", "\"gunzip -c\""]
 
+        if str_right is None:
+            str_right = ""
+        
         # Map files
         str_star_align = " ".join(["STAR",
                                    "--genomeDir", index_dir,
@@ -1815,6 +1811,7 @@ def make_menu():
                            required = False, help = "Path to one of the two paired RNAseq samples (left)")
     
     required.add_argument( "--right", metavar = "Right_sample_file", dest = "str_sample_file_right_fq",
+                           default=None,
                            required = False, help = "Path to one of the two paired RNAseq samples (right)")
     
     required.add_argument("--out_dir", dest="str_out_dir", required=True, help="output directory")

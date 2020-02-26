@@ -28,8 +28,9 @@ HC_standard_singularity:
 	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.v2.3.0.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.singularity --threads 10 --genome_lib_dir /ctat_genome_lib_dir
 
 
-HC_GRCh37_kickstart_bam_vcf:
-	../ctat_mutations --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh37.bam --use_vcf __misc_data/variants.GRCh37.vcf --out_dir example.standard.full_kickstart --threads 1
+## Using single-end reads:
+HC_SE_Reads:
+	../ctat_mutations --left reads_1.fastq.gz  --out_dir example.HC_standard_SE --threads 10
 
 
 ## HaplotypeCaller CNN filter:
