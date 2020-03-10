@@ -98,6 +98,9 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
 
+RUN curl -L http://cpanmin.us | perl - App::cpanminus
+
+RUN cpanm install URI::Escape
 
 
 
