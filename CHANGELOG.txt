@@ -1,0 +1,8 @@
+2.4.0
+-added support for using single-end rna-seq reads
+-support for RVBLR (our RVBoost-integration as RVB-like R)
+-pctextpos is computed as an annotation and leveraged by RVBLR
+-more robust variant annotation / multithreading
+-annot_PASS_reads on by default now (again), but there's an option to disable if necessary.
+-various bugfixes
+
