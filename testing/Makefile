@@ -21,11 +21,11 @@ HC_standard_single_thread:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.HC_standard.onethread --threads 1
 
 HC_standard_docker:
-	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.docker --threads 10 --genome_lib_dir /ctat_genome_lib_dir
 
 
 HC_standard_singularity:
-	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.v2.3.0.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.singularity --threads 10 --genome_lib_dir /ctat_genome_lib_dir
+	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.vLATEST.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --out_dir /data/example.HC.singularity --threads 10 --genome_lib_dir /ctat_genome_lib_dir
 
 
 ## Using single-end reads:

@@ -92,7 +92,7 @@ WORKDIR $SRC
 
 RUN apt-get install -y git && apt-get clean
 
-ENV CTAT_MUTATIONS_COMMIT 7f3d02480f07d5491145dd40dac129571e75d2b8
+ENV CTAT_MUTATIONS_COMMIT 4cff6ff1e8a00b5abb6d983670c5f4a859804b1f
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
