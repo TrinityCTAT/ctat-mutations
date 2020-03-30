@@ -1274,8 +1274,8 @@ class RnaseqSnp:
         gv=self.property_dict["Genome_version"] 
 
         # Update the output target vcf file given these steps are ran.
-        base_output_name =  os.path.basename(str_filtered_pre_cravat_vcf) + '.xxx'
-        output_vcf = str_filtered_pre_cravat_vcf + '.xxx.vcf'
+        base_output_name =  os.path.basename(str_filtered_pre_cravat_vcf) + '.cravat'
+        output_vcf = str_filtered_pre_cravat_vcf + '.cravat.vcf'
 
         lstr_hg_38 = "--is_hg19" if gv=="hg19" else ""
         str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
