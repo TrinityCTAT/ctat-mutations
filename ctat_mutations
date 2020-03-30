@@ -1347,7 +1347,8 @@ class RnaseqSnp:
                                       str_cancer_vcf_file,
                                       self.genome_fa,
                                       "--flanking", "1000",
-                                      "--info-columns", "GENE TISSUE TUMOR COSMIC_ID chasmplus__pval vest__pval mupit__link",
+                                      "--info-columns-prefixes", "COSMIC_ID",
+                                      "--info-columns", "GENE TISSUE TUMOR chasmplus__pval vest__pval mupit__link",
                                       "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
                                       "--output", html_out])
 
