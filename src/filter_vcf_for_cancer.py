@@ -27,8 +27,8 @@ STR_RNAEDIT = "RNAEDIT"
 prog_desc = "".join(["Extracts common variants which do",
                      "not have COSMIC ids entries from a vcf file"])
 prsr_arguments = argparse.ArgumentParser(prog="filter_vcf_for_cancer.py",
-                                         description=prog_desc,
-                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    description=prog_desc,
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 prsr_arguments.add_argument("str_input_file", help="Input vcf.gz file.")
 prsr_arguments.add_argument("str_output_file", help="Output filtered vcf file.")
 args = prsr_arguments.parse_args()
@@ -88,14 +88,14 @@ with open(args.str_output_file, "w") as hndl_out:
             pass_counter += 1
             continue
 
-        ## 
+        ##
         # FATHMM=PATHOGENIC
         if STR_FATHMM in dict_info_tokens and dict_info_tokens[STR_FATHMM] in ("PATHOGENIC","CANCER"):
             # Store passing variant
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
             pass_counter += 1
             continue
-        
+
 
         #########################
         ## Negative filters below
@@ -109,25 +109,25 @@ with open(args.str_output_file, "w") as hndl_out:
         ## Filter out common variant that do not have cosmic ids
         if STR_COMMON_VARIANT in dict_info_tokens:
             if (dict_info_tokens[STR_COMMON_VARIANT]):
-               filter_counter['common'] += 1
-               filter_flag = True
+                filter_counter['common'] += 1
+                filter_flag = True
 
         ## Filter DP < 10
         if STR_DEPTH in dict_info_tokens:
             if (int(dict_info_tokens[STR_DEPTH]) < 10):
-               filter_counter['insufficient_depth'] += 1
-               filter_flag = True
+                filter_counter['insufficient_depth'] += 1
+                filter_flag = True
 
 
         ## No gene match
         if not dict_info_tokens["GENE"]:
             filter_counter['no_gene'] += 1
             filter_flag = True
-        
+
 
         ############################
         ############################
-        
+
         # Store passing variant
         if not filter_flag:
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
@@ -137,14 +137,14 @@ with open(args.str_output_file, "w") as hndl_out:
         if len(lstr_vcf) >= i_write_amount:
             str_write = "\n".join(lstr_vcf)
             if str_write:
-               str_write = str_write + "\n"
-               hndl_out.write(str_write)
-               lstr_vcf = []
+                str_write = str_write + "\n"
+                hndl_out.write(str_write)
+                lstr_vcf = []
 
     # Last write of buffer
     hndl_out.write("\n".join(lstr_vcf))
 
-    
+
 # Close input handle
 hndl_vcf.close()
 

@@ -4,18 +4,18 @@
 #from __future__ import (absolute_import, division,
 #                        print_function, unicode_literals)
 
-import os, sys, re
+import os
+import re
+import sys
 
 if sys.version_info[0] != 3:
     print("This script requires Python 3")
     exit(1)
 
 import argparse
-import datetime
 import ntpath
 import json
 import glob
-import urllib.request
 
 """
    _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
@@ -31,7 +31,7 @@ import urllib.request
 VERSION = "2.4.0"
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
-from Pipeliner import Pipeliner, Command, run_cmd, ParallelCommandList
+from Pipeliner import Pipeliner, Command, ParallelCommandList
 import logging
 FORMAT = "%(asctime)-15s: %(levelname)s %(module)s.%(name)s.%(funcName)s %(message)s"
 logger = logging.getLogger('ctat_mutations')
@@ -533,16 +533,18 @@ class RnaseqSnp:
 
         
         ## annotate
+
         (lcmd_gatk_variants_commands, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
                                                                                   str_variants_file,
                                                                                   str_bam_for_var_annotation)
 
         ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
 
+
         variants_init_vcf = os.path.join(self.out_dir, "variants.HC_init.wAnnot.vcf.gz")
         lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
         lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, variants_init_vcf)
-    
+
                 
         ## apply filters
         if self.args.boosting_method != "none":
@@ -819,11 +821,11 @@ class RnaseqSnp:
                                                "--exclude-filtered",
                                                "-O", str_filtered_variants_file]) 
             lcmd_gatk_variants_commands.append(Command(str_filter_mut_command, 'Mutect2.BestPractices.raw_variants.select_variants.ok'))
-            
-            
+
 
         ## annotate the vcf file.  This stores a primary output file in the out_dir
         (lcmd_gatk_variants_commands, annotated_vcf) = self.annotate_variants(lcmd_gatk_variants_commands, str_filtered_variants_file, str_bam_file_for_var_annotation)
+
 
         # provide primary Mutect2 output with annotations:
         
@@ -918,12 +920,14 @@ class RnaseqSnp:
             
             # must add variant annotations:
             (lcmd_commands, variants_vcf_file) = self.annotate_variants(lcmd_commands, variants_vcf_file, bam_target_for_var_annotation)
-            
+
             # store annotated vcf as primary output:
-            variants_wAnnot_vcf = os.path.join(self.out_dir, os.path.basename(self.input_vcf_file) + ".wAnnot.vcf.gz")
-            lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf_gz.ok"))
+            variants_wAnnot_vcf = os.path.join(self.out_dir, os.path.basename(self.input_vcf_file) + ".wAnnot.vcf")
+
+            lcmd_commands.append(Command("cp {} {}".format(variants_vcf_file, variants_wAnnot_vcf), "cp_input_vcf_variants_wAnnot.vcf.ok"))
+
             lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_wAnnot_vcf)
-            
+
             variants_vcf_file = variants_wAnnot_vcf
 
             if self.args.boosting_method != "none":
@@ -961,18 +965,19 @@ class RnaseqSnp:
         # Clean up VCF file after variant caller
         ########################################
 
+
         str_clean_vcf = os.path.join(self.tmp_dir, "variants.pre_annot_filt.vcf") # starting point from initial variant calling results.
         str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
                                       variants_vcf_file,
                                       str_clean_vcf])
         
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
-        
+
 
 
         ## make the pretty igv.js report html for the cancer variants:
         (lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file) = self.generate_cancer_variant_report(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
-        
+
         
         
         return (lcmd_commands) ## end of build_pipeline_cmds()
@@ -1163,13 +1168,16 @@ class RnaseqSnp:
             str_target_vcf_file += ".gz"
 
         # - going forward, assuming we have tabix'd target vcf files.
-        
+
         ## SnpEff annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_SnpEff(lcmd_commands, str_target_vcf_file)
 
+
+
         ## dbSNP common variant annotations:
         (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
-        
+
+
         ## RNAediting annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
 
@@ -1194,7 +1202,6 @@ class RnaseqSnp:
         (lcmd_commands, str_target_vcf_file) = self.add_cancer_annotations(lcmd_commands, str_target_vcf_file, str_align_bam_file)
         
 
-            
         return (lcmd_commands, str_target_vcf_file)
 
     
@@ -1235,37 +1242,9 @@ class RnaseqSnp:
         (lcmd_commands, str_cravat_annotated_all_vcf) = self.get_CRAVAT_annotations(lcmd_commands,
                                                                                     str_target_vcf_file)
         
+
         
-        ## tack the cravat annotations on to the pre-cravat vcf file:
-
-        full_variant_set_with_cravat_vcf = self.func_switch_ext(str_target_vcf_file, "_wCRAVAT.vcf.gz") 
-
-        cmdstr = " ".join([ "bcftools annotate",
-                            "--annotations ", str_cravat_annotated_all_vcf,
-                            "-h", self.cravat_header,
-                            "--columns", "CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT",
-                            "--output-type z",
-                            "--output ", full_variant_set_with_cravat_vcf,
-                            str_target_vcf_file ])
-
-        lcmd_commands.append(Command(cmdstr, "add_cravat_annotations_to_full_vcf.ok"))
-
-        ## groom it:
-        full_variant_set_with_cravat_clean_vcf = self.func_switch_ext(full_variant_set_with_cravat_vcf, "_clean.vcf")
-
-        str_clean_vcf_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
-                                      full_variant_set_with_cravat_vcf,
-                                      full_variant_set_with_cravat_clean_vcf])
-        
-        lcmd_commands.append(Command(str_clean_vcf_cmd,'cravat_annotations_to_full_vcf_clean.ok'))
-
-
-
-        lcmd_commands = self.tabix_if_needed(lcmd_commands, full_variant_set_with_cravat_clean_vcf)
-
-        full_variant_set_with_cravat_clean_vcf = full_variant_set_with_cravat_clean_vcf + ".gz"
-        
-        return (lcmd_commands, full_variant_set_with_cravat_clean_vcf)
+        return (lcmd_commands, str_cravat_annotated_all_vcf)
 
     
 
@@ -1291,104 +1270,27 @@ class RnaseqSnp:
         #################
         ## running CRAVAT
         
-        if self.args.str_email_contact is None:
-            warnings.warn("CRAVAT analysis will not be ran. Please specify an email address registered with CRAVAT service")
 
         gv=self.property_dict["Genome_version"] 
 
         # Update the output target vcf file given these steps are ran.
-        str_cravat_result_dir = os.path.join(self.tmp_dir, "CRAVAT")
-        str_cravat_result_dir_zip = str_cravat_result_dir + ".zip"
+        base_output_name =  os.path.basename(str_filtered_pre_cravat_vcf) + '.cravat'
+        output_vcf = str_filtered_pre_cravat_vcf + '.cravat.vcf'
+
         lstr_hg_38 = "--is_hg19" if gv=="hg19" else ""
         str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
                                    "--classifier", self.args.str_cravat_classifier,
                                    lstr_hg_38,
-                                   "--email", self.args.str_email_contact,
-                                   "--max_attempts", str(I_CRAVAT_ATTEMPTS),
-                                   "--wait", str(I_CRAVAT_WAIT),
                                    str_filtered_pre_cravat_vcf,
-                                   str_cravat_result_dir])
+                                   base_output_name])
         
         lcmd_cancer_filter.append(Command(str_cravat_cmd,'annotate_cravat.ok'))
         
-        ## Unzip
-        str_extracted_cravat_dir = os.path.join(self.tmp_dir, "CRAVAT") 
-        str_unzip_cravat_cmd = " ".join(["unzip", "-d", str_extracted_cravat_dir, str_cravat_result_dir_zip])
-        lcmd_cancer_filter.append(Command(str_unzip_cravat_cmd,'unzip.ok')) 
 
-        # MV files needed from the CRAVAT dir to the current working dir.
-        str_coding_variant_result = str_extracted_cravat_dir+os.path.sep+"*"+os.path.sep+"Variant.Result.tsv"
-        str_non_coding_variant_result = str_extracted_cravat_dir+os.path.sep+"*"+os.path.sep+"Variant_Non-coding.Result.tsv"
-        str_move_cravat_files = " ".join(["bash -c \"cp", "{"+str_coding_variant_result+","+str_non_coding_variant_result+"}", str_extracted_cravat_dir+"\""])
-        lcmd_cancer_filter.append(Command(str_move_cravat_files,'mv_cravat.ok'))
-
-        ################
-        # Groom CRAVAT output tab so it does not upset BCFtools.
-
-        ## groom coding
-        str_cravat_detail_coding = os.path.join(str_extracted_cravat_dir, "Variant.Result.tsv") #CRAVAT
-        str_cravat_detail_coding_updated = os.path.join(str_extracted_cravat_dir, "Variant_result_updated.tsv") #CRAVAT
-        str_groom_cravat_tab_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
-                                                str_cravat_detail_coding, str_cravat_detail_coding_updated])
-        lcmd_cancer_filter.append(Command(str_groom_cravat_tab_coding,'cravat_coding.ok'))
-
-        ## groom noncoding
-        str_cravat_detail_noncoding = os.path.join(str_extracted_cravat_dir, "Variant_Non-coding.Result.tsv") #CRAVAT
-        str_cravat_detail_noncoding_updated = os.path.join(str_extracted_cravat_dir, "Variant_non_coding_result_updated.tsv") #CRAVAT
-        str_groom_cravat_tab_non_coding = " ".join([os.path.sep.join([SCRIPTDIR, "groom_cravat_annotation.py"]),
-                                                    str_cravat_detail_noncoding, str_cravat_detail_noncoding_updated])
-        lcmd_cancer_filter.append(Command(str_groom_cravat_tab_non_coding,'cravat_non_coding.ok'))
-
-        # Tabix index the CRAVAT tsv files
-        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_detail_coding_updated)
-        str_cravat_detail_coding_updated = str_cravat_detail_coding_updated +".gz"
-
-        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_detail_noncoding_updated)
-        str_cravat_detail_noncoding_updated = str_cravat_detail_noncoding_updated +".gz"
-        
-        ## Annotate and VCF file with TAB data.
-        ## CRAVAT gives both Coding and none coding Variants results.
-        ## For now, including both and not excluding noncoding.
-        str_cravat_annotated_coding_vcf = os.path.join(str_extracted_cravat_dir, "cravat_annotated_coding.vcf.gz") #CRAVAT
-        str_annotate_coding = " ".join(["bcftools",
-                                        "annotate",
-                                        "--annotations",
-                                        str_cravat_detail_coding_updated,
-                                        "-h", self.cravat_header,
-                                        "--columns",
-                                        "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR,MuPIT\"",
-                                        "--output-type",
-                                        "z",
-                                        "--output",
-                                        str_cravat_annotated_coding_vcf,
-                                        str_filtered_pre_cravat_vcf])
-        lcmd_cancer_filter.append(Command(str_annotate_coding,'annotate_coding.ok'))
-
-        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_annotated_coding_vcf)
-
-        ## annotate noncoding variants
-        str_cravat_annotated_all_vcf = os.path.join(str_extracted_cravat_dir, "cravat_annotated_coding_and_noncoding.vcf.gz") #CRAVAT 
-        str_annotate_noncoding = " ".join(["bcftools",
-                                           "annotate",
-                                           "--annotations",
-                                           str_cravat_detail_noncoding_updated,
-                                           "-h",
-                                           self.cravat_header,
-                                           "--columns",
-                                           "\"CHROM,POS,CHASM_PVALUE,CHASM_FDR,VEST_PVALUE,VEST_FDR\"",
-                                           "--output-type",
-                                           "z",
-                                           "--output",
-                                           str_cravat_annotated_all_vcf,
-                                           str_cravat_annotated_coding_vcf])
-        lcmd_cancer_filter.append(Command(str_annotate_noncoding,'annotate_noncoding.ok'))
-
-        lcmd_cancer_filter = self.tabix_if_needed(lcmd_cancer_filter, str_cravat_annotated_all_vcf)
-        
 
         lcmd_commands.extend(lcmd_cancer_filter)
         
-        return (lcmd_commands, str_cravat_annotated_all_vcf)
+        return (lcmd_commands, output_vcf)
         
 
 
@@ -1425,11 +1327,9 @@ class RnaseqSnp:
                                             "-F", "TUMOR",
                                             "-F", "TISSUE",
                                             "-F", "COSMIC_ID",
-                                            "-F", "CHASM_PVALUE",
-                                            "-F", "CHASM_FDR",
-                                            "-F", "VEST_PVALUE",
-                                            "-F", "VEST_FDR",
-                                            "-F", "MuPIT",
+                                            "-F", "chasmplus__pval",
+                                            "-F", "vest__pval",
+                                            "-F", "mupit__link",
                                             "--lenient",
                                             "-O", str_cancer_tab_file])
         lcmd_commands.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
@@ -1447,7 +1347,8 @@ class RnaseqSnp:
                                       str_cancer_vcf_file,
                                       self.genome_fa,
                                       "--flanking", "1000",
-                                      "--info-columns","GENE TISSUE TUMOR COSMIC_ID CHASM_PVALUE CHASM_FDR VEST_PVALUE VEST_FDR MuPIT",
+                                      "--info-columns-prefixes", "COSMIC_ID",
+                                      "--info-columns", "GENE TISSUE TUMOR chasmplus__pval vest__pval mupit__link",
                                       "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
                                       "--output", html_out])
 
