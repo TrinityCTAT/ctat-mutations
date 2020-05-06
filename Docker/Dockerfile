@@ -20,7 +20,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
 
 
 
-RUN pip install igv-reports requests 
+RUN pip install igv-reports requests open-cravat
 
 
 
