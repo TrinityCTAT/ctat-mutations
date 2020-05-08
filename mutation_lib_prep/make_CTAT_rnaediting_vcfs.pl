@@ -10,7 +10,7 @@ main: {
         "##fileformat=VCFv4.2\n"
         . "##reference=GRCh37\n"
         . "##source=Rediportal\n"
-        . "##INFO=<ID=RNAEDIT,Type=String,Description=\"A known or predicted RNA-editing site\">\n"
+        . "##INFO=<ID=RNAEDIT,Number=.,Type=String,Description=\"A known or predicted RNA-editing site\">\n"
         . "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
     
 
@@ -19,7 +19,7 @@ main: {
         "##fileformat=VCFv4.2\n"
         . "##reference=GRCh38\n"
         . "##source=Rediportal\n"
-        . "##INFO=<ID=RNAEDIT,Type=String,Description=\"A known or predicted RNA-editing site\">\n"
+        . "##INFO=<ID=RNAEDIT,Number=.,Type=String,Description=\"A known or predicted RNA-editing site\">\n"
         . "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
 
     
