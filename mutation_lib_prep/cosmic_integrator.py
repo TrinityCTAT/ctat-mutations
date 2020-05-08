@@ -35,12 +35,12 @@ csv.field_size_limit(sys.maxsize)
 
 ##Add lines to header
 add_header_lines = [
-'##INFO=<ID=COSMIC_ID,Type=String,Description="COSMIC mutation id (unique).">\n',
-'##INFO=<ID=TISSUE,Type=String,Description="The primary tissue/cancer and subtype from which the sample originated.">\n',
-'##INFO=<ID=TUMOR,Type=String,Description="The histological classification of the sample.">\n',
-'##INFO=<ID=FATHMM,Type=String,Description="FATHMM (Functional Analysis through Hidden Markov Models). \'Pathogenic\'=Cancer or damaging, \'Neutral\'=Passanger or Tolerated.">\n',
-'##INFO=<ID=SOMATIC,Type=String,Description="Information on whether the sample was reported to be Confirmed Somatic. \'Confirmed somatic\'=if the mutation has been confimed to be somatic in the experiment by sequencing both the tumour and a matched normal from the same patient, \'Previously Observed\'=when the mutation has been reported as somatic previously but not in current paper, \'variant of unknown origin\'=when the mutation is known to be somatic but the tumour was sequenced without a matched normal">\n',
-'##INFO=<ID=PUBMED_COSMIC,Type=String,Description="The PUBMED ID for the paper that the sample was noted in COSMIC.">\n'
+'##INFO=<ID=COSMIC_ID,Type=String,Number=.,Description="COSMIC mutation id (unique).">\n',
+'##INFO=<ID=TISSUE,Type=String,Number=.,Description="The primary tissue/cancer and subtype from which the sample originated.">\n',
+'##INFO=<ID=TUMOR,Type=String,Number=.,Description="The histological classification of the sample.">\n',
+'##INFO=<ID=FATHMM,Type=String,Number=.,Description="FATHMM (Functional Analysis through Hidden Markov Models). \'Pathogenic\'=Cancer or damaging, \'Neutral\'=Passanger or Tolerated.">\n',
+'##INFO=<ID=SOMATIC,Type=String,Number=.,Description="Information on whether the sample was reported to be Confirmed Somatic. \'Confirmed somatic\'=if the mutation has been confimed to be somatic in the experiment by sequencing both the tumour and a matched normal from the same patient, \'Previously Observed\'=when the mutation has been reported as somatic previously but not in current paper, \'variant of unknown origin\'=when the mutation is known to be somatic but the tumour was sequenced without a matched normal">\n',
+'##INFO=<ID=PUBMED_COSMIC,Type=String,Number=.,Description="The PUBMED ID for the paper that the sample was noted in COSMIC.">\n'
 ]
 
 

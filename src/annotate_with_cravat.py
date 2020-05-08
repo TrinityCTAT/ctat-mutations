@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-import os
+import os, sys
 import subprocess
 
 if __name__ == "__main__":
@@ -15,10 +15,19 @@ if __name__ == "__main__":
     input_vcf = args.input
     output = args.output
 
+    
+
     genome = args.genome
     output_dir = os.path.dirname(input_vcf)
 
+    # run open-cravat
+
     cravat_cmd = ['oc', 'run', '--cs', '{"run":{"vcfreporter":{"type":"separate"}}}', input_vcf, '-t', 'vcf', '-l',
                   args.genome, '-d', output_dir, '-n', output]
-
+    
+    sys.stderr.write("annotate_with_cravat: {}\n".format(" ".join(cravat_cmd)))
     subprocess.check_call(cravat_cmd)
+
+    sys.exit(0)
+
+    
