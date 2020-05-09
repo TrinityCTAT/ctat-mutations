@@ -24,7 +24,7 @@ __status__ = "Development"
 
 ## Import Libraries
 
-import os, sys, csv
+import os, sys, csv, re, gzip
 import glob  # File
 import warnings
 
@@ -361,7 +361,11 @@ def main():
     real_snps = filter_variants(boost_obj, args.out)
 
     ## Extract vcf header
-    vcf_lines = open(args.vcf, 'r').readlines()
+    if re.search("\.gz$", args.vcf):
+        vcf_lines = gzip.open(args.vcf, 'rt').readlines()
+    else:
+        vcf_lines = open(args.vcf, 'r').readlines()
+        
     vcf_header = [line for line in vcf_lines if line.startswith('#')]
 
     ## Write final output file
