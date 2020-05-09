@@ -1349,9 +1349,9 @@ class RnaseqSnp:
                                             "-F", "TUMOR",
                                             "-F", "TISSUE",
                                             "-F", "COSMIC_ID",
-                                            "-F", "chasmplus__pval",
-                                            "-F", "vest__pval",
-                                            "-F", "mupit__link",
+                                            "-F", "chasmplus_pval",
+                                            "-F", "vest_pval",
+                                            "-F", "mupit_link",
                                             "--lenient",
                                             "-O", str_cancer_tab_file])
         lcmd_commands.append(Command(str_cmd_make_cravat_tab,'vcf_tab.ok'))
@@ -1370,7 +1370,7 @@ class RnaseqSnp:
                                       self.genome_fa,
                                       "--flanking", "1000",
                                       "--info-columns-prefixes", "COSMIC_ID",
-                                      "--info-columns", "GENE TISSUE TUMOR chasmplus__pval vest__pval mupit__link",
+                                      "--info-columns", "GENE TISSUE TUMOR chasmplus_pval vest_pval mupit_link",
                                       "--tracks", bam_target_for_var_calling, self.ref_gene_annotation_bed+".gz",
                                       "--output", html_out])
 

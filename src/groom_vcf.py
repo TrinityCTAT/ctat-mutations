@@ -45,6 +45,7 @@ lstr_vcf = []
 if args.str_input_file:
     with ctat_util.open_file_for_reading(args.str_input_file) as hndl_vcf:
         for lstr_line in csv.reader(hndl_vcf, delimiter = STR_VCF_DELIMITER):
+            
             # Work with comments
             if lstr_line[0][0] == CHR_COMMENT:
                 # Make sure there are not spaces (especially at the end).
@@ -130,4 +131,8 @@ if args.str_input_file:
     # Write cleaned lines to files.
     with open(args.str_output_file, "w") as hndl_out:
         for str_out_line in lstr_vcf:
+            # some last bit of polishing
+            str_out_line = re.sub(" +", " ", str_out_line)
+            str_out_line = re.sub("_+", "_", str_out_line)
+            str_out_line = re.sub("--+", "--", str_out_line)
             hndl_out.write(str_out_line + "\n")
