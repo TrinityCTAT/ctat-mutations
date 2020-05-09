@@ -39,7 +39,6 @@ import argparse
 ## Import Logger
 import logging
 
-
 ## Import boosting libraries
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
@@ -47,6 +46,7 @@ from sklearn.ensemble import AdaBoostRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor as sgbt ## Stochastic Gradient Boosting
 import xgboost as xgb ## Gradient Boosting
+    
 
 ## Check if python 3 is imported
 if sys.version_info[0] != 3:
@@ -105,8 +105,12 @@ def preprocess(df_vcf, args):
     '''
 
     features = args.features.replace(' ','').split(",")
-    df_subset = DF[features]
 
+    # RS is an absolute requirement
+    if 'RS' not in features:
+        features.append('RS')
+    
+    df_subset = DF[features]
 
     df_subset = df_subset.fillna(0)
     if 'RNAEDIT' in df_subset.columns:
@@ -128,6 +132,7 @@ class CTAT_Boosting:
 
     def data_matrix(self, data):
         ## Form data matrix
+        print(data.columns) ## DEBUG
         cols = list(data.columns)
         cols.remove('RS')
         self.X_data = data[cols]
@@ -294,7 +299,7 @@ def main():
     # Mandatory arguments 
     parser.add_argument('--vcf', required = True, help="Input vcf.")
     parser.add_argument("--out", required=True, help="output directory")
-    parser.add_argument("--model",  help="Specify Boosting method - RF, AdaBoost, SGBoost, GradBoost", default = 'SGBoost')
+    parser.add_argument("--model",  help="Specify Boosting method - RF, AdaBoost, SGBoost, GBoost", default = 'SGBoost')
     parser.add_argument("--features", 
                         required = False, 
                         type     = str,
@@ -307,8 +312,6 @@ def main():
 
     
     logger.info("CTAT Boosting started ... ")
-
-
 
     ## Check if the output folder exists
     if not os.path.exists(args.out):
@@ -329,7 +332,6 @@ def main():
     data = preprocess(vcf, args)
     print('Features used for modeling: ', features)
 
-    
     ## Boosting
     logger.info(" Runnning Boosting ... ")
     boost_obj = CTAT_Boosting()

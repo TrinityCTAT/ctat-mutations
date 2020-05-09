@@ -308,8 +308,22 @@ class RnaseqSnp:
         ## other settings
         self.HaplotypeCaller_CNN = args_parsed.HaplotypeCaller_CNN
         self.Mutect2_include_contamination_estimates = args_parsed.Mutect2_include_contamination_estimates
-        
 
+
+        ## Boosting attributes settings.
+        BOOST_ATTRIBUTES_AVAILABLE = ( "QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT",
+                                       "VPR","VAF","VMMF", "PctExtPos" )
+
+        self.boost_attributes_list = args_parsed.boosting_attributes.split(",")
+        for boost_att in self.boost_attributes_list:
+            if boost_att not in BOOST_ATTRIBUTES_AVAILABLE:
+                raise RuntimeError("Error, boost attribute \"{}\" is not recognized as an available option".format(boost_att))
+
+        if args_parsed.no_include_read_var_pos_annotations:
+            for boost_att in ("VPR","VAF","VMMF", "PctExtPos"):
+                if boost_att in self.boost_attributes_list:
+                    self.boost_attributes_list.remove(boost_att)
+                
         return
 
 
@@ -1298,13 +1312,7 @@ class RnaseqSnp:
 
         lcmd_commands.append(Command(cmd, "cravat_sorted.ok"))
 
-        lcmd_commands = self.tabix_if_needed(lcmd_commands, sorted_vcf)
-        
-        
-        output_vcf = "{}.gz".format(sorted_vcf)
-        
-        
-        return (lcmd_commands, output_vcf)
+        return (lcmd_commands, sorted_vcf)
         
 
 
@@ -1668,7 +1676,12 @@ class RnaseqSnp:
             cmds, variants_vcf_file = self.run_boosting_RVBLR(variants_vcf_file)
             return (cmds, variants_vcf_file)
 
+        elif boost_method in ("RF", "AdaBoost", "SGBoost", "GradBoost"):
+            cmds, variants_vcf_file = self.run_boosting_pyCTAT_classifier(variants_vcf_file, boost_method)
+            return (cmds, variants_vcf_file)
+        
         raise RuntimeError("Error, not recognizing boost method: {}".format(boost_method))
+
 
 
     def run_boosting_RVBLR(self, variants_vcf_file):
@@ -1687,11 +1700,8 @@ class RnaseqSnp:
 
         final_variants_vcf_filename = os.path.join(outdir, os.path.basename(variants_vcf_file) + ".RVBLR_min{:.3f}.vcf".format(score_threshold))
 
-        boost_attribute_list = ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT"]
+        boost_attribute_list = self.boost_attributes_list
         
-        if not self.args.no_include_read_var_pos_annotations:
-            boost_attribute_list.extend(["VPR","VAF","VMMF", "PctExtPos"])
-
         cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py"),
                          "--input_vcf", variants_vcf_file,
                          "--attributes {}".format(",".join(boost_attribute_list)),
@@ -1700,10 +1710,47 @@ class RnaseqSnp:
                          "--output_filename {}".format(final_variants_vcf_filename)])
         
         cmds_list.append(Command(cmd, "rvblr_min{:.3f}.ok".format(score_threshold)))
-        
 
         return (cmds_list, final_variants_vcf_filename)
-    
+
+
+    def run_boosting_pyCTAT_classifier(self, variants_vcf_file, boost_method):
+
+        tmpdir = self.tmp_dir
+        outdir = self.out_dir
+
+        boost_workdir = os.path.join(tmpdir, "{}_workdir".format(boost_method))
+        if not os.path.exists(boost_workdir):
+            os.makedirs(boost_workdir)
+
+        
+        cmds_list = list()
+
+        final_variants_vcf_filename = os.path.join(outdir, os.path.basename(variants_vcf_file) + ".{}.vcf".format(boost_method))
+
+        boost_attribute_list = self.boost_attributes_list
+        
+        cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/PyBoost/CTAT_Boosting.py"),
+                         "--vcf", variants_vcf_file, 
+                         "--features {}".format(",".join(boost_attribute_list)),
+                         "--out", boost_workdir,
+                         "--model {}".format(boost_method)])
+        
+        cmds_list.append(Command(cmd, "boosting-{}.ok".format(boost_method)))
+        
+        # copy output vcf to final output directory
+        boost_output_filename = os.path.join(boost_workdir, "{}_ctat_boosting.vcf".format(boost_method))
+
+        cmds_list.append(Command("cp {} {}".format(boost_output_filename, final_variants_vcf_filename), "cp_to_final_boost_{}.ok".format(boost_method)))
+        
+        return (cmds_list, final_variants_vcf_filename)
+
+
+
+###############
+## end of class 
+###############
+
 
 
 def make_menu():
@@ -1809,16 +1856,20 @@ def make_menu():
                           help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
 
 
-    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR"],
+    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GradBoost"],
                           help="variant calling boosting method")
-
+    
     optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
                           help="minimum score threshold for boosted variant selection")
 
-    optional.add_argument("--no_include_read_var_pos_annotations", action="store_true", default=False,
-                          help="do not include read variant position in read annotations (debugging/troubleshooting purposes only)")
+    optional.add_argument("--boosting_attributes",
+                          default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos",
+                          help="variant attributes on which to perform boosting")
     
-
+    optional.add_argument("--no_include_read_var_pos_annotations", action="store_true", default=False,
+                          help="do not include read variant position in read annotations (debugging/troubleshooting purposes only) Removes: VPR,VAF,VMMF,PctExtPos")
+    
+    
     ## Email for CRAVAT
     optional.add_argument("--email", metavar = "email_contact", dest = "str_email_contact",
                           default = "noreply@domain.com", help = "Email used to notify of errors associated with cravat.")
