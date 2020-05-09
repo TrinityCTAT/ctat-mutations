@@ -1676,7 +1676,7 @@ class RnaseqSnp:
             cmds, variants_vcf_file = self.run_boosting_RVBLR(variants_vcf_file)
             return (cmds, variants_vcf_file)
 
-        elif boost_method in ("RF", "AdaBoost", "SGBoost", "GradBoost"):
+        elif boost_method in ("RF", "AdaBoost", "SGBoost", "GBoost"):
             cmds, variants_vcf_file = self.run_boosting_pyCTAT_classifier(variants_vcf_file, boost_method)
             return (cmds, variants_vcf_file)
         
@@ -1856,7 +1856,7 @@ def make_menu():
                           help="Compute and include tumor contamination estimates in Mutect2 variant filtration")
 
 
-    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GradBoost"],
+    optional.add_argument("--boosting_method", default="none", choices = ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"],
                           help="variant calling boosting method")
     
     optional.add_argument("--boosting_score_threshold", default=0.05, type=float,
