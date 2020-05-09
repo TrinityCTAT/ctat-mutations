@@ -1,14 +1,4 @@
-all: HaplotypeCaller Mutect2
-
-# standard execution mode testing:
-
-HaplotypeCaller: HC_standard HC_CNN
-
-Mutect2: Mutect2_basic Mutect2_best_practices_skip_tumor_contam
-
-# cravat testing
-
-cravat: cravat_hg19 cravat_GRCh38
+all: HC_standard  HC_SE_Reads  BOOSTING_ALL
 
 
 ########################
@@ -33,29 +23,27 @@ HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz  --out_dir example.HC_standard_SE --threads 10
 
 
-## HaplotypeCaller CNN filter:
+## HaplotypeCaller CNN filter:   -- never worked well for us here.
 
-HC_CNN:
+#HC_CNN:
 # conda activate gatk
-	../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
+#	../ctat_mutations --left /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_1.fastq.gz --right /seq/RNASEQ/CTAT_MUTATIONS/CTAT_MUTATION_PIPE_testing/gatk_tutorial/tumor_reads_2.fastq.gz --out_dir example.HC_CNN --HaplotypeCaller_CNN  --threads 10
 
 
 ###############
-## Mutect2 runs
+## Mutect2 runs  -- never worked well for us here.
 ###############
 
-Mutect2_basic:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_basic --gatk_variant_call_method Mutect2 --Mutect2_basic --threads 10  ## multithreading not implemented here... #FIXME
+#Mutect2_basic:
+#	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_basic --gatk_variant_call_method Mutect2 --Mutect2_basic --threads 10  ## multithreading not implemented here... #FIXME
 
 
-Mutect2_best_practices:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_bestpract --gatk_variant_call_method Mutect2  --threads 10  --Mutect2_include_contamination_estimates
+#Mutect2_best_practices:
+#	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_bestpract --gatk_variant_call_method Mutect2  --threads 10  --Mutect2_include_contamination_estimates
 
 
-Mutect2_best_practices_skip_tumor_contam:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_bestpract_skip_tumor_contam --gatk_variant_call_method Mutect2  --threads 10  
-
-
+#Mutect2_best_practices_skip_tumor_contam:
+#	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --out_dir example.Mutect2_bestpract_skip_tumor_contam --gatk_variant_call_method Mutect2  --threads 10  
 
 
 
@@ -74,6 +62,10 @@ use_vcf_GRCh38:
 
 ##############################3
 ## Variant Boosting
+
+
+BOOSTING_ALL : BOOSTING_PREP RVBLR_GRCh38 SGBoost_GRCh38 SGBoost_GRCh38 AdaBoost_GRCh38 RF_GRCh38 GBoost_GRCh38 
+
 
 BOOSTING_PREP:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --out_dir example.boosting
@@ -106,17 +98,17 @@ igv_reports_hg37:
 
 
 ###############
-## Cravat tests
+## Cravat tests     - switched to using open-cravat
 
-cravat_hg19:
-	../src/annotate_with_cravat.py --classifier Other --email noreply@domain.com --max_attempts 180 --wait 60 --is_hg19 __misc_data/variants.hg19.vcf example.hg19.cravat_response.txt
+#cravat_hg19:
+#	../src/annotate_with_cravat.py --classifier Other --email noreply@domain.com --max_attempts 180 --wait 60 --is_hg19 __misc_data/variants.hg19.vcf example.hg19.cravat_response.txt
 
-cravat_GRCh38:
-	../src/annotate_with_cravat.py --classifier Other --email noreply@domain.com --max_attempts 180 --wait 60 __misc_data/variants.GRCh38.vcf example.GRCh38.cravat_response.txt
+#cravat_GRCh38:
+#	../src/annotate_with_cravat.py --classifier Other --email noreply@domain.com --max_attempts 180 --wait 60 __misc_data/variants.GRCh38.vcf example.GRCh38.cravat_response.txt
 
 
-cravat_groom:
-	../src/groom_cravat_annotation.py __misc_data/cravat.Variant.Result.tsv example.cravat.groomed
+#cravat_groom:
+#	../src/groom_cravat_annotation.py __misc_data/cravat.Variant.Result.tsv example.cravat.groomed
 
 
 ##############

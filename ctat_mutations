@@ -551,15 +551,14 @@ class RnaseqSnp:
         (lcmd_gatk_variants_commands, str_variants_file) = self.annotate_variants(lcmd_gatk_variants_commands,
                                                                                   str_variants_file,
                                                                                   str_bam_for_var_annotation)
-
+        
         ## Store 'initial' vcf file (pre-annotation filtering) as a primary output
-
-
+        
         variants_init_vcf = os.path.join(self.out_dir, "variants.HC_init.wAnnot.vcf.gz")
-        lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf_gz.ok"))
+        lcmd_gatk_variants_commands.append(Command("cp {} {}".format(str_variants_file, variants_init_vcf), "cp_HC_variants_init_wAnnot.vcf.gz.ok"))
         lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, variants_init_vcf)
 
-                
+                        
         ## apply filters
         if self.args.boosting_method != "none":
             (variant_boosting_cmds, str_variants_file) = self.BoostVariants(variants_init_vcf)
@@ -1312,6 +1311,11 @@ class RnaseqSnp:
 
         lcmd_commands.append(Command(cmd, "cravat_sorted.ok"))
 
+
+        lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_commands, sorted_vcf) 
+
+        sorted_vcf = "{}.gz".format(sorted_vcf)
+        
         return (lcmd_commands, sorted_vcf)
         
 
