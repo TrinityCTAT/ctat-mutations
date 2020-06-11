@@ -18,16 +18,17 @@ logger = logging.getLogger(__name__)
 ## uses ref exon bed file:
 ## m ../ref_annot.gtf | perl -lane 'if ($F[2] eq "exon") { print;}' | print.pl 0 3 4 | sort -k1,1 -k2,2 -k3,3 -u > ref_exons.bed
 
+MAX_DIST_TO_SPLICE = 10  # note this is based on the bed tools intersect target in the mutation lib
+
 def main():
     
     #add options to inputs
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-        description = "Adds repeat feature annotations to vcf file.\n")
+        description = "Adds exon splice distance annotations to vcf file (report up to len 10 distance away from splice).\n")
     
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
     parser.add_argument('--ctat_mutation_lib_dir', required=True, help='path to ctat mutation lib dir')
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
-    parser.add_argument("--max_dist_to_splice",  type=int, default=6, help="maximum distance from within intron to a splice boundary")
 
     parser.add_argument('--debug', default=False, action='store_true', help='debug mode, retains temporary intermediate files')
     parser.add_argument("--tmpdir", default="/tmp", help="tmp directory")
@@ -38,7 +39,6 @@ def main():
 
     input_vcf_file = args.input_vcf
     ctat_mutation_lib_dir = args.ctat_mutation_lib_dir
-    max_dist_to_splice = args.max_dist_to_splice
     output_vcf_file = args.output_vcf
     DEBUG_MODE = args.debug
 
@@ -88,6 +88,9 @@ def main():
             # distance from splice boundary
             delta = pos_val - lend + 1 if segment_type == "L" else rend - pos_val + 1
 
+            if not (delta > 0 and delta <= MAX_DIST_TO_SPLICE):
+                continue
+            
             # want to store the minimum distance in case there are competing introns.
             if chrpos in exon_splice_adj_dict:
                 if delta < exon_splice_adj_dict[ chrpos ]:
@@ -107,8 +110,8 @@ def main():
                     
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
-                        ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within specified distance of a reference exon splice boundary\">\n".format(max_dist_to_splice))
-
+                        ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within distance of {} to a reference exon splice boundary\">\n".format(MAX_DIST_TO_SPLICE))
+                        
                     ofh.write(line)
                 else:
                     line = line.rstrip()
