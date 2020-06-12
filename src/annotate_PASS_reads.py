@@ -33,7 +33,7 @@ def processVCFHead(line, outfile):
     '''
     Add the annotation flag description to the head of the VCF 
         VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
-        TPR : Total Passed Reads , reads that PASS filtering 
+        TPR : Total Passed Reads , reads that PASS filtering, position not in the terminal 6 bases of read 
         TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.
         PctExtPos: Fraction of variant-supporting reads with variant positions in the first six bases of the reads 
         TDM : Total Duplicate Marked, number of reads that are duplicate marked
@@ -115,18 +115,18 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
     quality_offset = 33
     minimal_base_quality = 25
     minimum_mismatch = 1
-    not_filtered, removed= 0, 0
 
-    newmismatch = 0
-    mismatchreadcount = 0
-    newcov, newmismatch = 0, 0 
-    basequalFail, readPosFail = 0, 0
-    duplicateMarked = 0
-    multimappedReadCount = 0
-    variantMultimappedReadCount = 0
-    output =""
-    output_failed =""
-    total_covered_reads = 0
+    
+    total_covered_reads = 0  # meets quality criteria at pos.
+    total_pass_reads = 0 # not in the terminal 6 bases of read
+    total_pass_variant_reads = 0 # 
+    total_fail_variant_reads = 0 # in the terminal region.
+
+    total_pass_multimapped_reads = 0
+    total_pass_multimapped_variant_reads = 0
+
+
+    total_duplicate_marked = 0
     
     # process the input line 
     lstr_vcfline = vcf_line.split("\t")
@@ -162,7 +162,7 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
         samflag, readstart, cigar, sequencebases, qualscores = bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
         if check_duplicate_marked(samflag):
-            duplicateMarked += 1
+            total_duplicate_marked += 1
             continue # not evaluating duplicate-marked reads.
         
         # get the current position 
@@ -214,31 +214,38 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
                 # check is within 6 bases of the ends and quality score 
                 # ----------------------------------------------------
                 # If the base position is within the 6 base pairs of either side of the sequence -> Pass
-                if (int(base_readpos) > 6) and (base_readpos < read_end_pos - 5):
-                    # If quality score is greater than or equal to the cutoff  --> PASS
+                pass_central_read_pos =  (base_readpos > 6) and (base_readpos < read_end_pos - 5)
+                # If quality score is greater than or equal to the cutoff  --> PASS
+                
+                if pass_central_read_pos:
+                    # central pos, min qual base => PASS status
+                    total_pass_reads += 1
+                
+                ## see if it's a multi-mapped read  NH:i:(x)  where (x) > 1
+                is_multimapped_read = False
 
-                    newcov += 1
-
-                    ## see if it's a multi-mapped read  NH:i:(x)  where (x) > 1
-                    m = re.search("\tNH:i:(\d+)", line)
-                    is_multimapped_read = False
-                    if m:
-                        num_mappings = int(m.group(1))
-                        if num_mappings > 1:
-                            multimappedReadCount += 1
-                            is_multimapped_read = True
-                            
-                    # check if the read base is the variant
-                    if (sequencebases[base_readpos-1] == editnuc):
-                        newmismatch+=1
-                        if is_multimapped_read:
-                            variantMultimappedReadCount += 1
+                m = re.search("\tNH:i:(\d+)", line)
+                if m:
+                    num_mappings = int(m.group(1))
+                    if num_mappings > 1:
+                        is_multimapped_read = True
                         
-                else:
-                    readPosFail=1
-            else:
-                ## Not a PASS read
-                basequalFail=1
+
+                if pass_central_read_pos and is_multimapped_read:
+                    total_pass_multimapped_reads += 1
+
+                
+                # check if the read base is the variant
+                is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
+                if is_variant_containing_read:
+                    if pass_central_read_pos:
+                        total_pass_variant_reads += 1
+                        if is_multimapped_read:
+                            total_pass_multimapped_variant_reads += 1
+                    else:
+                        # in read terminus
+                        total_fail_variant_reads += 1
+
 
     #-----------------------
     # output lines 
@@ -248,16 +255,16 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
     # TDM : Total Duplicate Marked, number of reads that are duplicate marked
 
     
-    lstr_outvcfline[7] += ";VPR={}".format(newmismatch)
-    lstr_outvcfline[7] += ";TPR={}".format(newcov)
+    lstr_outvcfline[7] += ";VPR={}".format(total_pass_variant_reads)
+    lstr_outvcfline[7] += ";TPR={}".format(total_pass_reads)
     lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
-    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format(1-(newmismatch/total_covered_reads) if total_covered_reads > 0 else 0)
-    lstr_outvcfline[7] += ";TDM={}".format(duplicateMarked)
-    lstr_outvcfline[7] += ";VAF={:0.3f}".format(newmismatch/newcov if newcov > 0 else 0)
-    lstr_outvcfline[7] += ";TMMR={}".format(multimappedReadCount)
-    lstr_outvcfline[7] += ";VMMR={}".format(variantMultimappedReadCount)
-    lstr_outvcfline[7] += ";MMF={:0.3f}".format(multimappedReadCount/newcov if newcov > 0 else 0)
-    lstr_outvcfline[7] += ";VMMF={:0.3f}".format(variantMultimappedReadCount/newmismatch if newmismatch > 0 and variantMultimappedReadCount > 0 else 0)
+    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format( (total_fail_variant_reads / (total_fail_variant_reads + total_pass_variant_reads)) if (total_fail_variant_reads + total_pass_variant_reads) > 0 else 0) 
+    lstr_outvcfline[7] += ";TDM={}".format(total_duplicate_marked)
+    lstr_outvcfline[7] += ";VAF={:0.3f}".format(total_pass_variant_reads/total_pass_reads if total_pass_reads > 0 else 0)
+    lstr_outvcfline[7] += ";TMMR={}".format(total_pass_multimapped_reads)
+    lstr_outvcfline[7] += ";VMMR={}".format(total_pass_multimapped_variant_reads)
+    lstr_outvcfline[7] += ";MMF={:0.3f}".format(total_pass_multimapped_reads/total_pass_reads if total_pass_reads > 0 else 0)
+    lstr_outvcfline[7] += ";VMMF={:0.3f}".format(total_pass_multimapped_variant_reads/total_pass_variant_reads  if total_pass_variant_reads > 0 else 0)
     
     # variant frequency if needed 
     # varfreq = (newmismatch/newcov)
