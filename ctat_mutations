@@ -27,8 +27,8 @@ import glob
 
 """
 
-#VERSION = "__BLEEDING_EDGE__"
-VERSION = "2.4.0"
+VERSION = "__BLEEDING_EDGE__"
+#VERSION = "2.4.0"
 
 sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"]))
 from Pipeliner import Pipeliner, Command, ParallelCommandList
@@ -1185,11 +1185,8 @@ class RnaseqSnp:
         ## SnpEff annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_SnpEff(lcmd_commands, str_target_vcf_file)
 
-
-
         ## dbSNP common variant annotations:
         (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
-
 
         ## RNAediting annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
@@ -1267,50 +1264,36 @@ class RnaseqSnp:
                                lcmd_commands,
                                str_variants_file):
 
-        
-        # Filter variants before CRAVAT
-        str_filtered_pre_cravat_vcf = self.func_switch_ext(str_variants_file, "_filtered_pre_cravat.vcf")
-        str_cancer_filter_command = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer.py"]), # retain cosmic, remove common, req depth>=10, remove rna-editing. See script for details.
-                                              str_variants_file,
-                                              str_filtered_pre_cravat_vcf])
-        lcmd_commands.append(Command(str_cancer_filter_command,'variant_filter_before_cravat.ok'))
-
-
         #################
         ## running CRAVAT
-        
-
+                
         gv=self.property_dict["Genome_version"] 
-
-        # Update the output target vcf file given these steps are ran.
-        base_output_name =  os.path.basename(str_filtered_pre_cravat_vcf) + '.cravat.ungroomed'
-        ungroomed_vcf = str_filtered_pre_cravat_vcf + '.cravat.ungroomed.vcf'
         
-        lstr_hg_38 = "--is_hg19" if gv=="hg19" else ""
+        cravat_vcf = str_variants_file + '.cravat.vcf'        
+        cravat_genome = "hg19" if gv=="hg19" else "hg38"
+        
         str_cravat_cmd = " ".join([os.path.sep.join([SCRIPTDIR, "annotate_with_cravat.py"]),
-                                   "--classifier", self.args.str_cravat_classifier,
-                                   lstr_hg_38,
-                                   str_filtered_pre_cravat_vcf,
-                                   base_output_name])
-        
+                                   " --input_vcf", str_variants_file,
+                                   " --genome", cravat_genome,
+                                   " --cravat_lib_dir ", os.path.join(self.ctat_mutation_lib_path, "cravat"),
+                                   " --output_vcf ", cravat_vcf])
+                
         lcmd_commands.append(Command(str_cravat_cmd,'annotate_cravat.ok'))
         
         ## must groom for gatk compat
-        outdirname = os.path.dirname(ungroomed_vcf)
-        groomed_vcf = os.path.join(outdirname,
-                                   os.path.basename(str_filtered_pre_cravat_vcf) + '.cravat.groomed.unsorted.vcf')
-
+        
+        groomed_cravat_vcf = cravat_vcf + ".groomed.unsorted.vcf"
+        
         cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
-                        ungroomed_vcf, groomed_vcf])
+                        cravat_vcf, groomed_cravat_vcf])
         lcmd_commands.append(Command(cmd, "cravat_groomed.ok"))
         
         ## sort the vcf
-        sorted_vcf =  os.path.join(outdirname,
-                                   os.path.basename(str_filtered_pre_cravat_vcf) + '.cravat.vcf')
-        cmd = "bcftools sort {} > {}".format(groomed_vcf, sorted_vcf)
-
+        sorted_vcf =  cravat_vcf + '.groomed.sorted.cravat.vcf'
+        cmd = "bcftools sort {} > {}".format(groomed_cravat_vcf, sorted_vcf)
+        
         lcmd_commands.append(Command(cmd, "cravat_sorted.ok"))
-
+        
 
         lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_commands, sorted_vcf) 
 
@@ -1318,7 +1301,7 @@ class RnaseqSnp:
         
         return (lcmd_commands, sorted_vcf)
         
-
+    
 
     def generate_cancer_variant_report(self, lcmd_commands, str_variants_vcf_file, bam_target_for_var_calling):
         
