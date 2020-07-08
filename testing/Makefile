@@ -60,8 +60,8 @@ use_vcf_GRCh38:
 
 
 
-##############################3
-## Variant Boosting
+#######################################################################################
+## Variant Boosting (using classifier default --predictor setting instead of regressor)
 
 
 BOOSTING_ALL : BOOSTING_PREP RVBLR_GRCh38 SGBoost_GRCh38 SGBoost_GRCh38 AdaBoost_GRCh38 RF_GRCh38 GBoost_GRCh38 
