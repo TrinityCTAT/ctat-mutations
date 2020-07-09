@@ -64,8 +64,10 @@ use_vcf_GRCh38:
 ## Variant Boosting (using classifier default --predictor setting instead of regressor)
 
 
-BOOSTING_ALL : BOOSTING_PREP RVBLR_GRCh38 SGBoost_GRCh38 SGBoost_GRCh38 AdaBoost_GRCh38 RF_GRCh38 GBoost_GRCh38 
+BOOSTING_ALL : BOOSTING_PREP RVBLR_GRCh38 SGBoost_GRCh38 SGBoost_GRCh38 AdaBoost_GRCh38 RF_GRCh38 GBoost_GRCh38  RVBLR_GRCh38_regress SGBoost_GRCh38_regress SGBoost_GRCh38_regress AdaBoost_GRCh38_regress RF_GRCh38_regress GBoost_GRCh38_regress 
 
+
+# run default classifier alg type
 
 BOOSTING_PREP:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --out_dir example.boosting
@@ -86,6 +88,27 @@ RF_GRCh38: BOOSTING_PREP
 
 GBoost_GRCh38: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method GBoost --out_dir example.boosting
+
+
+## run regressor
+
+
+RVBLR_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method RVBLR --out_dir example.boosting --boosting_alg_type regressor
+
+
+SGBoost_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method SGBoost --out_dir example.boosting --boosting_alg_type regressor
+
+AdaBoost_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method AdaBoost --out_dir example.boosting --boosting_alg_type regressor
+
+RF_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method RF --out_dir example.boosting --boosting_alg_type regressor
+
+GBoost_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/lrg.GRCh38.HC.vcf.gz --boosting_method GBoost --out_dir example.boosting --boosting_alg_type regressor
+
 
 
 
