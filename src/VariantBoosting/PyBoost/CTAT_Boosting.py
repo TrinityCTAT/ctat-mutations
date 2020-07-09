@@ -28,6 +28,7 @@ import os, sys, csv
 import glob  # File
 import warnings
 import re
+import gzip
 
 warnings.filterwarnings("ignore")
 
@@ -98,6 +99,11 @@ def preprocess(df_vcf, args):
         DF = pd.get_dummies(DF, columns=['GT'], prefix='GT')
     
     features = args.features.replace(' ','').split(",")
+    # RS is an absolute requirement
+    if 'RS' not in features:
+        features.append('RS')
+
+
     df_subset = DF[features]
 
     ## Replace NA with zero - RPT, RNAEDIT, RS
@@ -164,7 +170,7 @@ class CTAT_Boosting:
         ## If 'RS' absent, stop the program
         if 'RS' not in data.columns:
             print('\'RS\' feature must be present in the vcf')
-            sys.exit()
+            sys.exit(1)
 
         ## Form data matrix
         cols = list(data.columns)
