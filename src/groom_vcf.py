@@ -122,6 +122,11 @@ if args.str_input_file:
 
             # Not a commment
             else:
+
+                ## only yielding 'chr*' contigs
+                if not re.search("^chr", lstr_line[0]):
+                    continue
+                
                 # Remove spaces in the INFO data
                 lstr_line[I_INFO_COL] = lstr_line[I_INFO_COL].replace(" ","_")
 
