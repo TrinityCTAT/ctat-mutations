@@ -28,6 +28,7 @@ import os, sys, csv
 import glob  # File
 import warnings
 import re
+import gzip
 
 warnings.filterwarnings("ignore")
 
@@ -98,8 +99,12 @@ def preprocess(df_vcf, args):
         DF = pd.get_dummies(DF, columns=['GT'], prefix='GT')
     
     features = args.features.replace(' ','').split(",")
-    df_subset = DF[features]
+    # RS is an absolute requirement
+    if 'RS' not in features:
+        features.append('RS')
 
+    df_subset = DF[features]
+    
     ## Replace NA with zero - RPT, RNAEDIT, RS
     if 'RNAEDIT' in df_subset.columns:
         df_subset['RNAEDIT'] = df_subset['RNAEDIT'].fillna(0)
@@ -137,9 +142,11 @@ def preprocess(df_vcf, args):
             df_subset['Homopolymer'] = df_subset['Homopolymer'].fillna(0)
 
         ## Replace NA with median values in remaining columns
-        na_cols = df_subset.columns[df_subset.isna().any()].tolist()    
+        na_cols = df_subset.columns[df_subset.isna().any()].tolist() 
+          
+
         df_subset = df_subset.astype(float) ## Convert to float
-        df_subset[na_cols] = df_subset[na_cols].fillna(df_subset[na_cols].median(axis = 0), inplace=True)
+        df_subset[na_cols] = df_subset[na_cols].fillna(df_subset[na_cols].median())
 
     
     ## Remove RNAediting sites
@@ -151,6 +158,8 @@ def preprocess(df_vcf, args):
         ## Replace NA with 0 in remaining columns
         df_subset = df_subset.fillna(0)
         df_subset = df_subset.astype(float) ## Convert to float
+
+
     
     
     
@@ -164,7 +173,7 @@ class CTAT_Boosting:
         ## If 'RS' absent, stop the program
         if 'RS' not in data.columns:
             print('\'RS\' feature must be present in the vcf')
-            sys.exit()
+            sys.exit(1)
 
         ## Form data matrix
         cols = list(data.columns)
