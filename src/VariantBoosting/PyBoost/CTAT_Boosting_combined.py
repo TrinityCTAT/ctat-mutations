@@ -302,11 +302,8 @@ class CTAT_Boosting:
         elif args.predictor.lower() == 'regressor':
             from sklearn.ensemble import RandomForestRegressor as randomforest
             ## Initialize RandomForest             
-            rf = randomforest(n_estimators=5000, 
-                min_samples_leaf = 0.12,
-                criterion = 'entropy',
-                warm_start=True, 
-                max_depth =8)
+            rf = randomforest(n_estimators = 5000, warm_start=True,random_state=42)
+
         
 
         rf.fit(self.X_train, self.y_train)
