@@ -1724,7 +1724,7 @@ class RnaseqSnp:
         
         boost_attribute_list = self.boost_attributes_list
         
-        cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/PyBoost/CTAT_Boosting.py"),
+        cmd = " ".join([ os.path.join(SCRIPTDIR, "VariantBoosting/PyBoost/CTAT_Boosting_combined.py"),
                          "--vcf", variants_vcf_file, 
                          "--features {}".format(",".join(boost_attribute_list)),
                          "--out", boost_workdir,
