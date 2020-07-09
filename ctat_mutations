@@ -1172,13 +1172,26 @@ class RnaseqSnp:
                           str_align_bam_file):        
 
         logger.info("-ANNOTATING VARIANTS:")
+
+
+        ##
+        ##  Groom the vcf before annotating:
+
+        groomed_vcf_file = re.sub(".vcf(.gz)?$", "", os.path.basename(str_target_vcf_file)) + ".groomed.vcf" 
         
-        # ensure bgzipd and indexed
-        lcmd_commands = self.tabix_if_needed(lcmd_commands, str_target_vcf_file)
-                
-        if not re.search("\.gz$", str_target_vcf_file):
-            # in case we just indexed above
-            str_target_vcf_file += ".gz"
+        cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
+                        str_target_vcf_file, groomed_vcf_file])
+        lcmd_commands.append(Command(cmd, os.path.basename(groomed_vcf_file) + ".ok"))
+        
+        ## sort the vcf
+        sorted_vcf =  re.sub(".vcf$", "", groomed_vcf_file)  + '.sorted.vcf'
+        cmd = "bcftools sort {} > {}".format(groomed_vcf_file, sorted_vcf)
+        
+        lcmd_commands.append(Command(cmd, os.path.basename(sorted_vcf) + ".ok"))
+        
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, sorted_vcf) 
+
+        str_target_vcf_file = "{}.gz".format(sorted_vcf)
 
         # - going forward, assuming we have tabix'd target vcf files.
 
@@ -1190,14 +1203,14 @@ class RnaseqSnp:
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
 
         ## RNAediting annotations
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
 
         ## PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
@@ -1206,32 +1219,32 @@ class RnaseqSnp:
             to_delete_vcf = str_target_vcf_file
             (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
             if not self.args.no_cleanup:
-                lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+                lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
         ## RepeatMasker annotations (mobile elements, etc.)
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_repetitive_elements(lcmd_commands, str_target_vcf_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
         ## Homopolymers and Entropy
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_homopolymers_and_entropy(lcmd_commands, str_target_vcf_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
         
         ## annotate splice distance
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_splice_distance(lcmd_commands, str_target_vcf_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
         
         #########################
         ## Add cancer annotations
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.add_cancer_annotations(lcmd_commands, str_target_vcf_file, str_align_bam_file)
         if not self.args.no_cleanup:
-            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
         return (lcmd_commands, str_target_vcf_file)
 
@@ -1476,10 +1489,27 @@ class RnaseqSnp:
 
 
 
-    def incl_remove_file(self, lcmd_commands, to_delete_vcf):
-        chckpt = os.path.basename(to_delete_vcf) + ".rm.ok"
-        lcmd_commands.append(Command("rm {}".format(to_delete_vcf), chckpt))
+    def incl_remove_vcf_gz_files(self, lcmd_commands, to_delete_vcf):
+        
+        
+        def add_file_deletion(filename):
+            chckpt = os.path.basename(filename) + ".rmtry.ok"
+            lcmd_commands.append(Command("rm {} || :".format(filename), chckpt))
 
+        # try regular vcf
+        to_delete_vcf = re.sub(".vcf.gz$", ".vcf", to_delete_vcf)
+        add_file_deletion(to_delete_vcf)
+
+        # try the gzipped vcf
+        add_file_deletion(to_delete_vcf + ".gz")
+
+        # try the tabix index
+        add_file_deletion(to_delete_vcf + ".gz.tbi")
+
+        # try the bcftools index
+        add_file_deletion(to_delete_vcf + ".gz.csi")
+
+        
         return lcmd_commands
     
 

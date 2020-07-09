@@ -24,6 +24,9 @@ STR_FATHMM = "FATHMM"
 STR_CANCER = ["CANCER","PATHOGENIC"]
 STR_TISSUE = "TISSUE"
 
+STR_COMMON_VARIANT = "RS"
+
+
 
 # Thresholds
 I_FDR = 0.3
@@ -82,6 +85,9 @@ if args.str_input_file:
                                     in lstr_line[I_INFO_INDEX].split(CHR_INFO_DELIMITER)])
             #print dict_info_tokens
 
+            if STR_COMMON_VARIANT in dict_info_tokens:
+                # automatic skip if variant is common
+                continue
             
             # Otherwise require CRAVAT or VEST to have an annotation.
             if STR_CHASM_FDR in dict_info_tokens and float(dict_info_tokens.get(STR_CHASM_FDR, "2")) <= I_FDR:
