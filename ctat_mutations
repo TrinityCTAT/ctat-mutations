@@ -1381,7 +1381,7 @@ class RnaseqSnp:
 
         if self.ref_gene_annotation_bed:
 
-            html_out=os.path.join(self.out_dir, basename_prefix + ".cancer..igvjs_viewer.html") 
+            html_out=os.path.join(self.out_dir, basename_prefix + ".cancer.igvjs_viewer.html") 
 
             str_cmd_html = " ".join([ "create_report",
                                       str_cancer_vcf_file,
