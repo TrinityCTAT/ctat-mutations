@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #from __future__ import (absolute_import, division,
@@ -60,10 +60,6 @@ STR_GATK_HC = "HaplotypeCaller"
 STR_GATK_MUTECT2 = "Mutect2"
 LSTR_VARIANT_METHOD_CHOICES = [STR_GATK_HC,
                                STR_GATK_MUTECT2]
-
-# File name for CRAVAT filtering
-C_STR_CANCER_VCF = "cancer.vcf"
-C_STR_CANCER_TAB = "cancer.tab"
 
 # Files for CRAVAT
 STR_CRAVAT_CLASSIFIER_DEFAULT = "Other"
@@ -572,6 +568,7 @@ class RnaseqSnp:
                                                                                                         str_variants_file,
                                                                                                         str_bam_for_var_calling)
         
+        
         return (lcmd_gatk_variants_commands, str_variants_file)
 
 
@@ -628,7 +625,7 @@ class RnaseqSnp:
                                                        "HC_hard_cutoffs_primary_out_cp.ok"))
 
             lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, HC_hard_cutoffs_applied_vcf)
-            
+            ret_filtered_variants_file = HC_hard_cutoffs_applied_vcf
 
         else:
 
@@ -682,9 +679,11 @@ class RnaseqSnp:
                                                        "HC_CNN_filter_applied_primary_out_cp.ok"))
 
             lcmd_gatk_variants_commands = self.tabix_if_needed(lcmd_gatk_variants_commands, HC_CNN_applied_vcf)
+            ret_filtered_variants_file =  HC_CNN_applied_vcf
+
             
         
-        return (lcmd_gatk_variants_commands, str_filtered_variants_file)
+        return (lcmd_gatk_variants_commands, ret_filtered_variants_file)
     
     
 
@@ -987,12 +986,13 @@ class RnaseqSnp:
         lcmd_commands.append(Command(str_clean_vcf_cmd,'vcf_clean.ok'))
 
 
-
         ## make the pretty igv.js report html for the cancer variants:
-        (lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file) = self.generate_cancer_variant_report(lcmd_commands, str_clean_vcf, bam_target_for_var_calling)
-
+        (lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file) = self.generate_cancer_variant_report(lcmd_commands,
+                                                                                                        str_clean_vcf,
+                                                                                                        variants_vcf_file,
+                                                                                                        bam_target_for_var_calling)
         
-        
+                
         return (lcmd_commands) ## end of build_pipeline_cmds()
 
 
@@ -1184,33 +1184,54 @@ class RnaseqSnp:
 
         ## SnpEff annotations
         (lcmd_commands, str_target_vcf_file) = self.annotate_SnpEff(lcmd_commands, str_target_vcf_file)
-
+        
+        
         ## dbSNP common variant annotations:
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_dbSNP(lcmd_commands, str_target_vcf_file)
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+
 
         ## RNAediting annotations
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
+
 
         ## PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
         ## slow, so making optional for now:
         if not self.args.no_include_read_var_pos_annotations: # double negative = true  :-)
+            to_delete_vcf = str_target_vcf_file
             (lcmd_commands, str_target_vcf_file) = self.annotate_PASS_reads(lcmd_commands, str_target_vcf_file, str_align_bam_file)
+            if not self.args.no_cleanup:
+                lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
 
         ## RepeatMasker annotations (mobile elements, etc.)
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_repetitive_elements(lcmd_commands, str_target_vcf_file)
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
 
         ## Homopolymers and Entropy
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_homopolymers_and_entropy(lcmd_commands, str_target_vcf_file)
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
         
         ## annotate splice distance
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_splice_distance(lcmd_commands, str_target_vcf_file)
-
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
         
         #########################
         ## Add cancer annotations
-        
+        to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.add_cancer_annotations(lcmd_commands, str_target_vcf_file, str_align_bam_file)
-        
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_file(lcmd_commands, to_delete_vcf)
 
         return (lcmd_commands, str_target_vcf_file)
 
@@ -1303,11 +1324,15 @@ class RnaseqSnp:
         
     
 
-    def generate_cancer_variant_report(self, lcmd_commands, str_variants_vcf_file, bam_target_for_var_calling):
+    def generate_cancer_variant_report(self, lcmd_commands, str_clean_vcf_file, variants_vcf_file, bam_target_for_var_calling):
+
+        # clean version is just groomed for gatk happiness
+        # variants_vcf_file is the name of the final vcf being reported.
+        #  use the clean version for processing, and hte variants_vcf_file for determining final output file names.
 
 
-        basename_prefix = os.path.basename(str_variants_vcf_file)
-        basename_prefix, count = re.subn(".vcf$", "", basename_prefix)
+        basename_prefix = os.path.basename(variants_vcf_file)
+        basename_prefix, count = re.subn(".vcf(.gz)?$", "", basename_prefix)
         if count != 1:
             raise RuntimeError("Error, couldnt identify .vcf suffix on {}".format(basename_prefix))
         
@@ -1315,10 +1340,10 @@ class RnaseqSnp:
         # Filter based on Predictions
         str_pred_filtered_vcf = os.path.join(self.tmp_dir, basename_prefix + ".cravat_selected_cancer.vcf") # final 'cancer' vcf output file here.
         str_cmd_filter_predictions = " ".join([os.path.sep.join([SCRIPTDIR, "filter_vcf_for_cancer_prediction_report.py"]),
-                                               str_variants_vcf_file,
+                                               str_clean_vcf_file,
                                                str_pred_filtered_vcf])
         lcmd_commands.append(Command(str_cmd_filter_predictions, basename_prefix + '.extract_cancer_predictions.ok'))
-
+        
                 
         # Groom before table conversion
         str_cancer_vcf_file = os.path.join(self.out_dir, basename_prefix + ".cancer.vcf") # CRAVAT
@@ -1451,7 +1476,12 @@ class RnaseqSnp:
 
 
 
+    def incl_remove_file(self, lcmd_commands, to_delete_vcf):
+        chckpt = os.path.basename(to_delete_vcf) + ".rm.ok"
+        lcmd_commands.append(Command("rm {}".format(to_delete_vcf), chckpt))
 
+        return lcmd_commands
+    
 
     def generate_parallel_gatk_HC_cmds(self,
                                        gatk_core_cmd,
@@ -1868,16 +1898,16 @@ def make_menu():
                           help="do not include read variant position in read annotations (debugging/troubleshooting purposes only) Removes: VPR,VAF,VMMF,PctExtPos")
     
     
-    ## Email for CRAVAT
-    optional.add_argument("--email", metavar = "email_contact", dest = "str_email_contact",
-                          default = "noreply@domain.com", help = "Email used to notify of errors associated with cravat.")
-
     optional.add_argument("--skip_cravat", dest = "f_skip_cravat", action="store_true", default = False,
                           help = "Skips CRAVAT services.")
     optional.add_argument("--tissue_type", metavar = "cravat_tissue", dest = "str_cravat_classifier",
                           default = STR_CRAVAT_CLASSIFIER_DEFAULT,
                           help = "Tissue type (used in CRAVAT variant prioritation). Supported classifiers can be found at http://www.cravat.us/help.jsp)")
     
+
+    optional.add_argument("--no_cleanup", action="store_true", default=False,
+                          help="retain all intermediate vcf files")
+
 
     optional.add_argument("--verbose", dest='verbose', action='store_true', default=False, help='turn on verbose mode')
 
