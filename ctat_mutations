@@ -207,9 +207,9 @@ class RnaseqSnp:
         hapmap_vcf_file = os.path.join(ctat_mutation_lib, "hapmap.vcf.gz")
         self.hapmap_vcf_file = hapmap_vcf_file
 
-        af_only_gnomad_vcf_file = os.path.join(ctat_mutation_lib, "af-only-gnomad.raw.sites.vcf.gz")
+        af_only_gnomad_vcf_file = os.path.join(ctat_mutation_lib, "gnomad-lite.vcf.gz")
         self.af_only_gnomad_vcf_file = af_only_gnomad_vcf_file
-
+        
         str_germline_resource = af_only_gnomad_vcf_file
         if args_parsed.str_germline_resource:
             str_germline_resource = args_parsed.str_germline_resource
@@ -1092,6 +1092,33 @@ class RnaseqSnp:
         return (lcmd_commands, str_dbsnp_annotated_vcf)
     
 
+
+    def annotate_gnomad_AF(self, lcmd_commands, str_target_vcf_file):
+
+        logger.info("-annotating gnomad AF")
+
+        str_gnomad_annotated_vcf = self.func_switch_ext_vcf(str_target_vcf_file, "gnomad.vcf.gz")
+        
+        str_annotate_command = "".join(["bcftools", " annotate",
+                                        " --output-type", " z",
+                                        " --annotations ",
+                                        self.af_only_gnomad_vcf_file,
+                                        " --columns ",
+                                        "INFO/gnomad_RS,",
+                                        "INFO/gnomad_AF",
+                                        " --output ",
+                                        str_gnomad_annotated_vcf,
+                                        " ", str_target_vcf_file])
+        
+        lcmd_commands.append(Command(str_annotate_command,'annot_gnomad_AF.ok'))
+
+        lcmd_commands = self.tabix_if_needed(lcmd_commands, str_gnomad_annotated_vcf)
+
+        return (lcmd_commands, str_gnomad_annotated_vcf)
+    
+
+
+
     def annotate_PASS_reads(self, lcmd_commands, str_target_vcf_file, str_align_bam_file):
 
         logger.info("-annotating PASS read statistics")
@@ -1221,7 +1248,12 @@ class RnaseqSnp:
         if not self.args.no_cleanup:
             lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
 
-
+        ## gnomad pop allelic frequency info for min 0.1% pop AF variants
+        to_delete_vcf = str_target_vcf_file
+        (lcmd_commands, str_target_vcf_file) = self.annotate_gnomad_AF(lcmd_commands, str_target_vcf_file)
+        if not self.args.no_cleanup:
+            lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
+        
         ## RNAediting annotations
         to_delete_vcf = str_target_vcf_file
         (lcmd_commands, str_target_vcf_file) = self.annotate_RNAediting(lcmd_commands, str_target_vcf_file)
