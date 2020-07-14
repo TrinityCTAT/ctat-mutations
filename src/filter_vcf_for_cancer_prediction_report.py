@@ -15,22 +15,20 @@ I_INFO_INDEX = 7
 CHR_INFO_DELIMITER = ";"
 
 # INFO features
-STR_CHASM_FDR = "CHASM_FDR"
-STR_CHASM_PVALUE = "CHASM_PVALUE"
-STR_VEST_FDR = "VEST_FDR"
-STR_VEST_PVALUE = "VEST_PVALUE"
-STR_COSMIC_ID = "COSMIC_ID"
+
+
+
 STR_FATHMM = "FATHMM"
 STR_CANCER = ["CANCER","PATHOGENIC"]
 STR_TISSUE = "TISSUE"
 
-STR_COMMON_VARIANT = "RS"
+
 
 
 
 # Thresholds
-I_FDR = 0.3
-I_PVALUE = 0.05
+MAX_PVALUE = 0.05
+MAX_GNOMAD_AF = 0.01
 
 # Arguments
 prog_desc = "".join(["Filters VCF based on mutation priority predictions."])
@@ -85,27 +83,41 @@ if args.str_input_file:
                                     in lstr_line[I_INFO_INDEX].split(CHR_INFO_DELIMITER)])
             #print dict_info_tokens
 
+
+            ## ---------------------
+            ## Prune common variants
+
+            STR_COMMON_VARIANT = "RS"
             if STR_COMMON_VARIANT in dict_info_tokens:
                 # automatic skip if variant is common
                 continue
-            
-            # Otherwise require CRAVAT or VEST to have an annotation.
-            if STR_CHASM_FDR in dict_info_tokens and float(dict_info_tokens.get(STR_CHASM_FDR, "2")) <= I_FDR:
-                    f_keep = True
-                    
-            if STR_CHASM_PVALUE in dict_info_tokens and (float(dict_info_tokens.get(STR_CHASM_PVALUE, "2")) <= I_PVALUE):
-                f_keep = True
-                
-            if STR_VEST_FDR in dict_info_tokens and float(dict_info_tokens.get(STR_VEST_FDR, "2")) <= I_FDR:
-                    f_keep = True
-                    
-            if STR_VEST_PVALUE in dict_info_tokens and float(dict_info_tokens.get(STR_VEST_PVALUE, "2")) <= I_PVALUE:
-                f_keep = True
-            
-            #print dict_info_tokens
 
-            # Keep everything that is a COSMIC ID at this point.
+            STR_GNOMAD_AF = "gnomad_AF"
+            if STR_GNOMAD_AF in dict_info_tokens:
+                af = float(dict_info_tokens.get(STR_GNOMAD_AF))
+                if af >= MAX_GNOMAD_AF:
+                    # consider it a common variant
+                    continue
+                        
+
+            ## ------------------------
+            ## Chasm and Vest selection
+
+            STR_CHASM_PVALUE = "chasmplus_pval"
+            # Otherwise require CRAVAT or VEST to have an annotation.
+            if STR_CHASM_PVALUE in dict_info_tokens and float(dict_info_tokens.get(STR_CHASM_PVALUE, "1")) <= MAX_PVALUE:
+                f_keep = True
+
+            STR_VEST_PVALUE = "vest_pval"
+            if STR_VEST_PVALUE in dict_info_tokens and float(dict_info_tokens.get(STR_VEST_PVALUE, "1")) <= MAX_PVALUE:
+                f_keep = True
             
+
+            ## ----------------------
+            ## Retain COSMIC entries
+                            
+            # Keep everything that is a COSMIC ID at this point.
+            STR_COSMIC_ID = "COSMIC_ID"
             # Keep FATHMM = Cancer and FATHMM=PATHOGENIC
             if( STR_COSMIC_ID in dict_info_tokens or
                 dict_info_tokens.get(STR_FATHMM, "") in STR_CANCER):
@@ -114,7 +126,7 @@ if args.str_input_file:
             # Store passing variant
             if f_keep:
                 lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
-                f_keep = False
+            
 
         # Last write of buffer
         hndl_out.write("\n".join(lstr_vcf))
