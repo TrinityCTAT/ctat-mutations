@@ -95,6 +95,11 @@ if args.str_input_file:
                                 print("This INFO line is missing fields")
                                 print(STR_VCF_DELIMITER.join(lstr_line))
                                 exit(102)
+
+                        if re.match("extra_vcf_info", dict_header_token[STR_ID]):
+                            # cravat added a field we dont want
+                            continue
+                                
                         # Order and write tokens
                         str_header_token = ",".join(["=".join([str_key,dict_header_token[str_key]]) for str_key in LSTR_REQUIRED_INFO_FIELDS])
                         str_header_token = str_header_type +"<" + str_header_token + ">"
@@ -124,6 +129,14 @@ if args.str_input_file:
             else:
                 # Remove spaces in the INFO data
                 lstr_line[I_INFO_COL] = lstr_line[I_INFO_COL].replace(" ","_")
+
+                # strip out cravat-added xtra fields we don't want.
+                new_I_INFO_pts = list()
+                for I_info_pt in lstr_line[I_INFO_COL].split(";"):
+                    if not re.match("extra_vcf_info", I_info_pt):
+                        new_I_INFO_pts.append(I_info_pt)
+                lstr_line[I_INFO_COL] = ";".join(new_I_INFO_pts)
+                            
 
             # Store
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
