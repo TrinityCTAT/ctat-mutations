@@ -58,6 +58,8 @@ kickstart_use_vcf_hg19:
 kickstart_use_vcf_GRCh38:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/variants.GRCh38.vcf --out_dir example.use_vcf_GRCh38
 
+kickstart_use_vcf_GRCh38_no_cleanup:
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --use_vcf __misc_data/variants.GRCh38.vcf --out_dir example.use_vcf_GRCh38 --no_cleanup
 
 
 #######################################################################################

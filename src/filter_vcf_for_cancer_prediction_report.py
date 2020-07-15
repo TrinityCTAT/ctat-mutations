@@ -94,11 +94,13 @@ if args.str_input_file:
 
             STR_GNOMAD_AF = "gnomad_AF"
             if STR_GNOMAD_AF in dict_info_tokens:
-                af = float(dict_info_tokens.get(STR_GNOMAD_AF))
-                if af >= MAX_GNOMAD_AF:
-                    # consider it a common variant
-                    continue
-                        
+                for af in dict_info_tokens[STR_GNOMAD_AF].split(","):
+                    af = float(af)
+                    # might want to change this logic in the future
+                    if af >= MAX_GNOMAD_AF:
+                        # consider it a common variant
+                        continue
+                    
 
             ## ------------------------
             ## Chasm and Vest selection

@@ -1309,7 +1309,7 @@ class RnaseqSnp:
         # GENE, COSMIC_ID, TISSUE, TUMOR, FATHMM, SOMATIC
         
         # Annotate cancer variants with COSMIC
-        str_cosmic_mutations_vcf = self.func_switch_ext_vcf(str_target_vcf_file, ".cosmic.vcf.gz")
+        str_cosmic_mutations_vcf = self.func_switch_ext_vcf(str_target_vcf_file, "cosmic.vcf.gz")
         str_cosmic_annotation_command = " ".join(["bcftools", "annotate",
                                                   "--output-type", "z",
                                                   "--annotations", self.cosmic_vcf,
