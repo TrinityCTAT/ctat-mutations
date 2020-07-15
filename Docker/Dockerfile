@@ -18,10 +18,11 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
   python get-pip.py
 
-
-
 RUN pip install igv-reports requests open-cravat
 
+RUN curl -L http://cpanmin.us | perl - App::cpanminus
+
+RUN cpanm install URI::Escape
 
 
 ENV SRC /usr/local/src
@@ -32,7 +33,7 @@ ENV BIN  /usr/local/bin
 WORKDIR $SRC
 
 
-ENV GATK_VERSION=4.1.4.0
+ENV GATK_VERSION=4.1.7.0
 RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
     unzip gatk-${GATK_VERSION}.zip
 
@@ -90,17 +91,18 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools-2
 
 WORKDIR $SRC
 
-RUN apt-get install -y git && apt-get clean
+RUN apt-get update && apt-get install -y git && apt-get clean
 
-ENV CTAT_MUTATIONS_COMMIT 4cff6ff1e8a00b5abb6d983670c5f4a859804b1f
+ENV CTAT_MUTATIONS_COMMIT=6fc5b50cbe57f38dc9389d75e07c9234222d2eba
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
 
-RUN curl -L http://cpanmin.us | perl - App::cpanminus
-
-RUN cpanm install URI::Escape
 
 
-
+## update igv-reports to current bleeding edge
+WORKDIR $SRC
+RUN git clone https://github.com/igvteam/igv-reports.git && \
+    cd igv-reports && \
+    pip install -e .
