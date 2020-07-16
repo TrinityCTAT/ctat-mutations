@@ -39,9 +39,10 @@ if __name__ == "__main__":
     cravat_cmd = [
         "oc",
         "run",
-        "--cs",
-        '{"run":{"vcfreporter":{"type":"separate"}}}',
+        # "--cs", '{"run":{"vcfreporter":{"type":"separate"}}}',
         input_vcf,
+        "--module-option",
+        "vcfreporter.type=separate",
         "--system-option",
         "modules_dir={}".format(cravat_lib_dir),
         "-t",

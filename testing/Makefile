@@ -137,13 +137,10 @@ igv_reports_hg37:
 
 
 
-cravat_hg38:
+cravat_hg38_builtin:
 	mkdir -p example.cravat_hg38
 	oc new example-input example.cravat_hg38
 	../src/annotate_with_cravat.py --input_vcf example.cravat_hg38/example_input --output_vcf example.cravat_hg38/example-input.wCravat.vcf --genome hg38 --cravat_lib_dir ${CTAT_GENOME_LIB}/ctat_mutation_lib/cravat
-#
-#	#gunzip -c  __misc_data/lrg.GRCh38.HC.vcf.gz > example.cravat_hg38/lrg.GRCh38.HC.vcf
-#	#../src/annotate_with_cravat.py --input_vcf example.cravat_hg38/lrg.GRCh38.HC.vcf --output_vcf example.cravat_hg38/lrg.GRCh38.HC.wCravat.vcf --genome hg38 --cravat_lib_dir ${CTAT_GENOME_LIB}/ctat_mutation_lib/cravat
 
 
 
