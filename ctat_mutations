@@ -1228,7 +1228,7 @@ class RnaseqSnp:
         groomed_vcf_file = self.func_switch_ext_vcf(lnorm_vcf_file, "grommed.vcf")
         
         cmd = " ".join([os.path.sep.join([SCRIPTDIR, "groom_vcf.py"]),
-                        str_target_vcf_file, groomed_vcf_file])
+                        lnorm_vcf_file, groomed_vcf_file])
         lcmd_commands.append(Command(cmd, os.path.basename(groomed_vcf_file) + ".ok"))
         if not self.args.no_cleanup:
             lcmd_commands = self.incl_remove_vcf_gz_files(lcmd_commands, to_delete_vcf)
