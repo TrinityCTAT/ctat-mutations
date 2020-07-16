@@ -63,7 +63,7 @@ def main():
         args.attributes += ",RS"
     
     
-    cmd = " ".join([ os.path.join(CTAT_UTILDIR, "extract_attribute_annotation_matrix.pl"),
+    cmd = " ".join([ os.path.join(RVB_UTILDIR, "extract_attribute_annotation_matrix.pl"),
                     args.input_vcf,
                     args.attributes,
                     ">",
