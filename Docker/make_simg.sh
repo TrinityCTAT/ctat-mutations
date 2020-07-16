@@ -8,5 +8,3 @@ singularity build ctat_mutations.v${VERSION}.simg docker://trinityctat/ctat_muta
 
 singularity exec -e ctat_mutations.v${VERSION}.simg env
 
-cp ctat_mutations.v${VERSION}.simg ctat_mutations.vLATEST.simg
-

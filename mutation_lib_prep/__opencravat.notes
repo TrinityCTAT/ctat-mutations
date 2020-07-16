@@ -1,0 +1,5 @@
+mkdir -p $CTAT_GENOME_LIB/ctat_mutation_lib/cravat
+oc config md $CTAT_GENOME_LIB/ctat_mutation_lib/cravat
+oc module install-base
+oc module install --yes vest chasmplus vcfreporter mupit clinvar
+
