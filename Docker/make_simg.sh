@@ -8,3 +8,5 @@ singularity build ctat_mutations.v${VERSION}.simg docker://trinityctat/ctat_muta
 
 singularity exec -e ctat_mutations.v${VERSION}.simg env
 
+ln -sf  ctat_mutations.v${VERSION}.simg  ctat_mutations.vLATEST.simg  #for local testing
+
