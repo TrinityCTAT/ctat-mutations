@@ -13,11 +13,16 @@ input_matrix = args[1]
 output = args[2]
 
 
-
-
 if (length(args) == 3) {
     attributes = strsplit(args[3], ",")[[1]]
 }
+
+if (! 'RS' %in% attributes) {
+    message("Adding RS to attributes list, as it is essential")
+    attributes = c(attributes, 'RS')  # required
+}
+
+
 message("Using attribute list: ", paste(attributes, collapse=","))
 
 library(gbm)
@@ -30,13 +35,17 @@ if (! all(attributes %in% colnames(data))) {
 }
 
 
+data = data[, attributes, drop=F] # restrict to what we want to analyze here and reorder columns
+
 RS_col = which(colnames(data) %in% "RS")
 RS = data[, RS_col, drop=T]
 RS = ifelse(is.na(RS), 0, 1)
 
 data = data[,-RS_col, drop=F]
 
-data = data[, colnames(data) %in% attributes, drop=F] # restrict to what we want to analyze here.
+## reset attributes sans RS
+attributes = colnames(data)
+
 
 ###########################
 ## adjust data where needed.
@@ -83,7 +92,7 @@ if ("RNAEDIT" %in% attributes) {
 for(j in 1:ncol(data)){
     is_na <- which(is.na(data[ ,j]))
     
-    if(!is.null(is_na)){
+    if(length(is_na) > 0){
         # get the median of the non NA values 
         not_na <- which(!is.na(data[ ,j]))
         median_value <- median(data[not_na,j])

@@ -43,7 +43,7 @@ main: {
             $annot_hash{$key} = $val;
         }
         
-        my $chr_pos = join(":", $x[0], $x[1]);
+        my $chr_pos = join(":", $x[0], $x[1], $x[3], $x[4]);
         
         my @vals = ($chr_pos);
         foreach my $att (@ATTRIBUTE_LIST) {
