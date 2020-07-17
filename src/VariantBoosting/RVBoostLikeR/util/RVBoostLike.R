@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 
 ### use these attributes from VCF file to make a model
-attributes = c("QD","ReadPosRankSum", "FS", "VPR", "VAF", "VMMF", "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT")
+attributes = c("QD","ReadPosRankSum", "FS", "VPR", "VAF", "VMMF",
+               "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT", "INDEL")
 
 args = commandArgs(TRUE)
 if(length(args) < 2 || length(args) > 3) {
@@ -80,7 +81,6 @@ if ("RNAEDIT" %in% attributes) {
     is_NA_rnaedit = is.na(data[, RNAEDIT_col])
     data[,RNAEDIT_col] = 0
     data[! is_NA_rnaedit,RNAEDIT_col] = 1
-
 
     if (sum(data[,RNAEDIT_col]) == 0) {
         message("warning, no RNAEDIT events assigned. Removing column")

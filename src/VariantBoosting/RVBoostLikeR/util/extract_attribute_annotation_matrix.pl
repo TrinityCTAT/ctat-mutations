@@ -2,8 +2,10 @@
 
 use strict;
 use warnings;
+use List::Util qw(max);
 
-my $ATT_LIST = "DJ,ReadPosRankSum,QD,FS,ED,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,RS";
+
+my $ATT_LIST = "DJ,ReadPosRankSum,QD,FS,ED,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,RS,INDEL";
 
 my $usage = "\n\n\tusage: $0 variants_annotated.vcf atts_list=$ATT_LIST\n\n";
 
@@ -43,6 +45,12 @@ main: {
             $annot_hash{$key} = $val;
         }
         
+        if ($ATTRIBUTE_HASH{INDEL}) {
+            my $ref_base = $x[3];
+            my $alt_bases = $x[4];
+            $annot_hash{INDEL} = &get_indel_length($ref_base, $alt_bases);
+        }
+        
         my $chr_pos = join(":", $x[0], $x[1], $x[3], $x[4]);
         
         my @vals = ($chr_pos);
@@ -57,4 +65,22 @@ main: {
     exit(0);
 }
 
+
+####
+sub get_indel_length {
+    my ($ref_base, $alt_bases) = @_;
+
+    my @lengths;
+
+    push (@lengths, length($ref_base));
+    
+    my @alt_bases_list = split(/,/, $alt_bases);
+    foreach my $alt_base_entry (@alt_bases_list) {
+        push (@lengths, length($alt_base_entry));
+    }
+
+    my $max_len = max(@lengths);
+
+    return($max_len - 1);
+}
 
