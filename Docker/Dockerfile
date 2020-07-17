@@ -18,7 +18,6 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
   python get-pip.py
 
-RUN pip install igv-reports requests open-cravat
 
 RUN curl -L http://cpanmin.us | perl - App::cpanminus
 
@@ -93,7 +92,7 @@ WORKDIR $SRC
 
 RUN apt-get update && apt-get install -y git && apt-get clean
 
-ENV CTAT_MUTATIONS_COMMIT=6fc5b50cbe57f38dc9389d75e07c9234222d2eba
+ENV CTAT_MUTATIONS_COMMIT=7803d7be9f194a84a454dd27cef431b7e21d3f05
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
@@ -103,6 +102,10 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
 
 ## update igv-reports to current bleeding edge
 WORKDIR $SRC
+ENV IGV_REPORTS_CO=a3111ada1e7c3bb11c14110f0d046ba7066a149c
 RUN git clone https://github.com/igvteam/igv-reports.git && \
     cd igv-reports && \
+    git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
+
+RUN pip install requests open-cravat==2.0.1
