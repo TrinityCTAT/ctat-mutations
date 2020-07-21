@@ -84,20 +84,7 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools-2
    make && \
    cp bin/* $BIN/
 
-
-
-## NCIP CTAT mutations
-
-WORKDIR $SRC
-
 RUN apt-get update && apt-get install -y git && apt-get clean
-
-ENV CTAT_MUTATIONS_COMMIT=7803d7be9f194a84a454dd27cef431b7e21d3f05
-
-RUN git clone https://github.com/NCIP/ctat-mutations.git && \
-    cd ctat-mutations && \
-    git checkout ${CTAT_MUTATIONS_COMMIT}
-
 
 
 ## update igv-reports to current bleeding edge
@@ -109,3 +96,16 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     pip install -e .
 
 RUN pip install requests open-cravat==2.0.1
+
+# Run an oc command to generate config files
+RUN oc config md > /dev/null
+
+## NCIP CTAT mutations
+WORKDIR $SRC
+ENV CTAT_MUTATIONS_COMMIT=09a40f1e58d4d25645b8b4524073233103257ceb
+
+RUN git clone https://github.com/NCIP/ctat-mutations.git && \
+    cd ctat-mutations && \
+    git checkout ${CTAT_MUTATIONS_COMMIT}
+
+
