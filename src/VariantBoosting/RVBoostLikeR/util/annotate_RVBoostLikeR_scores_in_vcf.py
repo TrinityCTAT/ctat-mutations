@@ -55,7 +55,7 @@ def main():
     ## write annotated vcf
     counter = -1
 
-    ofh = open(args.output_vcf, "w")
+    ofh = open(args.output_vcf, "wt", encoding='utf-8')
 
     open_file = open
     if re.search("\.gz$", args.input_vcf):
@@ -63,7 +63,7 @@ def main():
 
         open_file = gzip.open
 
-    with open_file(args.input_vcf, "rt") as fh:
+    with open_file(args.input_vcf, "rt", encoding='utf-8') as fh:
 
         for line in fh:
             line = line.rstrip()

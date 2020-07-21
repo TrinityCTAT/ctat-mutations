@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 import argparse
 import os, sys, re
 import subprocess
@@ -55,7 +56,8 @@ if __name__ == "__main__":
         output_vcf,
     ]
 
-    sys.stderr.write("annotate_with_cravat: {}\n".format(" ".join(cravat_cmd)))
+    sys.stderr.write("\n\nCMD: annotate_with_cravat: {}\n\n\n".format(" ".join(cravat_cmd)))
+    
     subprocess.check_call(cravat_cmd)
-
+    
     sys.exit(0)
