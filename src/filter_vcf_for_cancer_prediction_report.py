@@ -4,7 +4,7 @@
 import argparse
 import csv
 import gzip
-import os
+import os, re
 import codecs
 
 # Constants
@@ -16,14 +16,9 @@ CHR_INFO_DELIMITER = ";"
 
 # INFO features
 
-
-
 STR_FATHMM = "FATHMM"
 STR_CANCER = ["CANCER","PATHOGENIC"]
 STR_TISSUE = "TISSUE"
-
-
-
 
 
 # Thresholds
@@ -68,8 +63,8 @@ hndl_vcf = gzip.open(args.str_input_file, "rb") if str_input_ext == ".gz" else o
 # Read in vcf file
 if args.str_input_file:
     with open(args.str_output_file, "w") as hndl_out:
-        for lstr_line in csv.reader(codecs.iterdecode(hndl_vcf, 'utf-8'),delimiter = STR_VCF_DELIMITER):#csv.reader(hndl_vcf, delimiter = STR_VCF_DELIMITER):
-
+        for lstr_line in csv.reader(codecs.iterdecode(hndl_vcf, 'utf-8'), delimiter = STR_VCF_DELIMITER):
+            
             # Do not keep any line that does not meet a criteria.
             f_keep = False
 
@@ -118,13 +113,17 @@ if args.str_input_file:
             ## ----------------------
             ## Retain COSMIC entries
                             
-            # Keep everything that is a COSMIC ID at this point.
-            STR_COSMIC_ID = "COSMIC_ID"
             # Keep FATHMM = Cancer and FATHMM=PATHOGENIC
-            if( STR_COSMIC_ID in dict_info_tokens or
-                dict_info_tokens.get(STR_FATHMM, "") in STR_CANCER):
+            if(dict_info_tokens.get(STR_FATHMM, "") in STR_CANCER):
                 f_keep = True
 
+            # clinvar: clinvar_sig   see: https://www.ncbi.nlm.nih.gov/clinvar/docs/clinsig/#clinsig_options_scv
+
+            CLINVAR_SIG="clinvar_sig"
+            if (CLINVAR_SIG in dict_info_tokens and re.search("pathogenic", dict_info_tokens.get(CLINVAR_SIG), re.I)):
+                f_keep = True
+
+                            
             # Store passing variant
             if f_keep:
                 lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))

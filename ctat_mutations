@@ -1961,6 +1961,8 @@ class RnaseqSnp:
                 "-F",
                 "MQ",
                 "-F",
+                "clinvar_sig",
+                "-F",
                 "TUMOR",
                 "-F",
                 "TISSUE",
@@ -2004,7 +2006,7 @@ class RnaseqSnp:
                     "--info-columns-prefixes",
                     "COSMIC_ID",
                     "--info-columns",
-                    "GENE TISSUE TUMOR chasmplus_pval vest_pval mupit_link",
+                    "GENE clinvar_sig FATHMM TISSUE TUMOR chasmplus_pval vest_pval mupit_link",
                     "--tracks",
                     bam_target_for_var_calling,
                     self.ref_gene_annotation_bed + ".gz",
@@ -2014,7 +2016,7 @@ class RnaseqSnp:
             )
 
             lcmd_commands.append(
-                Command(str_cmd_html, basename_prefix + ".igv_html_viz.ok")
+                Command(str_cmd_html, basename_prefix + ".igv_report_html_viz.ok")
             )
 
         return (lcmd_commands, str_cancer_vcf_file, str_cancer_tab_file)
