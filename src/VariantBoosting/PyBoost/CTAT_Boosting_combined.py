@@ -448,9 +448,9 @@ def main():
 
     ## Extract vcf header
     if re.search("\.gz$", args.vcf):
-        vcf_lines = gzip.open(args.vcf, 'rt').readlines()
+        vcf_lines = gzip.open(args.vcf, 'rt', encoding='utf-8').readlines()
     else:
-        vcf_lines = open(args.vcf, 'r').readlines()
+        vcf_lines = open(args.vcf, 'rt', encoding='utf-8').readlines()
 
     vcf_header = [line for line in vcf_lines if line.startswith('#')]
 
@@ -463,7 +463,7 @@ def main():
     logger.info("Writing Output")
     file_name = args.model+'_'+args.predictor+'_ctat_boosting.vcf'
     out_file = os.path.join(args.out, file_name)
-    with open(out_file,'w') as csv_file:
+    with open(out_file,'wt', encoding='utf-8') as csv_file:
         for item in vcf_header:  
             csv_file.write(item)
     df_bm.to_csv(out_file, sep='\t', index=False, mode = "a", header=None)

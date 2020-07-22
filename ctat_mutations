@@ -1296,13 +1296,22 @@ class RnaseqSnp:
 
             variants_vcf_file = variants_wAnnot_vcf
 
-            if self.args.boosting_method != "none":
+            if self.args.boosting_method == "none":
+                ## Hard filtering
+                (
+                    lcmd_commands,
+                    variants_vcf_file,
+                ) = self.filter_HaplotypeCaller_raw_variants(
+                    lcmd_commands, variants_vcf_file, bam_target_for_var_calling
+                )
+                
+            else:
                 (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(
                     variants_vcf_file
                 )
                 lcmd_commands.extend(variant_boosting_cmds)
                 lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
-
+                
         else:
 
             # must run a variant caller:
