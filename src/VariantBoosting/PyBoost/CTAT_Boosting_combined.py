@@ -403,7 +403,7 @@ def main():
     logger.info("Loading input VCF ... ")
     vcf = pd.read_csv(args.vcf,
         sep='\t', low_memory=False, 
-        comment='#', header =None,
+        comment='#', header =None, quoting=csv.QUOTE_NONE,
         names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SNP_DETAILS"])
     
     features = args.features.replace(' ','').split(",")
@@ -466,7 +466,7 @@ def main():
     with open(out_file,'wt', encoding='utf-8') as csv_file:
         for item in vcf_header:  
             csv_file.write(item)
-    df_bm.to_csv(out_file, sep='\t', index=False, mode = "a", header=None)
+    df_bm.to_csv(out_file, sep='\t', index=False, mode = "a", header=None, quoting=csv.QUOTE_NONE)
     
 
 if __name__ == "__main__":
