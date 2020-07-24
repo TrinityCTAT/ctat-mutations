@@ -102,7 +102,8 @@ RUN oc config md > /dev/null
 
 ## NCIP CTAT mutations
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_COMMIT=09a40f1e58d4d25645b8b4524073233103257ceb
+ENV CTAT_MUTATIONS_VER=2.5.0
+ENV CTAT_MUTATIONS_COMMIT=9dde839bf5f721eaf900fa0b81910501172ba436
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
