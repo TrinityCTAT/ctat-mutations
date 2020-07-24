@@ -27,8 +27,8 @@ import glob
 
 """
 
-VERSION = "__BLEEDING_EDGE__"
-# VERSION = "2.4.0"
+# VERSION = "__BLEEDING_EDGE__"
+VERSION = "2.5.0"
 
 sys.path.insert(
     0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"])
@@ -1304,14 +1304,14 @@ class RnaseqSnp:
                 ) = self.filter_HaplotypeCaller_raw_variants(
                     lcmd_commands, variants_vcf_file, bam_target_for_var_calling
                 )
-                
+
             else:
                 (variant_boosting_cmds, variants_vcf_file) = self.BoostVariants(
                     variants_vcf_file
                 )
                 lcmd_commands.extend(variant_boosting_cmds)
                 lcmd_commands = self.tabix_if_needed(lcmd_commands, variants_vcf_file)
-                
+
         else:
 
             # must run a variant caller:
