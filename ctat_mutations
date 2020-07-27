@@ -27,8 +27,8 @@ import glob
 
 """
 
-# VERSION = "__BLEEDING_EDGE__"
-VERSION = "2.5.0"
+VERSION = "__BLEEDING_EDGE__"
+#VERSION = "2.5.0"
 
 sys.path.insert(
     0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "PyLib"])
