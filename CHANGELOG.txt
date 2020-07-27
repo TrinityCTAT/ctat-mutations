@@ -1,3 +1,13 @@
+2.5.0
+-leverages Open-CRAVAT for annotations in place of REST-call to web app.
+-incorporates additional boosting methods: SGBoost, GBoost, AdaBoost, and RF
+-cleaner organization of output files
+-added gnomad pop AF annotations
+-added clinvar annotations
+-igv-reports incorporates clinvar and FATHMM
+-cancer-related variants selected based on chasm & vest pvals, or FATHMM or clinvar pathogenic attributes.
+
+
 2.4.0
 -added support for using single-end rna-seq reads
 -support for RVBLR (our RVBoost-integration as RVB-like R)
