@@ -89,7 +89,7 @@ RUN apt-get update && apt-get install -y git && apt-get clean
 
 ## update igv-reports to current bleeding edge
 WORKDIR $SRC
-ENV IGV_REPORTS_CO=a3111ada1e7c3bb11c14110f0d046ba7066a149c
+ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
 RUN git clone https://github.com/igvteam/igv-reports.git && \
     cd igv-reports && \
     git checkout ${IGV_REPORTS_CO} && \
@@ -103,7 +103,7 @@ RUN oc config md > /dev/null
 ## NCIP CTAT mutations
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_VER=2.5.0
-ENV CTAT_MUTATIONS_COMMIT=9dde839bf5f721eaf900fa0b81910501172ba436
+ENV CTAT_MUTATIONS_COMMIT=90758f30995de9a95fae9695f406b0c165a2525d
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
