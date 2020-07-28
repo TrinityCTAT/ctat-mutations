@@ -128,7 +128,8 @@ BOOSTING_PREP: ctat_mutation_ext_testdata
 
 ctat_mutation_ext_testdata:
 	git clone https://github.com/TrinityCTAT/ctat_mutation_ext_testdata.git
-
+	gunzip ctat_mutation_ext_testdata/bmark_resource/grch38.high_conf_regions.chr1.bed.gz
+	gunzip ctat_mutation_ext_testdata/bmark_resource/giab_reference_calls.high_conf_regions.chr1.vcf.gz
 
 RVBLR_GRCh38: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam ${boosting_bam_target}  --use_vcf ${boosting_vcf_target} --boosting_method RVBLR --out_dir example.boosting --no_cleanup
@@ -165,6 +166,35 @@ RF_GRCh38_regress: BOOSTING_PREP
 
 GBoost_GRCh38_regress: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --use_bam ${boosting_bam_target}  --use_vcf ${boosting_vcf_target} --boosting_method GBoost --out_dir example.boosting --boosting_alg_type regressor --no_cleanup
+
+
+
+## benchmark eval
+Benchmark: BOOSTING_ALL CTAT-benchmarking
+	CTAT-benchmarking/CTAT-mutation-benchmarking/BENCHMARK_variant_calling.py \
+        --pred_vcf  example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz \
+                    example.boosting/variants.HC_hard_cutoffs_applied.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.RVBLR_min0.050.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.SGBoost.classifier.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.AdaBoost.classifier.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.RF.classifier.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.GBoost.classifier.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.SGBoost.regressor.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.AdaBoost.regressor.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.RF.regressor.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.GBoost.regressor.vcf.gz \
+        --truth_vcf ctat_mutation_ext_testdata/bmark_resource/giab_reference_calls.high_conf_regions.chr1.vcf \
+        --pred_bam ${boosting_bam_target} \
+        --restrict_regions ctat_mutation_ext_testdata/bmark_resource/grch38.high_conf_regions.chr1.bed \
+        --remove_indels \
+        --rnaediting ctat_mutation_ext_testdata/bmark_resource/RNAediting.library.chr1.vcf.gz \
+        --remove_intersect rnaediting \
+        --dbsnp ctat_mutation_ext_testdata/bmark_resource/dbsnp.chr1.vcf.gz \
+        --output_dir example.boosting/benchmark_outdir
+
+CTAT-benchmarking:
+	git clone git@github.com:broadinstitute/CTAT-benchmarking.git
+
 
 
 
