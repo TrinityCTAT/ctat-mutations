@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 __author__ = "Vrushali Fangal"
@@ -79,18 +79,20 @@ def preprocess(df_vcf, args):
         dict_info['REF'] = df_row['REF']
         dict_info['ALT'] = df_row['ALT']
         dict_info['SNP'] = df_row['REF']+':'+df_row['ALT']
-        dict_info['GT'] = df_row[-1].split(':')[0]
+        dict_info['GT'] = df_row[-1].split(':')[0] ##TODO: replace withj 'SNP_DETAILS' ?
         lst.append(dict_info)
     
+    logger.info("INDELs included ...")
+    DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
+
     if args.remove_indels:
         logger.info("Removing INDELs ...")
         DF = DF[DF['ALT'].str.len().eq(1)]
         DF = DF[DF['REF'].str.len().eq(1)]
 
-    logger.info("INDELs included ...")
-    DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
     
     ## Replace INDEL values
+    # TODO: -pretty sure we can remove these three lines below.
     DF['AF'] = DF['AF'].replace('0.5,0.5', '0.5')
     DF['MLEAF'] = DF['MLEAF'].replace('0.5,0.5', '0.5')
     DF['AC'] = DF['AC'].replace('1,1', '1')
@@ -109,9 +111,11 @@ def preprocess(df_vcf, args):
     if 'RNAEDIT' in df_subset.columns:
         df_subset['RNAEDIT'] = df_subset['RNAEDIT'].fillna(0)
         df_subset['RNAEDIT'][df_subset['RNAEDIT'] != 0] = 1
+
     if 'RPT' in df_subset.columns:
         df_subset['RPT'] = df_subset['RPT'].fillna(0)
         df_subset['RPT'][df_subset['RPT'] != 0] = 1
+
     if 'RS' in df_subset.columns:
         df_subset['RS'] = df_subset['RS'].fillna(0)
         df_subset['RS'][df_subset['RS'] != 0] = 1
@@ -122,12 +126,12 @@ def preprocess(df_vcf, args):
         df_subset['SNP'] = df_subset['SNP'].fillna(0)
         df_subset.loc[~df_subset["SNP"].isin(range(12)), "SNP"] = "-1"
 
-    if 'REF' in df_subset.columns  :
+    if 'REF' in df_subset.columns:
         df_subset = df_subset.replace({'A':4, 'T':1, 'G':2, 'C':3})
         df_subset['REF'] = df_subset['REF'].fillna(0)
         df_subset.loc[~df_subset["REF"].isin(range(3)), "REF"] = "-1"
  
-    if 'ALT' in df_subset.columns  :
+    if 'ALT' in df_subset.columns:
         df_subset = df_subset.replace({'A':4, 'T':1, 'G':2, 'C':3})
         df_subset['ALT'] = df_subset['ALT'].fillna(0)
         df_subset.loc[~df_subset["ALT"].isin(range(3)), "ALT"] = "-1"
@@ -158,17 +162,13 @@ def preprocess(df_vcf, args):
         ## Replace NA with 0 in remaining columns
         df_subset = df_subset.fillna(0)
         df_subset = df_subset.astype(float) ## Convert to float
-
-
-    
-    
     
     return df_subset
 
 
 class CTAT_Boosting:
 
-    def data_matrix(self, data, args):
+    def __init__(self, data, args):
         
         ## If 'RS' absent, stop the program
         if 'RS' not in data.columns:
@@ -178,16 +178,19 @@ class CTAT_Boosting:
         ## Form data matrix
         cols = list(data.columns)
         cols.remove('RS')
-        self.X_data = data[cols]
-        self.y_data = data['RS']
+        self.X_data = data[cols]  ## all data sans RS
+        self.y_data = data['RS']  ## RS only  Y ~ f(X)
         self.data = data
  
         if args.predictor.lower() == 'classifier': ## Split data
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_data, self.y_data, test_size=0.4, stratify= self.y_data, random_state=1)
+            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_data, self.y_data,
+                                                                                    test_size=0.4,
+                                                                                    stratify= self.y_data,
+                                                                                    random_state=1)
         elif args.predictor.lower() == 'regressor':
             self.X_train, self.y_train = self.X_data, self.y_data
         
-        return self
+        return
 
 
     def SGBoost(self, args): ## Stochastic gradient Boosting
@@ -201,8 +204,8 @@ class CTAT_Boosting:
         
         ## Initialize model
         sgbt = sgbt(max_depth=6, 
-            subsample= 0.6,
-            n_estimators = 5000)
+                    subsample= 0.6,
+                    n_estimators = 5000)
         
 
         ## Fit regressor to the training set
@@ -210,11 +213,13 @@ class CTAT_Boosting:
     
         ## Predict the labels
         self.y_pred = sgbt.predict(self.X_data)
+
         if args.predictor.lower() == 'regressor':
             self.y_pred = logistic.cdf(self.y_pred)
         
         self.data['boosting_score'] = self.y_pred
         self.model = sgbt
+
         return self
 
 
@@ -226,23 +231,23 @@ class CTAT_Boosting:
             from xgboost import XGBClassifier as xgb
         elif args.predictor.lower() == 'regressor':
             from xgboost import XGBRegressor as xgb
-        
-        
-        xg_regression_model = xgb( objective = 'binary:logistic',
-                                                n_estimator    = 20000, 
-                                                colsample_bytree = 0.6, 
-                                                max_depth      = 6 )
+                
+        xg_model = xgb( objective = 'binary:logistic',
+                        n_estimator    = 20000, 
+                        colsample_bytree = 0.6, 
+                        max_depth      = 6 )
 
-        ## Fit the regressor to the training set
-        xg_regression_model.fit(self.X_train, self.y_train)
+        ## Fit to the training set
+        xg_model.fit(self.X_train, self.y_train)
         
         ## Predict the labels 
-        self.y_pred = xg_regression_model.predict(self.X_data)
+        self.y_pred = xg_model.predict(self.X_data)
+
         if args.predictor.lower() == 'regressor':
             self.y_pred = logistic.cdf(self.y_pred)
+
         self.data['boosting_score'] = self.y_pred
-        self.model = xg_regression_model
-       
+        self.model = xg_model
         
         return self 
 
@@ -286,6 +291,7 @@ class CTAT_Boosting:
     
         self.data['boosting_score'] = self.y_pred
         self.model = ada_model
+
         return self
 
 
@@ -304,8 +310,6 @@ class CTAT_Boosting:
             ## Initialize RandomForest             
             rf = randomforest(n_estimators = 5000, warm_start=True,random_state=42)
 
-        
-
         rf.fit(self.X_train, self.y_train)
 
         # Get the predicted values 
@@ -313,8 +317,10 @@ class CTAT_Boosting:
 
         if args.predictor.lower() == 'regressor':
             self.y_pred = logistic.cdf(self.y_pred)
+
         self.data['boosting_score'] = self.y_pred
         self.model = rf
+
         return self
 
 
@@ -330,6 +336,7 @@ def feature_importance(boost_obj, model, path):
         importances_rf = pd.Series(boost_obj.model.feature_importances_, index = boost_obj.X_data.columns)
         sorted_importance_rf = importances_rf.sort_values()
         sorted_importance_rf.plot(kind='barh', color='lightgreen')
+
     plt.title('Feature Importance')
     plt.savefig(os.path.join(path,'feature_importance.png'))
 
@@ -341,9 +348,11 @@ def filter_variants(boost_obj, args):
 
     if args.predictor.lower() == 'classifier':
         df1 = pd.DataFrame()
-        df1['xgb_score'] = boost_obj.y_pred
+        df1['score'] = boost_obj.y_pred
         df1['chr:pos'] = boost_obj.X_data.index
-        real_snps = df1[df1['xgb_score']==1]['chr:pos']
+        class_out_file_name = os.path.join(args.out, args.model+'_'+args.predictor+'_class_out.tsv') 
+        df1.to_csv(class_out_file_name, sep="\t")
+        real_snps = df1[df1['score']==1]['chr:pos']
 
     elif args.predictor.lower() == 'regressor':
         fitted_values = boost_obj.y_pred
@@ -351,6 +360,13 @@ def filter_variants(boost_obj, args):
         RS1 = list(boost_obj.y_data.nonzero()[0])
         ecdf_func = ECDF([ fitted_values[idx] for idx in RS1 ])
         fitted_value_scores = ecdf_func(fitted_values)
+
+        df1 = pd.DataFrame()
+        df1['chr:pos'] = boost_obj.X_data.index
+        regress_out_file_name = os.path.join(args.out, args.model+'_'+args.predictor+'_regress_out.tsv') 
+        df1['fitted_val'] = fitted_values
+        df1['ecdf_val'] = fitted_value_scores
+        df1.to_csv(regress_out_file_name, sep="\t")
         
         min_qscore = 0.05
         real_snps_idx = [i>min_qscore for i in fitted_value_scores]
@@ -362,7 +378,7 @@ def filter_variants(boost_obj, args):
     if args.predictor.lower() == 'regressor':
         logger.info("Plotting ECDF")
         plt.figure()
-        plt.plot(ecdf_func.x,ecdf_func.y,'.')
+        plt.plot(ecdf_func.x, ecdf_func.y, '.')
         plt.xlabel('Boosting_Score')
         plt.ylabel('ECDF_Score')
         plt.title('ECDF')
@@ -384,11 +400,13 @@ def main():
                         required = False, 
                         type     = str,
                         help     = "Features for Boosting (RS required) [comma separated without space]",
-                        #default = "AC,ALT,BaseQRankSum,CHASM_FDR,CHASM_PVALUE,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,MLEAF,MMF,MQRankSum,PctExtPos,QD,REF,RNAEDIT,RPT,RS,ReadPosRankSum,SAO,SNP,SOR,SPLICEADJ,TCR,TDM,VAF,VEST_FDR,VEST_PVALUE,GT_1/2")
-                        default = "DP, Entropy, FS,BaseQRankSum,Homopolymer,  MLEAF, MQ, MQRankSum,QD, RNAEDIT, RPT, ReadPosRankSum, SOR,SPLICEADJ,RS, TMMR, TDM, MMF, VAF" ) #PctExtPos, AC,
+                        default = ",".join(["DP", "Entropy", "FS", "BaseQRankSum", "Homopolymer",
+                                            "MLEAF", "MQ", "MQRankSum", "QD", "RNAEDIT", "RPT",
+                                            "ReadPosRankSum", "SOR", "SPLICEADJ", "RS",
+                                            "TMMR", "TDM", "MMF", "VAF"] ) )   #PctExtPos, AC,
     parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier", required=False, default = 'classifier')
-    parser.add_argument("--remove_indels",  action='store_true', default=False, help="Evaluate only indels")
-
+    parser.add_argument("--remove_indels",  action='store_true', default=False, help="Evaluate only snps")
+    
     # Argument parser 
     args = parser.parse_args()
 
@@ -403,7 +421,7 @@ def main():
     logger.info("Loading input VCF ... ")
     vcf = pd.read_csv(args.vcf,
         sep='\t', low_memory=False, 
-        comment='#', header =None, quoting=csv.QUOTE_NONE,
+        comment='#', header=None, quoting=csv.QUOTE_NONE,
         names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SNP_DETAILS"])
     
     features = args.features.replace(' ','').split(",")
@@ -413,14 +431,18 @@ def main():
     data = preprocess(vcf, args)
     print('Features used for modeling: ', features)
 
+    features_file_name = os.path.join(args.out, args.model+'_'+args.predictor+'_input_feature_matrix.vcf')
+    logger.info("-writing features file: {}".format(features_file_name))
+    data.to_csv(features_file_name, sep="\t")
+    
     ## Boosting
     if args.predictor.lower() == 'classifier':
         logger.info("Classification ... ")
     else:
         logger.info("Regression ... ")
+
     logger.info("Runnning Boosting ... ")
-    boost_obj = CTAT_Boosting()
-    boost_obj = CTAT_Boosting.data_matrix(boost_obj, data, args)
+    boost_obj = CTAT_Boosting(data, args)
     
 
     ####################################

@@ -2461,7 +2461,7 @@ class RnaseqSnp:
         tmpdir = self.tmp_dir
         outdir = self.out_dir
 
-        boost_workdir = os.path.join(tmpdir, "{}_workdir".format(boost_method))
+        boost_workdir = os.path.join(tmpdir, "{}_{}_workdir".format(boost_method, alg_type))
         if not os.path.exists(boost_workdir):
             os.makedirs(boost_workdir)
 
