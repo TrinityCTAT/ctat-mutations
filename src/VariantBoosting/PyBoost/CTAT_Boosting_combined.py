@@ -357,6 +357,7 @@ def filter_variants(boost_obj, args):
     elif args.predictor.lower() == 'regressor':
         fitted_values = boost_obj.y_pred
 
+        # determine the fitted value score for ecdf(RS_containing) = 0.05
         RS1 = list(boost_obj.y_data.nonzero()[0])
         ecdf_func = ECDF([ fitted_values[idx] for idx in RS1 ])
         fitted_value_scores = ecdf_func(fitted_values)
@@ -366,10 +367,11 @@ def filter_variants(boost_obj, args):
         regress_out_file_name = os.path.join(args.out, args.model+'_'+args.predictor+'_regress_out.tsv') 
         df1['fitted_val'] = fitted_values
         df1['ecdf_val'] = fitted_value_scores
+        df1['RS'] = boost_obj.y_data
         df1.to_csv(regress_out_file_name, sep="\t")
         
         min_qscore = 0.05
-        real_snps_idx = [i>min_qscore for i in fitted_value_scores]
+        real_snps_idx = [i >= min_qscore for i in fitted_value_scores]
         real_snps = boost_obj.X_data.loc[real_snps_idx].index
     
     ## Plot ECDF
