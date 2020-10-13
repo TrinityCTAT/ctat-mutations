@@ -21,20 +21,21 @@ logger = logging.getLogger(__name__)
 MAX_DIST_TO_SPLICE = 10  # note this is based on the bed tools intersect target in the mutation lib
 
 def main():
-    
+
     #add options to inputs
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
         description = "Adds exon splice distance annotations to vcf file (report up to len 10 distance away from splice).\n")
-    
+
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
-    parser.add_argument('--ctat_mutation_lib_dir', required=True, help='path to ctat mutation lib dir')
+    parser.add_argument('--ctat_mutation_lib_dir', help='path to ctat mutation lib dir. Mutually exclusive with bed')
+    parser.add_argument('--bed', help='path to bed file. Mutually exclusive with ctat_mutation_lib_dir')
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
 
     parser.add_argument('--debug', default=False, action='store_true', help='debug mode, retains temporary intermediate files')
     parser.add_argument("--tmpdir", default="/tmp", help="tmp directory")
 
     args = parser.parse_args()
-    
+
 
 
     input_vcf_file = args.input_vcf
@@ -48,13 +49,16 @@ def main():
     if not os.path.exists(tmpdir):
         os.makedirs(tmpdir)
 
+    if ctat_mutation_lib_dir is not None:
+        ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed.gz")
+    else:
+        ref_splice_adj_regions_bed = args.bed
 
-    ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed.gz")
     if not os.path.exists(ref_splice_adj_regions_bed):
         logger.critical("cannot locate required file: {}".format(ref_splice_adj_regions_bed))
         sys.exit(1)
-            
-    
+
+
 
     splice_adjacent_snps_vcf_file = os.path.join(tmpdir, os.path.basename(input_vcf_file) + ".splice_adjacent.vcf")
     cmd = "bedtools intersect -wb -a {} -b {} > {}".format(input_vcf_file, ref_splice_adj_regions_bed, splice_adjacent_snps_vcf_file)
@@ -74,7 +78,7 @@ def main():
 
             # determine distance from splice boundary
             splice_adj_name = vals[-1]
-            # ex. chr1:L:6586064:6586073 or chr1:R:3662841:3662850 
+            # ex. chr1:L:6586064:6586073 or chr1:R:3662841:3662850
             #
             # where L indicates left intron side and R indicates right intron side:
             #   ---->GT   intron     AG<-------
@@ -83,7 +87,7 @@ def main():
             #
 
             (chromosome, segment_type, lend, rend) = splice_adj_name.split(":")
-            
+
             pos_val = int(pos_val); lend = int(lend); rend = int(rend)
             # distance from splice boundary
             delta = pos_val - lend + 1 if segment_type == "L" else rend - pos_val + 1
@@ -99,15 +103,15 @@ def main():
                 # first occurence
                 exon_splice_adj_dict[ chrpos ] = delta
 
-                
+
     logger.info("Adding exon-neighboring annotations (SPLICEADJ = splice ajacent).")
     ## make output a vcf formatted file:
     with open(output_vcf_file, 'w') as ofh:
-        
+
         with ctat_util.open_file_for_reading(input_vcf_file) as fh:
             for line in fh:
                 if line[0] == "#":
-                    
+
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
                         ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within distance of {} to a reference exon splice boundary\">\n".format(MAX_DIST_TO_SPLICE))
@@ -126,9 +130,9 @@ def main():
     # cleanup
     if not DEBUG_MODE:
         pass
-    
+
     sys.exit(0)
-    
+
 
 if __name__ == "__main__":
 
