@@ -51,7 +51,7 @@ workflow ctat_mutations {
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
         String docker # "trinityctat/ctat_mutations:2.5.0"
-        Int? variant_scatter_count
+        Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
         String genome_version
@@ -89,7 +89,7 @@ workflow ctat_mutations {
 
         docker:{help:"Docker image"}
     }
-    Int scatterCount = select_first([variant_scatter_count, 6])
+
 
     if(!defined(bam)) {
         call StarAlign {
@@ -174,26 +174,26 @@ workflow ctat_mutations {
     }
     File bam = select_first([ApplyBQSR.bam, SplitNCigarReads.bam])
     File bai = select_first([ApplyBQSR.bam_index, SplitNCigarReads.bam_index])
-    if(scatterCount>0) {
-#        call SplitIntervals {
-#            input:
-#                ref_fasta = ref_fasta,
-#                ref_fasta_index = ref_fasta_index,
-#                ref_dict=ref_dict,
-#                scatter_count = scatterCount,
-#                docker = docker,
-#                gatk_path = gatk_path,
-#                preemptible = preemptible,
-#                memory="2G"
-#        }
-        call SplitChromosomes {
+    if(variant_scatter_count>0) {
+        call SplitIntervals {
             input:
+                ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
+                ref_dict=ref_dict,
+                scatter_count = variant_scatter_count,
                 docker = docker,
+                gatk_path = gatk_path,
                 preemptible = preemptible,
                 memory="2G"
         }
-        scatter (interval in SplitChromosomes.interval_files) {
+#        call SplitChromosomes {
+#            input:
+#                ref_fasta_index = ref_fasta_index,
+#                docker = docker,
+#                preemptible = preemptible,
+#                memory="2G"
+#        }
+        scatter (interval in SplitIntervals.interval_files) {
             call HaplotypeCaller as HaplotypeCallerInterval {
                 input:
                     input_bam = bam,
@@ -219,7 +219,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
-    if(scatterCount==0) {
+    if(variant_scatter_count==0) {
         call HaplotypeCaller {
             input:
                 input_bam = bam,
