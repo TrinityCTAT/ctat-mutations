@@ -5,8 +5,7 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
 import argparse
-import datetime
-import os,sys,re
+import sys,re
 import logging
 import subprocess
 import multiprocessing as mp
@@ -31,22 +30,22 @@ Output:
 '''
 def processVCFHead(line, outfile):
     '''
-    Add the annotation flag description to the head of the VCF 
-        VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
-        TPR : Total Passed Reads , reads that PASS filtering, position not in the terminal 6 bases of read 
+    Add the annotation flag description to the head of the VCF
+        VPR : Variant Passed Reads, reads that PASS filtering that contain the variation
+        TPR : Total Passed Reads , reads that PASS filtering, position not in the terminal 6 bases of read
         TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.
-        PctExtPos: Fraction of variant-supporting reads with variant positions in the first six bases of the reads 
+        PctExtPos: Fraction of variant-supporting reads with variant positions in the first six bases of the reads
         TDM : Total Duplicate Marked, number of reads that are duplicate marked
         VAF: Variant allele fraction
         TMMR: Number of multi-mapped reads
         MMF: multi-mapped read fraction of TPR
     '''
-    
+
     if line[0] == "#":
         if re.match("#CHROM\t", line):
             # add header info line for the repeat annotation type
-            # once you get to the #CHROM line, 
-            #       write the new INFO annotations above the #CHROM header line 
+            # once you get to the #CHROM line,
+            #       write the new INFO annotations above the #CHROM header line
             outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
             outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
             outfile.write("##INFO=<ID=TCR,Number=1,Type=Integer,Description=\"TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.\">\n")
@@ -57,7 +56,7 @@ def processVCFHead(line, outfile):
             outfile.write("##INFO=<ID=MMF,Number=1,Type=Float,Description=\"Multi-mapped read fraction (TMMR / TPR) \">\n")
             outfile.write("##INFO=<ID=VMMR,Number=1,Type=Float,Description=\"Total variant-supporting multi-mapped reads \">\n")
             outfile.write("##INFO=<ID=VMMF,Number=1,Type=Float,Description=\"Variant-supporting multi-mapped read fraction (VMMR / VPR) \">\n")
-            
+
         outfile.write(line) #writes the CHROM line
 
 
@@ -66,7 +65,7 @@ def check_reverse_strand(sam_flag):
     # Check SAM flag
     #----------------------------------------------------
     # set the reverse indicator to 0
-    revers_strand = 0 
+    revers_strand = 0
     # revers_strand = 1 if (alignment & 16)
     # check the SAM flag, (1000 means this is a revers strand)
     binary_flag = bin(int(sam_flag))
@@ -81,18 +80,18 @@ def check_reverse_strand(sam_flag):
 def check_duplicate_marked(sam_flag):
 
     binary_flag = bin(int(sam_flag))
-    
+
     # set the multi-mapping indicator to 0
-    duplicateMarked = 0 
+    duplicateMarked = 0
     # duplicateMarked = 1 if (alignment & 1024)
     # check the SAM flag, (10000000000 means this is multi-mapping)
     if len(binary_flag) >= 11:
-        duplicate_test = binary_flag[-11] 
+        duplicate_test = binary_flag[-11]
         if int(duplicate_test) == 1:
             duplicateMarked = 1
 
     return duplicateMarked
-    
+
 
 
 def evaluate_PASS_reads(i, vcf_line, bamFile):
@@ -102,7 +101,7 @@ def evaluate_PASS_reads(i, vcf_line, bamFile):
     except Exception as e:
         traceback.print_exc()
         return("ERROR: " + str(e))
-    
+
 
 
 def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
@@ -110,16 +109,16 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
     vals = vcf_line.split("\t")
 
     #--------------
-    # Constants 
+    # Constants
     #--------------
     quality_offset = 33
     minimal_base_quality = 25
     minimum_mismatch = 1
 
-    
+
     total_covered_reads = 0  # meets quality criteria at pos.
     total_pass_reads = 0 # not in the terminal 6 bases of read
-    total_pass_variant_reads = 0 # 
+    total_pass_variant_reads = 0 #
     total_fail_variant_reads = 0 # in the terminal region.
 
     total_pass_multimapped_reads = 0
@@ -127,8 +126,8 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
 
 
     total_duplicate_marked = 0
-    
-    # process the input line 
+
+    # process the input line
     lstr_vcfline = vcf_line.split("\t")
     editnuc = lstr_vcfline[4]
     chrom, position = lstr_vcfline[0], lstr_vcfline[1]
@@ -138,13 +137,13 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
 
     #------------------
     # Run Samtools view
-    #------------------ 
+    #------------------
     # Run Samtools view on the BAM file with the given location
 
     cmd = "samtools view {} {}".format(bamFile, bamposition)
     sam_output = subprocess.check_output(cmd, shell=True).decode()
-    
-    
+
+
     # separate the Samtools view output by lines (rstrip to remove last \n)
     sam_output = sam_output.rstrip().split("\n")
 
@@ -153,27 +152,27 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
             continue # sometimes get a blank line for some reason
 
         bamfields = line.split("\t")
-        
+
         if len(bamfields) < 11:
             print("-warning: line[{}] has insufficient fields... skipping".format(line), file=sys.stderr)
             continue
-        
+
         # separate the output
         samflag, readstart, cigar, sequencebases, qualscores = bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
         if check_duplicate_marked(samflag):
             total_duplicate_marked += 1
             continue # not evaluating duplicate-marked reads.
-        
-        # get the current position 
+
+        # get the current position
         currentpos, readpos = int(readstart), 1
         base_readpos = None
-        
-        # letters 
+
+        # letters
         cigarletters = re.findall(r'[MIDNSHP=X]',cigar)
         # numbers
         cigarnums = re.split('[MIDNSHP]', cigar)
-        
+
         '''
         CIGAR letters:
             I = insertion into the reference
@@ -182,7 +181,7 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
             N = Skipped region from reference 
             M = Alignment Match, can be sequence mismatch or match 
         '''
-        
+
         for k in range(len(cigarletters)):
             position = int(position)
             if currentpos > position:
@@ -190,9 +189,9 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
             if cigarletters[k] == "I" or cigarletters[k] == "S":
                 readpos = readpos + int(cigarnums[k])
 
-            elif cigarletters[k] == "D" or cigarletters[k] == "N": 
+            elif cigarletters[k] == "D" or cigarletters[k] == "N":
                 currentpos = currentpos + int(cigarnums[k])
-            
+
             elif cigarletters[k] == "M":
                 for j in range(int(cigarnums[k])):
                     if currentpos == position:
@@ -202,25 +201,25 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
 
         read_end_pos = readpos
 
-        
+
         if base_readpos:
-            
+
             if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
                 ## counting as a PASS read, contributes to total coverage (newcov)
 
                 total_covered_reads += 1
-                
+
                 # ----------------------------------------------------
-                # check is within 6 bases of the ends and quality score 
+                # check is within 6 bases of the ends and quality score
                 # ----------------------------------------------------
                 # If the base position is within the 6 base pairs of either side of the sequence -> Pass
                 pass_central_read_pos =  (base_readpos > 6) and (base_readpos < read_end_pos - 5)
                 # If quality score is greater than or equal to the cutoff  --> PASS
-                
+
                 if pass_central_read_pos:
                     # central pos, min qual base => PASS status
                     total_pass_reads += 1
-                
+
                 ## see if it's a multi-mapped read  NH:i:(x)  where (x) > 1
                 is_multimapped_read = False
 
@@ -229,12 +228,12 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
                     num_mappings = int(m.group(1))
                     if num_mappings > 1:
                         is_multimapped_read = True
-                        
+
 
                 if pass_central_read_pos and is_multimapped_read:
                     total_pass_multimapped_reads += 1
 
-                
+
                 # check if the read base is the variant
                 is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
                 if is_variant_containing_read:
@@ -248,30 +247,30 @@ def worker_evaluate_PASS_reads(i, vcf_line, bamFile):
 
 
     #-----------------------
-    # output lines 
+    # output lines
     #-----------------------
-    # VPR : Variant Passed Reads, reads that PASS filtering that contain the variation 
-    # TPR : Total Passed Reads , reads that PASS filtering 
+    # VPR : Variant Passed Reads, reads that PASS filtering that contain the variation
+    # TPR : Total Passed Reads , reads that PASS filtering
     # TDM : Total Duplicate Marked, number of reads that are duplicate marked
 
-    
+
     lstr_outvcfline[7] += ";VPR={}".format(total_pass_variant_reads)
     lstr_outvcfline[7] += ";TPR={}".format(total_pass_reads)
     lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
-    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format( (total_fail_variant_reads / (total_fail_variant_reads + total_pass_variant_reads)) if (total_fail_variant_reads + total_pass_variant_reads) > 0 else 0) 
+    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format( (total_fail_variant_reads / (total_fail_variant_reads + total_pass_variant_reads)) if (total_fail_variant_reads + total_pass_variant_reads) > 0 else 0)
     lstr_outvcfline[7] += ";TDM={}".format(total_duplicate_marked)
     lstr_outvcfline[7] += ";VAF={:0.3f}".format(total_pass_variant_reads/total_pass_reads if total_pass_reads > 0 else 0)
     lstr_outvcfline[7] += ";TMMR={}".format(total_pass_multimapped_reads)
     lstr_outvcfline[7] += ";VMMR={}".format(total_pass_multimapped_variant_reads)
     lstr_outvcfline[7] += ";MMF={:0.3f}".format(total_pass_multimapped_reads/total_pass_reads if total_pass_reads > 0 else 0)
     lstr_outvcfline[7] += ";VMMF={:0.3f}".format(total_pass_multimapped_variant_reads/total_pass_variant_reads  if total_pass_variant_reads > 0 else 0)
-    
-    # variant frequency if needed 
+
+    # variant frequency if needed
     # varfreq = (newmismatch/newcov)
 
-    # newcov        : total number of PASS reads 
-    # newmismatch   : number of PASS's that support the variant 
-    # duplicateMarked : number of duplicate-marked reads 
+    # newcov        : total number of PASS reads
+    # newmismatch   : number of PASS's that support the variant
+    # duplicateMarked : number of duplicate-marked reads
     new_line = "\t".join(lstr_outvcfline)
 
     return(new_line)
@@ -284,7 +283,7 @@ def open_file_for_reading(filename):
         return gzip.open(filename, 'rt') # t needed for python3 to look like regular text
     else:
         return open(filename, 'r') # regular text file
-    
+
 
 
 
@@ -294,22 +293,22 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     ##############
     # Constants #
     ##############
-    # counters 
+    # counters
     not_filtered, removed= 0, 0
 
     #-----------------------
-    # Open and create files 
+    # Open and create files
     #-----------------------
-    # Open input and output Files 
+    # Open input and output Files
     infile = open_file_for_reading(vcf)
-    # create the output file 
+    # create the output file
 
     outfile = open(output_vcf_filename, "w")
 
     #-----------
     # VCF Header
     #-----------
-    # counter to count number of variants 
+    # counter to count number of variants
 
     variant_count = 0
 
@@ -323,12 +322,12 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
     infile.close()
 
     #-----------
-    # VCF Variants 
+    # VCF Variants
     #-----------
-    # now need to reopen the VCF file 
+    # now need to reopen the VCF file
     infile = open_file_for_reading(vcf)
-    
-    # Now process each variant in the VCF and print the variants that pass to the output VCF product 
+
+    # Now process each variant in the VCF and print the variants that pass to the output VCF product
     # results = [step3_processing(i, bamFile) for i in infile.readlines() if i[0][0] != "#"]
 
     vcf_lines = infile.readlines()
@@ -336,31 +335,31 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
 
     def progress_bar(progress_percent):
         #-------------------------
-        # Create the Progress bar 
+        # Create the Progress bar
         #-------------------------
-        # Create progress bar to monitor the progress of the multiprocessing 
-        ## Remove the line from before 
+        # Create progress bar to monitor the progress of the multiprocessing
+        ## Remove the line from before
         sys.stdout.write("\r")
         sys.stdout.flush()
-        ## print the progress bar and percent 
+        ## print the progress bar and percent
         if progress_percent == 100:
             sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%\n"))
         else:
             sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%"))
 
 
-    # list to hold the outputs for the multiprocessing process 
+    # list to hold the outputs for the multiprocessing process
     results = []
     def logging_return(line):
         results.append(line)
 
 
-    # set up the parallelization 
+    # set up the parallelization
     pool = mp.Pool(cpu)
     # results = [ pool.apply_async(evaluate_PASS_reads, args=(vcfline, bamFile), callback = logging_return) for vcfline in vcf_lines if vcfline[0] != "#"]
 
     pos=0
-    for vcfline in vcf_lines: 
+    for vcfline in vcf_lines:
         if vcfline[0] != "#":
             pos += 1
             pool.apply_async(evaluate_PASS_reads, args=(pos, vcfline, bamFile), callback = logging_return)
@@ -377,16 +376,16 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
                 if results[idx].startswith("ERROR: "):
                     # error detected
                     raise results[idx]
-                
+
             prev_results_len = curr_results_len
-                        
+
         # get the total progress made as a percentage
         progress_percent = int(len(results)/variant_count * 100)
         # Print the progress percentage to the terminal
         progress_bar(progress_percent)
-    
+
         time.sleep(2)
-        
+
     # make sure to finish the progress bar with 100%
     progress_bar(100)
 #-------------
@@ -404,19 +403,19 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
 
         if len(chr_val) < 5:
             chr_val = chr_val.replace("chr", "chr0") # ensure chr08 comes before chr12, etc.
-        
+
         return(chr_val, pos_val)
     # sort it
-    
+
     results = sorted(results, key=chr_pos_retriever)
-    
+
 
     # output results
     for i in results:
         outfile.write(i)
 
     # pool.close()
-    
+
     infile.close()
     outfile.close()
 
@@ -424,24 +423,24 @@ def createAnnotations(vcf, bamFile, cpu, output_vcf_filename):
 
 def main():
     ###########################################
-    # Gather the arguments passed to the SNPiR script in command line 
+    # Gather the arguments passed to the SNPiR script in command line
     ###########################################
 
     ## Input Arguments
-    # Description 
+    # Description
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
         description = "Add annotations to a given VCF file.\n")
-    # mandatory arguments 
+    # mandatory arguments
     parser.add_argument('--vcf', required = True,
         help="input vcf.")
     parser.add_argument('--bam', required = True,
             help="input BAM file.")
-    parser.add_argument("--output_vcf", required=True, 
+    parser.add_argument("--output_vcf", required=True,
         help="output vcf file containing annotations")
-    parser.add_argument("--threads", required=False, type = int, default = 4, 
+    parser.add_argument("--threads", required=False, type = int, default = 4,
         help="Number of threads to run on.")
-    
-    # Parse the given arguments 
+
+    # Parse the given arguments
     args = parser.parse_args()
 
     vcf = args.vcf

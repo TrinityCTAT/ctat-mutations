@@ -8,8 +8,6 @@ from collections import defaultdict
 import logging
 import re
 
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../PyLib"]))
-
 import ctat_util
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
@@ -17,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    
+
     #add options to inputs
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
         description = "Adds repeat feature annotations to vcf file.\n")
-    
+
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
     parser.add_argument('--repeats_bed', required=True, help='repeat features bed file')
     parser.add_argument('--output_vcf', required=True, help="output vcf fiel including repeat feature annotations")
@@ -30,21 +28,21 @@ def main():
 
 
     args = parser.parse_args()
-    
+
 
 
     input_vcf_file = args.input_vcf
     repeats_bed_file = args.repeats_bed
     output_vcf_file = args.output_vcf
     DEBUG_MODE = args.debug
-    
+
 
     ## identify repeat feature overlaps:
     rpt_intersect_file = "{}.rpt_intersect".format(output_vcf_file)
     cmd = "bash -c \"set -eou pipefail; bedtools intersect -wb -a {} -b {} | cut -f1,2,14 > {}\"".format(input_vcf_file,
                                                                                                          repeats_bed_file,
                                                                                                          rpt_intersect_file)
-    
+
     logger.info("CMD: {}".format(cmd))
     subprocess.check_call(cmd, shell=True)
 
@@ -55,16 +53,16 @@ def main():
             (chr, pos, rpt_type) = line.split("\t")
             chrpos = "{}:{}".format(chr, pos)
             rpt_dict[chrpos].add(rpt_type)
-    
-    
+
+
     logger.info("Adding repeat annotations.")
     ## make output a vcf formatted file:
     with open(output_vcf_file, 'w') as ofh:
-        
+
         with ctat_util.open_file_for_reading(input_vcf_file) as fh:
             for line in fh:
                 if line[0] == "#":
-                    
+
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
                         ofh.write("##INFO=<ID=RPT,Number=1,Type=String,Description=\"Repeat family from UCSC Genome Browser Repeatmasker Annotations\">\n")
@@ -83,9 +81,9 @@ def main():
     # cleanup
     if not DEBUG_MODE:
         os.remove(rpt_intersect_file)
-    
+
     sys.exit(0)
-    
+
 
 if __name__ == "__main__":
 
