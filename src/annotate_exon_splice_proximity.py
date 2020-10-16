@@ -4,11 +4,10 @@
 import argparse
 import sys, os
 import subprocess
-from collections import defaultdict
 import logging
 import re
 
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../PyLib"]))
+
 import ctat_util
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
@@ -94,7 +93,7 @@ def main():
 
             if not (delta > 0 and delta <= MAX_DIST_TO_SPLICE):
                 continue
-            
+
             # want to store the minimum distance in case there are competing introns.
             if chrpos in exon_splice_adj_dict:
                 if delta < exon_splice_adj_dict[ chrpos ]:
@@ -115,7 +114,7 @@ def main():
                     if re.match("#CHROM\t", line):
                         # add header info line for the repeat annotation type
                         ofh.write("##INFO=<ID=SPLICEADJ,Number=1,Type=Integer,Description=\"Variant is within distance of {} to a reference exon splice boundary\">\n".format(MAX_DIST_TO_SPLICE))
-                        
+
                     ofh.write(line)
                 else:
                     line = line.rstrip()

@@ -3,10 +3,11 @@ version 1.0
 workflow ctat_mutations {
     input {
         String sample_id
-        File left
+        File? left
         File? right
         File? bam
 
+        # resources
         File gtf
         File ref_dict
         File ref_fasta
@@ -27,9 +28,13 @@ workflow ctat_mutations {
         File? ref_splice_adj_regions_bed
         File? ref_bed
 
-        File? cravat_lib_dir
+        File? cravat_lib
+        String? cravat_lib_dir
+
+        File? star_reference
+        String? star_reference_directory
+
         Boolean filter_cancer_variants = true
-        Int? min_confidence_for_variant_calling = 20
         Boolean apply_bqsr = true
 
         # boosting
@@ -39,9 +44,9 @@ workflow ctat_mutations {
         Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
+
         String gatk_path = "/usr/local/src/gatk-4.1.7.0/gatk" #"/gatk/gatk"
 
-        File star_reference # tar file on cloud, directory locally
         Float star_extra_disk_space = 30
         Float star_fastq_disk_space_multiplier = 10
         Boolean star_use_ssd = true
@@ -57,20 +62,39 @@ workflow ctat_mutations {
         String genome_version
         Boolean include_read_var_pos_annotations = true
     }
+    Int min_confidence_for_variant_calling = 20
 
     parameter_meta {
 
         left:{help:"Path to one of the two paired RNAseq samples"}
         right:{help:"Path to one of the two paired RNAseq samples"}
         bam:{help:"Path to previously aligned bam file"}
+        sample_id:{help:"Sample id"}
 
-        genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
+        # resources
+        gtf:{help:"Path GTF to use in the analysis pipeline."}
+        ref_dict:{help:"Path to reference dictionary."}
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
-        ref_bed:{help:"Path to reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
-        ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
-        db_snp_vcf:{help:"dbSNP vcf file for the reference genome."}
+        ref_fasta_index:{help:"Index for ref_fasta"}
+        db_snp_vcf:{help:"dbSNP VCF file for the reference genome."}
+        db_snp_vcf_index:{help:"dbSNP vcf index"}
+        gnomad_vcf:{help:"gnomad vcf file w/ allele frequencies"}
+        gnomad_vcf_index:{help:"gnomad VCF index"}
+        rna_editing_vcf:{help:"RNA editing VCF file"}
+        rna_editing_vcf_index:{help:"RNA editing VCF index"}
         cosmic_vcf:{help:"Coding Cosmic Mutation VCF annotated with Phenotype Information"}
-        sequencing_platform:{help:"The sequencing platform used to generate the samples"}
+        cosmic_vcf_index:{help:"COSMIC VCF index"}
+        repeat_mask_bed:{help:"bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)"}
+        ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
+        ref_bed:{help:"Path to reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
+        cravat_lib:{help:"CRAVAT resource archive"}
+        star_reference:{help:"Path to STAR index archive"}
+        genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
+
+        filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
+        apply_bqsr:{help:"Whether to apply base quality score recalibration"}
+
+        sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
         boosting_method:{help:"variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
@@ -78,16 +102,16 @@ workflow ctat_mutations {
         boosting_score_threshold:{help:"minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"variant attributes on which to perform boosting"}
 
-        apply_bqsr:{help:"Whether to apply base quality score recalibration"}
         star_cpu:{help:"STAR aligner number of CPUs"}
         star_memory:{help:"STAR aligner memory"}
-        star_reference:{help:"Path to STAR index"}
+
+        variant_scatter_count:{help:"Number of parallel variant caller jobs"}
 
         gatk_path:{help:"Path to GATK"}
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
 
-        docker:{help:"Docker image"}
+        docker:{help:"Docker or singularity image"}
     }
 
 
@@ -95,6 +119,7 @@ workflow ctat_mutations {
         call StarAlign {
             input:
                 star_reference = star_reference,
+                star_reference_directory = star_reference_directory,
                 fastq1 = left,
                 fastq2 = right,
                 base_name = sample_id + '.star',
@@ -240,6 +265,7 @@ workflow ctat_mutations {
         input:
             input_vcf = variant_vcf,
             base_name = sample_id,
+            cravat_lib = cravat_lib,
             cravat_lib_dir = cravat_lib_dir,
             ref_fasta = ref_fasta,
             ref_fasta_index = ref_fasta_index,
@@ -466,7 +492,8 @@ task AnnotateVariants {
 
         File? ref_splice_adj_regions_bed
         String base_name
-        File? cravat_lib_dir
+        File? cravat_lib
+        String? cravat_lib_dir
         File? repeat_mask_bed
 
         File ref_fasta
@@ -640,16 +667,21 @@ task AnnotateVariants {
         fi
 
         # cravat
-        if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ] && [ "~{cravat_lib_dir}" != "" ]; then
-
+        cravat_lib_dir="~{cravat_lib}"
+        if [ "$cravat_lib_dir" == "" ]; then
             cravat_lib_dir="~{cravat_lib_dir}"
+        fi
+        if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ] && [ "$cravat_lib_dir" != "" ]; then
+
             OUT="~{base_name}.cravat.vcf.gz"
 
-            if [ -f "~{cravat_lib_dir}" ] ; then
+            if [ -f "$cravat_lib_dir" ] ; then
                 mkdir cravat_lib_dir
-                tar xf ~{cravat_lib_dir} -C cravat_lib_dir --strip-components 1
+                tar xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
                 cravat_lib_dir="cravat_lib_dir"
             fi
+
+            export TMPDIR=/tmp # https://github.com/broadinstitute/cromwell/issues/3647
 
             ~{scripts_path}/annotate_with_cravat.py \
             --input_vcf $VCF \
@@ -859,8 +891,9 @@ task ApplyBQSR {
 
 task StarAlign {
     input {
-        File star_reference
-        File fastq1
+        File? star_reference
+        String? star_reference_directory
+        File? fastq1
         File? fastq2
         Int cpu
         String memory
@@ -882,6 +915,9 @@ task StarAlign {
         monitor_script.sh &
 
         genomeDir="~{star_reference}"
+        if [ "$genomeDir" == "" ]; then
+            genomeDir="~{star_reference_directory}"
+        fi
 
         if [ -f "${genomeDir}" ] ; then
             mkdir genome_dir
