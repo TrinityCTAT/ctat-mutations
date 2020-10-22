@@ -8,10 +8,13 @@ workflow ctat_mutations {
         File? bam
 
         # resources
-        File gtf
         File ref_dict
         File ref_fasta
         File ref_fasta_index
+
+        File? extra_dict
+        File? extra_fasta
+        File? extra_fasta_index
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -36,6 +39,8 @@ workflow ctat_mutations {
 
         Boolean filter_cancer_variants = true
         Boolean apply_bqsr = true
+    #    Boolean recalibration_plot = true
+        Boolean call_variants = true
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
@@ -52,30 +57,38 @@ workflow ctat_mutations {
         Boolean star_use_ssd = true
         Int star_cpu = 12
         String star_memory = "43G"
+        Boolean output_unmapped_reads = false
 
+        String? haplotype_caller_args_for_extra_reads
+        String haplotype_caller_memory = "6.5G"
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
         String docker # "trinityctat/ctat_mutations:2.5.0"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
-        String genome_version
+        String? genome_version
         Boolean include_read_var_pos_annotations = true
+        String mark_duplicates_memory = "16G"
     }
     Int min_confidence_for_variant_calling = 20
 
     parameter_meta {
 
-        left:{help:"Path to one of the two paired RNAseq samples"}
-        right:{help:"Path to one of the two paired RNAseq samples"}
-        bam:{help:"Path to previously aligned bam file"}
+        left:{help:"One of the two paired RNAseq samples"}
+        right:{help:"One of the two paired RNAseq samples"}
+        bam:{help:"Previously aligned bam file"}
         sample_id:{help:"Sample id"}
 
         # resources
-        gtf:{help:"Path GTF to use in the analysis pipeline."}
-        ref_dict:{help:"Path to reference dictionary."}
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
         ref_fasta_index:{help:"Index for ref_fasta"}
+        ref_dict:{help:"Sequence dictionary for ref_fasta"}
+
+        extra_fasta:{help:"Extra genome to use in alignment and variant calling."}
+        extra_dict:{help:"Sequence dictionary for extra_fasta"}
+        extra_fasta_index:{help:"Index for extra_fasta"}
+
         db_snp_vcf:{help:"dbSNP VCF file for the reference genome."}
         db_snp_vcf_index:{help:"dbSNP vcf index"}
         gnomad_vcf:{help:"gnomad vcf file w/ allele frequencies"}
@@ -86,24 +99,27 @@ workflow ctat_mutations {
         cosmic_vcf_index:{help:"COSMIC VCF index"}
         repeat_mask_bed:{help:"bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)"}
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
-        ref_bed:{help:"Path to reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
+        ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib:{help:"CRAVAT resource archive"}
-        star_reference:{help:"Path to STAR index archive"}
+        star_reference:{help:"STAR index archive"}
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
+#        recalibration_plot:{help:"Generate recalibration plot"}
+        call_variants:{help:"Whether to call variants against the reference genome"}
 
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
-        boosting_alg_type:{help:"boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
-        boosting_score_threshold:{help:"minimum score threshold for boosted variant selection"}
-        boosting_attributes:{help:"variant attributes on which to perform boosting"}
+        boosting_method:{help:"Variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
+        boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
+        boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
+        boosting_attributes:{help:"Variant attributes on which to perform boosting"}
 
         star_cpu:{help:"STAR aligner number of CPUs"}
         star_memory:{help:"STAR aligner memory"}
+        output_unmapped_reads:{help:"Whether to output unmapped reads from STAR"}
 
         variant_scatter_count:{help:"Number of parallel variant caller jobs"}
 
@@ -115,13 +131,15 @@ workflow ctat_mutations {
     }
 
 
-    if(!defined(bam)) {
+    if(!defined(bam) && (defined(star_reference)||defined(star_reference_directory))) {
         call StarAlign {
             input:
                 star_reference = star_reference,
                 star_reference_directory = star_reference_directory,
                 fastq1 = left,
                 fastq2 = right,
+                output_unmapped_reads = output_unmapped_reads,
+                genomeFastaFiles=extra_fasta,
                 base_name = sample_id + '.star',
                 extra_disk_space = star_extra_disk_space,
                 fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
@@ -144,24 +162,42 @@ workflow ctat_mutations {
             preemptible = preemptible
     }
 
+
     call MarkDuplicates {
         input:
             input_bam = AddOrReplaceReadGroups.bam,
             base_name = sample_id + ".dedupped",
             gatk_path = gatk_path,
+            memory = mark_duplicates_memory,
             docker = docker,
             preemptible = preemptible
     }
+    if(defined(extra_fasta)) {
+        call MergeFastas {
+            input:
+                name = "combined",
+                ref_fasta = ref_fasta,
+                extra_fasta = extra_fasta,
+                gatk_path = gatk_path,
+                memory = "2G",
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
+    File fasta = select_first([MergeFastas.fasta, ref_fasta])
+    File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
+    File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
     call SplitNCigarReads {
         input:
             input_bam = MarkDuplicates.bam,
             input_bam_index = MarkDuplicates.bai,
             base_name = sample_id + ".split",
-            ref_fasta = ref_fasta,
-            ref_fasta_index = ref_fasta_index,
-            ref_dict = ref_dict,
+            ref_fasta = fasta,
+            ref_fasta_index = fasta_index,
+            ref_dict = sequence_dict,
             gatk_path = gatk_path,
+            memory = "3G",
             docker = docker,
             preemptible = preemptible
     }
@@ -176,9 +212,10 @@ workflow ctat_mutations {
                 db_snp_vcf_index = db_snp_vcf_index,
             #                known_indels_sites = known_indels_sites,
             #                known_indels_sites_indices = known_indels_sites_indices,
-                ref_dict = ref_dict,
-                ref_fasta = ref_fasta,
-                ref_fasta_index = ref_fasta_index,
+
+                ref_fasta = fasta,
+                ref_fasta_index = fasta_index,
+                ref_dict = sequence_dict,
                 gatk_path = gatk_path,
                 docker = docker,
                 preemptible = preemptible
@@ -189,164 +226,207 @@ workflow ctat_mutations {
                 input_bam_index = SplitNCigarReads.bam_index,
                 base_name = sample_id + ".aligned.duplicates_marked.recalibrated",
                 recalibration_report = BaseRecalibrator.recalibration_report,
-                ref_dict = ref_dict,
-                ref_fasta = ref_fasta,
-                ref_fasta_index = ref_fasta_index,
+#                recalibration_plot = recalibration_plot,
+                ref_fasta = fasta,
+                ref_fasta_index = fasta_index,
+                ref_dict = sequence_dict,
                 gatk_path = gatk_path,
                 docker = docker,
                 preemptible = preemptible
         }
     }
-    File bam = select_first([ApplyBQSR.bam, SplitNCigarReads.bam])
-    File bai = select_first([ApplyBQSR.bam_index, SplitNCigarReads.bam_index])
-    if(variant_scatter_count>0) {
-        call SplitIntervals {
+
+
+    if(defined(extra_fasta)) {
+        call SplitReads {
             input:
-                ref_fasta = ref_fasta,
+                input_bam = select_first([ApplyBQSR.bam, SplitNCigarReads.bam]),
+                input_bam_index = select_first([ApplyBQSR.bam_index, SplitNCigarReads.bam_index]),
+                extra_name = sample_id + '_' + basename(select_first([extra_fasta])),
+                ref_name = basename(ref_fasta),
+                extra_fasta_index = extra_fasta_index,
                 ref_fasta_index = ref_fasta_index,
-                ref_dict=ref_dict,
-                scatter_count = variant_scatter_count,
+                memory = "2G",
                 docker = docker,
-                gatk_path = gatk_path,
-                preemptible = preemptible,
-                memory="2G"
+                preemptible = preemptible
         }
-#        call SplitChromosomes {
-#            input:
-#                ref_fasta_index = ref_fasta_index,
-#                docker = docker,
-#                preemptible = preemptible,
-#                memory="2G"
-#        }
-        scatter (interval in SplitIntervals.interval_files) {
-            call HaplotypeCaller as HaplotypeCallerInterval {
+        if(SplitReads.extra_bam_number_of_reads > 0) {
+            call HaplotypeCaller as HaplotypeCallerExtra {
+                input:
+                    input_bam = SplitReads.extra_bam,
+                    input_bam_index = SplitReads.extra_bai,
+                    base_name = sample_id + '_' + basename(select_first([extra_fasta])),
+                    ref_dict = select_first([extra_dict]),
+                    ref_fasta = select_first([extra_fasta]),
+                    ref_fasta_index = select_first([extra_fasta_index]),
+                    extra_args = haplotype_caller_args_for_extra_reads,
+                    gatk_path = gatk_path,
+                    docker = docker,
+                    memory = haplotype_caller_memory,
+                    preemptible = preemptible,
+                    stand_call_conf = min_confidence_for_variant_calling
+            }
+
+
+        }
+    }
+    File bam = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam])
+    File bai = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index])
+    if(call_variants) {
+        if(variant_scatter_count > 0) {
+            call SplitIntervals {
+                input:
+                    ref_fasta = ref_fasta,
+                    ref_fasta_index = ref_fasta_index,
+                    ref_dict=ref_dict,
+                    scatter_count = variant_scatter_count,
+                    docker = docker,
+                    gatk_path = gatk_path,
+                    preemptible = preemptible,
+                    memory="2G"
+            }
+            scatter (interval in SplitIntervals.interval_files) {
+                call HaplotypeCaller as HaplotypeCallerInterval {
+                    input:
+                        input_bam = bam,
+                        input_bam_index = bai,
+                        base_name = sample_id,
+                        interval_list = interval,
+                        ref_dict = ref_dict,
+                        ref_fasta = ref_fasta,
+                        ref_fasta_index = ref_fasta_index,
+                        gatk_path = gatk_path,
+                        docker = docker,
+                        memory = haplotype_caller_memory,
+                        preemptible = preemptible,
+                        stand_call_conf = min_confidence_for_variant_calling
+                }
+            }
+            call MergeVCFs {
+                input:
+                    input_vcfs = HaplotypeCallerInterval.output_vcf,
+                    input_vcfs_indexes = HaplotypeCallerInterval.output_vcf_index,
+                    output_vcf_name = sample_id + ".vcf.gz",
+                    gatk_path = gatk_path,
+                    docker = docker,
+                    preemptible = preemptible
+            }
+        }
+        if(variant_scatter_count == 0) {
+            call HaplotypeCaller {
                 input:
                     input_bam = bam,
                     input_bam_index = bai,
-                    base_name = sample_id + ".hc",
-                    interval_list = interval,
+                    base_name = sample_id,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     gatk_path = gatk_path,
                     docker = docker,
+                    memory = haplotype_caller_memory,
                     preemptible = preemptible,
                     stand_call_conf = min_confidence_for_variant_calling
             }
         }
-        call MergeVCFs {
+        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf])
+
+        call AnnotateVariants {
             input:
-                input_vcfs = HaplotypeCallerInterval.output_vcf,
-                input_vcfs_indexes = HaplotypeCallerInterval.output_vcf_index,
-                output_vcf_name = sample_id + ".vcf.gz",
-                gatk_path = gatk_path,
-                docker = docker,
-                preemptible = preemptible
-        }
-    }
-    if(variant_scatter_count==0) {
-        call HaplotypeCaller {
-            input:
-                input_bam = bam,
-                input_bam_index = bai,
-                base_name = sample_id + ".hc",
-                ref_dict = ref_dict,
-                ref_fasta = ref_fasta,
-                ref_fasta_index = ref_fasta_index,
-                gatk_path = gatk_path,
-                docker = docker,
-                preemptible = preemptible,
-                stand_call_conf = min_confidence_for_variant_calling
-        }
-    }
-    File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf])
-
-    call AnnotateVariants {
-        input:
-            input_vcf = variant_vcf,
-            base_name = sample_id,
-            cravat_lib = cravat_lib,
-            cravat_lib_dir = cravat_lib_dir,
-            ref_fasta = ref_fasta,
-            ref_fasta_index = ref_fasta_index,
-            cosmic_vcf=cosmic_vcf,
-            cosmic_vcf_index=cosmic_vcf_index,
-            db_snp_vcf=db_snp_vcf,
-            db_snp_vcf_index=db_snp_vcf_index,
-            gnomad_vcf=gnomad_vcf,
-            gnomad_vcf_index=gnomad_vcf_index,
-            rna_editing_vcf=rna_editing_vcf,
-            rna_editing_vcf_index=rna_editing_vcf_index,
-            bam=MarkDuplicates.bam,
-            bai=MarkDuplicates.bai,
-            include_read_var_pos_annotations=include_read_var_pos_annotations,
-            repeat_mask_bed=repeat_mask_bed,
-            ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
-            scripts_path=scripts_path,
-            plugins_path=plugins_path,
-            genome_version=genome_version,
-            docker = docker,
-            memory = "4G",
-            preemptible = preemptible
-    }
-
-    call VariantFiltration {
-        input:
-            input_vcf = AnnotateVariants.vcf,
-            input_vcf_index = AnnotateVariants.vcf_index,
-            base_name = sample_id,
-            ref_dict = ref_dict,
-            ref_fasta = ref_fasta,
-            ref_fasta_index = ref_fasta_index,
-            boosting_alg_type = boosting_alg_type,
-            boosting_method =boosting_method,
-            boosting_attributes=boosting_attributes,
-            boosting_score_threshold=boosting_score_threshold,
-            gatk_path = gatk_path,
-            scripts_path=scripts_path,
-            docker = docker,
-            preemptible = preemptible
-    }
-
-
-    if(filter_cancer_variants) {
-        call FilterCancerVariants {
-             input:
-                input_vcf = VariantFiltration.vcf,
+                input_vcf = variant_vcf,
                 base_name = sample_id,
+                cravat_lib = cravat_lib,
+                cravat_lib_dir = cravat_lib_dir,
                 ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
-                ref_dict = ref_dict,
+                cosmic_vcf=cosmic_vcf,
+                cosmic_vcf_index=cosmic_vcf_index,
+                db_snp_vcf=db_snp_vcf,
+                db_snp_vcf_index=db_snp_vcf_index,
+                gnomad_vcf=gnomad_vcf,
+                gnomad_vcf_index=gnomad_vcf_index,
+                rna_editing_vcf=rna_editing_vcf,
+                rna_editing_vcf_index=rna_editing_vcf_index,
+                bam=MarkDuplicates.bam,
+                bai=MarkDuplicates.bai,
+                include_read_var_pos_annotations=include_read_var_pos_annotations,
+                repeat_mask_bed=repeat_mask_bed,
+                ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
                 scripts_path=scripts_path,
-                gatk_path = gatk_path,
+                plugins_path=plugins_path,
+                genome_version=genome_version,
                 docker = docker,
-                memory = "2G",
+                memory = "4G",
                 preemptible = preemptible
         }
 
-        if(defined(ref_bed)) {
-            call CancerVariantReport {
-                input:
-                    input_vcf = FilterCancerVariants.cancer_vcf,
+        call VariantFiltration {
+            input:
+                input_vcf = AnnotateVariants.vcf,
+                input_vcf_index = AnnotateVariants.vcf_index,
+                base_name = sample_id,
+                ref_dict = ref_dict,
+                ref_fasta = ref_fasta,
+                ref_fasta_index = ref_fasta_index,
+                boosting_alg_type = boosting_alg_type,
+                boosting_method =boosting_method,
+                boosting_attributes=boosting_attributes,
+                boosting_score_threshold=boosting_score_threshold,
+                gatk_path = gatk_path,
+                scripts_path=scripts_path,
+                docker = docker,
+                preemptible = preemptible
+        }
+
+
+        if(filter_cancer_variants) {
+            call FilterCancerVariants {
+                 input:
+                    input_vcf = VariantFiltration.vcf,
                     base_name = sample_id,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     ref_dict = ref_dict,
-                    ref_bed = select_first([ref_bed]),
-                    bam=bam,
-                    bai=bai,
+                    scripts_path=scripts_path,
+                    gatk_path = gatk_path,
                     docker = docker,
                     memory = "2G",
                     preemptible = preemptible
+            }
+
+            if(defined(ref_bed)) {
+                call CancerVariantReport {
+                    input:
+                        input_vcf = FilterCancerVariants.cancer_vcf,
+                        base_name = sample_id,
+                        ref_fasta = ref_fasta,
+                        ref_fasta_index = ref_fasta_index,
+                        ref_dict = ref_dict,
+                        ref_bed = select_first([ref_bed]),
+                        bam=bam,
+                        bai=bai,
+                        docker = docker,
+                        memory = "2G",
+                        preemptible = preemptible
+                }
             }
         }
     }
 
 
     output {
-        File vcf = AnnotateVariants.vcf
-        File filtered_vcf = VariantFiltration.vcf
+        File? extra_bam = SplitReads.extra_bam
+        File? extra_bam_index = SplitReads.extra_bai
+        Int? extra_bam_number_of_reads = SplitReads.extra_bam_number_of_reads
+
+        File? extra_vcf = HaplotypeCallerExtra.output_vcf
+
+        File? vcf = variant_vcf
+        File? annotated_vcf = AnnotateVariants.vcf
+        File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
+        File output_log_final =  StarAlign.output_log_final
+        File output_SJ =  StarAlign.output_SJ
+        Array[File]? unmapped_reads = StarAlign.unmapped_reads
         File? recalibrated_bam = ApplyBQSR.bam
         File? recalibrated_bam_index = ApplyBQSR.bam_index
         File? cancer_igv_report = CancerVariantReport.cancer_igv_report
@@ -500,7 +580,7 @@ task AnnotateVariants {
         File ref_fasta_index
         String plugins_path
         String scripts_path
-        String genome_version
+        String? genome_version
         Boolean include_read_var_pos_annotations
 
         String docker
@@ -723,6 +803,7 @@ task MarkDuplicates {
         String base_name
         String gatk_path
         String docker
+        String memory
         Int preemptible
     }
 
@@ -750,7 +831,7 @@ task MarkDuplicates {
     runtime {
         disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 3)) + " HDD"
         docker: docker
-        memory: "4 GB"
+        memory: memory
         preemptible: preemptible
     }
 
@@ -792,7 +873,7 @@ task AddOrReplaceReadGroups {
     }
 
     runtime {
-        memory: "2 GB"
+        memory: "1G"
         disks: "local-disk " + ceil((size(input_bam, "GB") * 3) + 30) + " HDD"
         docker: docker
         preemptible: preemptible
@@ -834,7 +915,7 @@ task BaseRecalibrator {
 
     >>>
     runtime {
-        memory: "4 GB"
+        memory: "1G"
         disks: "local-disk " + ceil((size(input_bam, "GB") * 3) + 30) + " HDD"
         docker: docker
         preemptible: preemptible
@@ -857,10 +938,7 @@ task ApplyBQSR {
         Int preemptible
     }
 
-    output {
-        File bam = "${base_name}.bam"
-        File bam_index = "${base_name}.bai"
-    }
+
     command <<<
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
@@ -880,6 +958,12 @@ task ApplyBQSR {
         --bqsr-recal-file ~{recalibration_report}
 
     >>>
+
+    output {
+        File bam = "~{base_name}.bam"
+        File bam_index = "~{base_name}.bai"
+    }
+
     runtime {
         memory: "3500 MB"
         disks: "local-disk " + ceil((size(input_bam, "GB") * 4) + 30) + " HDD"
@@ -903,13 +987,10 @@ task StarAlign {
         Float extra_disk_space
         Float fastq_disk_space_multiplier
         Boolean use_ssd
+        File? genomeFastaFiles
+        Boolean output_unmapped_reads
     }
-    output {
-        File bam = "${base_name}.Aligned.sortedByCoord.out.bam"
-        File output_log_final = "${base_name}.Log.final.out"
-        File output_log = "${base_name}.Log.out"
-        File output_SJ = "${base_name}.SJ.out.tab"
-    }
+
     command <<<
         set -e
         monitor_script.sh &
@@ -926,7 +1007,7 @@ task StarAlign {
         fi
 
         STAR \
-        --genomeDir ${genomeDir} \
+        --genomeDir $genomeDir \
         --runThreadN ~{cpu} \
         --readFilesIn ~{fastq1} ~{fastq2} \
         --readFilesCommand "gunzip -c" \
@@ -934,9 +1015,26 @@ task StarAlign {
         --twopassMode Basic \
         --limitBAMsortRAM 30000000000 \
         --outSAMmapqUnique 60 \
-        --outFileNamePrefix ~{base_name}.
+        --outFileNamePrefix ~{base_name}. \
+        ~{true='--outReadsUnmapped Fastx' false='' output_unmapped_reads} \
+        ~{'--genomeFastaFiles ' + genomeFastaFiles}
+
+
+        if [ "~{output_unmapped_reads}" == "true" ] ; then
+            mv ~{base_name}.Unmapped.out.mate1 ~{base_name}.Unmapped.out.mate1.fastq
+            mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
+        fi
 
     >>>
+
+    output {
+        File bam = "~{base_name}.Aligned.sortedByCoord.out.bam"
+        File output_log_final = "~{base_name}.Log.final.out"
+        File output_log = "~{base_name}.Log.out"
+        File output_SJ = "~{base_name}.SJ.out.tab"
+        Array[File] unmapped_reads = glob("~{base_name}.Unmapped.out.*")
+    }
+
     runtime {
         preemptible: preemptible
         disks: "local-disk " + ceil(size(fastq1, "GB")*fastq_disk_space_multiplier + size(fastq2, "GB") * fastq_disk_space_multiplier + size(star_reference, "GB")*8 + extra_disk_space) + " " + (if use_ssd then "SSD" else "HDD")
@@ -982,6 +1080,87 @@ task MergeVCFs {
 
 }
 
+
+task MergeFastas {
+    input {
+        File ref_fasta
+        File? extra_fasta
+        String docker
+        String memory
+        Int preemptible
+        String name
+        String gatk_path
+    }
+
+
+    command <<<
+        cat ~{ref_fasta} ~{extra_fasta} > ~{name}.fa
+        samtools faidx ~{name}.fa
+        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        CreateSequenceDictionary \
+        -R ~{name}.fa
+    >>>
+
+    runtime {
+        docker: docker
+        bootDiskSizeGb: 12
+        memory: memory
+        disks: "local-disk " + ceil(10 + 2*size(ref_fasta, "GB"))  + " HDD"
+        preemptible: preemptible
+        cpu: 1
+    }
+
+    output {
+        File fasta = "~{name}.fa"
+        File fasta_index = "~{name}.fa.fai"
+        File sequence_dict = "~{name}.dict"
+    }
+}
+
+task SplitReads {
+    input {
+        File? input_bam
+        File? input_bam_index
+        File ref_fasta_index
+        File? extra_fasta_index
+        String docker
+        String memory
+        Int preemptible
+        String extra_name
+        String ref_name
+    }
+
+
+    command <<<
+        EXTRA_CHR=$(awk '{print $1}' ~{extra_fasta_index} | tr '\n' ' ')
+        REF_CHR=$(awk '{print $1}' ~{ref_fasta_index} | tr '\n' ' ')
+
+        samtools view -b ~{input_bam} $EXTRA_CHR > ~{extra_name}.bam
+        samtools index ~{extra_name}.bam
+        samtools view -c -F 260 ~{extra_name}.bam > "~{extra_name}_nreads.txt"
+
+        samtools view -b ~{input_bam} $REF_CHR > ~{ref_name}.bam
+        samtools index ~{ref_name}.bam
+    >>>
+
+    runtime {
+        docker: docker
+        bootDiskSizeGb: 12
+        memory: memory
+        disks: "local-disk " + ceil(size(input_bam, "GB")*2 + size(extra_fasta_index, "GB")*2) + " HDD"
+        preemptible: preemptible
+        cpu: 1
+    }
+
+    output {
+        File extra_bam = "~{extra_name}.bam"
+        File extra_bai = "~{extra_name}.bam.bai"
+        File ref_bam = "~{ref_name}.bam"
+        File ref_bai = "~{ref_name}.bam.bai"
+        Int extra_bam_number_of_reads = read_int("~{extra_name}_nreads.txt")
+    }
+}
 task VariantFiltration {
     input {
         File input_vcf
@@ -1163,6 +1342,7 @@ task SplitNCigarReads {
         String gatk_path
         String docker
         Int preemptible
+        String memory
     }
 
     output {
@@ -1185,7 +1365,7 @@ task SplitNCigarReads {
     runtime {
         disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 5 + size(ref_fasta, "GB"))) + " HDD"
         docker: docker
-        memory: "4 GB"
+        memory: memory
         preemptible: preemptible
     }
 }
@@ -1202,7 +1382,9 @@ task HaplotypeCaller {
         String gatk_path
         String docker
         Int preemptible
+        String memory
         Int? stand_call_conf
+        String? extra_args
     }
 
     output {
@@ -1222,11 +1404,12 @@ task HaplotypeCaller {
         -dont-use-soft-clipped-bases \
         --stand-call-conf ~{default="20"  stand_call_conf} \
         --recover-dangling-heads true \
+        ~{"" + extra_args} \
         ~{"-L " + interval_list}
     >>>
     runtime {
         docker: docker
-        memory: "6.5 GB"
+        memory: memory
         disks: "local-disk " + ceil((size(input_bam, "GB") * 2) + 30) + " HDD"
         preemptible: preemptible
     }
