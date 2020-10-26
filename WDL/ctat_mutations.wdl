@@ -12,9 +12,7 @@ workflow ctat_mutations {
         File ref_fasta
         File ref_fasta_index
 
-        File? extra_dict
         File? extra_fasta
-        File? extra_fasta_index
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -39,7 +37,7 @@ workflow ctat_mutations {
 
         Boolean filter_cancer_variants = true
         Boolean apply_bqsr = true
-    #    Boolean recalibration_plot = true
+        Boolean mark_duplicates = true
         Boolean call_variants = true
 
         # boosting
@@ -86,8 +84,6 @@ workflow ctat_mutations {
         ref_dict:{help:"Sequence dictionary for ref_fasta"}
 
         extra_fasta:{help:"Extra genome to use in alignment and variant calling."}
-        extra_dict:{help:"Sequence dictionary for extra_fasta"}
-        extra_fasta_index:{help:"Index for extra_fasta"}
 
         db_snp_vcf:{help:"dbSNP VCF file for the reference genome."}
         db_snp_vcf_index:{help:"dbSNP vcf index"}
@@ -104,6 +100,7 @@ workflow ctat_mutations {
         star_reference:{help:"STAR index archive"}
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
+        mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
 #        recalibration_plot:{help:"Generate recalibration plot"}
@@ -163,14 +160,16 @@ workflow ctat_mutations {
     }
 
 
-    call MarkDuplicates {
-        input:
-            input_bam = AddOrReplaceReadGroups.bam,
-            base_name = sample_id + ".dedupped",
-            gatk_path = gatk_path,
-            memory = mark_duplicates_memory,
-            docker = docker,
-            preemptible = preemptible
+    if(mark_duplicates) {
+        call MarkDuplicates {
+            input:
+                input_bam = AddOrReplaceReadGroups.bam,
+                base_name = sample_id + ".dedupped",
+                gatk_path = gatk_path,
+                memory = mark_duplicates_memory,
+                docker = docker,
+                preemptible = preemptible
+        }
     }
     if(defined(extra_fasta)) {
         call MergeFastas {
@@ -190,8 +189,8 @@ workflow ctat_mutations {
 
     call SplitNCigarReads {
         input:
-            input_bam = MarkDuplicates.bam,
-            input_bam_index = MarkDuplicates.bai,
+            input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam]),
+            input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai]),
             base_name = sample_id + ".split",
             ref_fasta = fasta,
             ref_fasta_index = fasta_index,
@@ -238,13 +237,22 @@ workflow ctat_mutations {
 
 
     if(defined(extra_fasta)) {
+        call CreateFastaIndex {
+            input:
+                input_fasta = extra_fasta,
+                memory = "2G",
+                docker = docker,
+                gatk_path = gatk_path,
+                preemptible = preemptible
+        }
+
         call SplitReads {
             input:
                 input_bam = select_first([ApplyBQSR.bam, SplitNCigarReads.bam]),
                 input_bam_index = select_first([ApplyBQSR.bam_index, SplitNCigarReads.bam_index]),
                 extra_name = sample_id + '_' + basename(select_first([extra_fasta])),
                 ref_name = basename(ref_fasta),
-                extra_fasta_index = extra_fasta_index,
+                extra_fasta_index = CreateFastaIndex.fasta_index,
                 ref_fasta_index = ref_fasta_index,
                 memory = "2G",
                 docker = docker,
@@ -256,9 +264,9 @@ workflow ctat_mutations {
                     input_bam = SplitReads.extra_bam,
                     input_bam_index = SplitReads.extra_bai,
                     base_name = sample_id + '_' + basename(select_first([extra_fasta])),
-                    ref_dict = select_first([extra_dict]),
+                    ref_dict = select_first([CreateFastaIndex.dict]),
                     ref_fasta = select_first([extra_fasta]),
-                    ref_fasta_index = select_first([extra_fasta_index]),
+                    ref_fasta_index = select_first([CreateFastaIndex.fasta_index]),
                     extra_args = haplotype_caller_args_for_extra_reads,
                     gatk_path = gatk_path,
                     docker = docker,
@@ -424,8 +432,8 @@ workflow ctat_mutations {
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
-        File output_log_final =  StarAlign.output_log_final
-        File output_SJ =  StarAlign.output_SJ
+        File? output_log_final =  StarAlign.output_log_final
+        File? output_SJ =  StarAlign.output_SJ
         Array[File]? unmapped_reads = StarAlign.unmapped_reads
         File? recalibrated_bam = ApplyBQSR.bam
         File? recalibrated_bam_index = ApplyBQSR.bam_index
@@ -866,10 +874,13 @@ task AddOrReplaceReadGroups {
         --RGPL ~{sequencing_platform} \
         --RGPU machine \
         --RGSM ~{unique_id}
+
+        samtools index "~{base_name}.sorted.bam"
     >>>
 
     output {
         File bam = "~{base_name}.sorted.bam"
+        File bai = "~{base_name}.sorted.bam.bai"
     }
 
     runtime {
@@ -1118,6 +1129,44 @@ task MergeFastas {
     }
 }
 
+
+task CreateFastaIndex {
+    input {
+        File? input_fasta
+        String docker
+        String memory
+        Int preemptible
+        String gatk_path
+    }
+    String prefix = basename(select_first([input_fasta]))
+    String prefix_no_ext = basename(select_first([input_fasta]), ".fa")
+
+    command <<<
+
+        samtools faidx ~{input_fasta}
+        mv ~{input_fasta}.fai .
+
+        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        CreateSequenceDictionary \
+        -R ~{input_fasta} \
+        -O ~{prefix_no_ext}.dict
+    >>>
+
+    runtime {
+        docker: docker
+        bootDiskSizeGb: 12
+        memory: memory
+        disks: "local-disk " + ceil(size(input_fasta, "GB")*2) + " HDD"
+        preemptible: preemptible
+        cpu: 1
+    }
+
+    output {
+        File fasta_index = "~{prefix}.fai"
+        File dict = "~{prefix_no_ext}.dict"
+    }
+}
 task SplitReads {
     input {
         File? input_bam
@@ -1161,6 +1210,7 @@ task SplitReads {
         Int extra_bam_number_of_reads = read_int("~{extra_name}_nreads.txt")
     }
 }
+
 task VariantFiltration {
     input {
         File input_vcf
