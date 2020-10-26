@@ -56,6 +56,11 @@ def main():
         help="Sample id"
     )
 
+    parser.add_argument(
+        "--extra_fasta",
+        help="Extra genome to use in alignment and variant calling"
+    )
+
     # Resources
     parser.add_argument(
         "--genome_lib_dir",
@@ -152,6 +157,11 @@ def main():
     # )
 
     parser.add_argument(
+        "--no_mark_duplicates",
+        action="store_true",
+        help="Do not mark duplicates"
+    )
+    parser.add_argument(
         "--version",
         action="store_true",
         help="Show version info: {}".format(VERSION),
@@ -183,6 +193,8 @@ def main():
     sample_id = args.sample_id
     gatk_path = args.gatk
     cromwell = args.cromwell
+    no_mark_duplicates = args.no_mark_duplicates
+    extra_fasta = args.extra_fasta
 
     if left is None and bam is None:
         exit("Either FASTQ files or a previously aligned bam file must be provided.")
@@ -192,7 +204,7 @@ def main():
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
     ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
 
-    gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
+    # gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
     ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
     ref_fasta = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
@@ -224,7 +236,6 @@ def main():
         property_dict = json.load(pr)
     genome_version = property_dict["Genome_version"]
     input_json = {}
-
     input_json['sample_id'] = sample_id
     if left is not None:
         input_json['left'] = left
@@ -232,8 +243,12 @@ def main():
         input_json['right'] = right
     if bam is not None:
         input_json['bam'] = bam
+    if extra_fasta is not None:
+        input_json['extra_fasta'] = extra_fasta
 
-    input_json['gtf'] = gtf
+    if no_mark_duplicates:
+        input_json['mark_duplicates'] = False
+
     input_json['ref_dict'] = ref_dict
     input_json['ref_fasta'] = ref_fasta
     input_json['ref_fasta_index'] = ref_fasta_index
