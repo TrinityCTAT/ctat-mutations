@@ -1101,10 +1101,11 @@ task MergeVCFs {
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+        
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
         MergeVcfs \
-        --INPUT ~{sep=" --INPUT="  input_vcfs} \
-        --OUTPUT ~{output_vcf_name}
+        -I ~{sep=" -I " input_vcfs} \
+        -O ~{output_vcf_name}
 
     >>>
     runtime {
