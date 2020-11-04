@@ -69,6 +69,7 @@ workflow ctat_mutations {
         String scripts_path = "/usr/local/src/ctat-mutations/src"
         String? genome_version
         Boolean include_read_var_pos_annotations = true
+        Int? read_var_pos_annotation_cpu
         String mark_duplicates_memory = "16G"
         String split_n_cigar_reads_memory = "4G"
     }
@@ -374,6 +375,7 @@ workflow ctat_mutations {
                 bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
                 bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
                 include_read_var_pos_annotations=include_read_var_pos_annotations,
+                read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
                 scripts_path=scripts_path,
@@ -477,7 +479,7 @@ task FilterCancerVariants {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         # Groom before table conversion
         ~{scripts_path}/groom_vcf.py \
@@ -553,7 +555,7 @@ task CancerVariantReport {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         create_report \
         ~{input_vcf} \
@@ -608,6 +610,7 @@ task AnnotateVariants {
         String? genome_version
         Boolean include_read_var_pos_annotations
 
+        Int? read_var_pos_annotation_cpu
         String docker
         String memory
         Int preemptible
@@ -616,7 +619,7 @@ task AnnotateVariants {
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib_dir))then 100 else 0)
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         VCF="~{input_vcf}"
         OUT="~{base_name}.norm.groom.sorted.vcf.gz"
@@ -700,12 +703,17 @@ task AnnotateVariants {
         # PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
         if [ "~{include_read_var_pos_annotations}" == "true" ]; then
             OUT="~{base_name}.pass_read.~{vcf_extension}"
+            THREADS="~{read_var_pos_annotation_cpu}"
+            if [ "~{include_read_var_pos_annotations}" == "true" ]; then
+                THREADS=$(nproc)
+            fi
+
 
             ~{scripts_path}/annotate_PASS_reads.py \
             --vcf $VCF \
             --bam ~{bam} \
             --output_vcf ~{base_name}.pass_read.vcf \
-            --threads $(nproc)
+            --threads $THREADS
 
             bgzip -c ~{base_name}.pass_read.vcf > $OUT
             tabix $OUT
@@ -835,7 +843,7 @@ task MarkDuplicates {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
@@ -878,7 +886,7 @@ task AddOrReplaceReadGroups {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
@@ -930,7 +938,7 @@ task BaseRecalibrator {
     }
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
@@ -1021,7 +1029,7 @@ task StarAlign {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         genomeDir="~{star_reference}"
         if [ "$genomeDir" == "" ]; then
@@ -1090,7 +1098,7 @@ task MergeVCFs {
     }
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
@@ -1252,7 +1260,7 @@ task VariantFiltration {
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         boosting_method="~{boosting_method}"
         if [ "$boosting_method" == "RVBLR" ]; then
@@ -1324,7 +1332,7 @@ task SplitChromosomes {
     }
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         python <<CODE
         with open("~{ref_fasta_index}") as fh:
@@ -1368,7 +1376,7 @@ task SplitIntervals {
 
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mkdir interval-files
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
@@ -1411,7 +1419,7 @@ task CreateBamIndex {
     command <<<
         set -e
 
-        monitor_script.sh &
+        # monitor_script.sh &
 
         samtools index ~{input_bam}
 
@@ -1446,7 +1454,7 @@ task SplitNCigarReads {
     }
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
 
@@ -1489,7 +1497,7 @@ task HaplotypeCaller {
     }
     command <<<
         set -e
-        monitor_script.sh &
+        # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
