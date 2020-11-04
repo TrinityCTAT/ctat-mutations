@@ -7,12 +7,12 @@ workflow ctat_mutations {
         File? right
         File? bam
 
+        File? extra_fasta
+
         # resources
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-
-        File? extra_fasta
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -38,6 +38,7 @@ workflow ctat_mutations {
         Boolean filter_cancer_variants = true
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
+        Boolean add_read_groups = true
         Boolean call_variants = true
 
         # boosting
@@ -57,6 +58,7 @@ workflow ctat_mutations {
         String star_memory = "43G"
         Boolean output_unmapped_reads = false
 
+        String? haplotype_caller_args
         String? haplotype_caller_args_for_extra_reads
         String haplotype_caller_memory = "6.5G"
         String sequencing_platform = "ILLUMINA"
@@ -68,6 +70,7 @@ workflow ctat_mutations {
         String? genome_version
         Boolean include_read_var_pos_annotations = true
         String mark_duplicates_memory = "16G"
+        String split_n_cigar_reads_memory = "4G"
     }
     Int min_confidence_for_variant_calling = 20
 
@@ -100,6 +103,7 @@ workflow ctat_mutations {
         star_reference:{help:"STAR index archive"}
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
+        add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
         mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
@@ -148,22 +152,24 @@ workflow ctat_mutations {
         }
     }
 
-    call AddOrReplaceReadGroups {
-        input:
-            input_bam = select_first([bam, StarAlign.bam]),
-            sample_id = sample_id,
-            base_name = sample_id + '.sorted',
-            sequencing_platform=sequencing_platform,
-            gatk_path = gatk_path,
-            docker = docker,
-            preemptible = preemptible
+    if(add_read_groups) {
+        call AddOrReplaceReadGroups {
+            input:
+                input_bam = select_first([bam, StarAlign.bam]),
+                sample_id = sample_id,
+                base_name = sample_id + '.sorted',
+                sequencing_platform=sequencing_platform,
+                gatk_path = gatk_path,
+                docker = docker,
+                preemptible = preemptible
+        }
     }
 
 
     if(mark_duplicates) {
         call MarkDuplicates {
             input:
-                input_bam = AddOrReplaceReadGroups.bam,
+                input_bam = select_first([AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
                 base_name = sample_id + ".dedupped",
                 gatk_path = gatk_path,
                 memory = mark_duplicates_memory,
@@ -187,16 +193,25 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
+    if(!mark_duplicates && !add_read_groups) {
+        call CreateBamIndex {
+            input:
+                input_bam = select_first([bam, StarAlign.bam]),
+                memory = "3G",
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
     call SplitNCigarReads {
         input:
-            input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam]),
-            input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai]),
+            input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
+            input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
             base_name = sample_id + ".split",
             ref_fasta = fasta,
             ref_fasta_index = fasta_index,
             ref_dict = sequence_dict,
             gatk_path = gatk_path,
-            memory = "3G",
+            memory = split_n_cigar_reads_memory,
             docker = docker,
             preemptible = preemptible
     }
@@ -223,7 +238,7 @@ workflow ctat_mutations {
             input:
                 input_bam = SplitNCigarReads.bam,
                 input_bam_index = SplitNCigarReads.bam_index,
-                base_name = sample_id + ".aligned.duplicates_marked.recalibrated",
+                base_name = sample_id + ".bqsr",
                 recalibration_report = BaseRecalibrator.recalibration_report,
 #                recalibration_plot = recalibration_plot,
                 ref_fasta = fasta,
@@ -302,6 +317,7 @@ workflow ctat_mutations {
                         interval_list = interval,
                         ref_dict = ref_dict,
                         ref_fasta = ref_fasta,
+                        extra_args = haplotype_caller_args,
                         ref_fasta_index = ref_fasta_index,
                         gatk_path = gatk_path,
                         docker = docker,
@@ -328,6 +344,7 @@ workflow ctat_mutations {
                     base_name = sample_id,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
+                    extra_args = haplotype_caller_args,
                     ref_fasta_index = ref_fasta_index,
                     gatk_path = gatk_path,
                     docker = docker,
@@ -354,8 +371,8 @@ workflow ctat_mutations {
                 gnomad_vcf_index=gnomad_vcf_index,
                 rna_editing_vcf=rna_editing_vcf,
                 rna_editing_vcf_index=rna_editing_vcf_index,
-                bam=MarkDuplicates.bam,
-                bai=MarkDuplicates.bai,
+                bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
+                bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
                 include_read_var_pos_annotations=include_read_var_pos_annotations,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
@@ -1360,7 +1377,7 @@ task SplitIntervals {
         -R ~{ref_fasta} \
         ~{"-L " + intervals} \
         -scatter ~{scatter_count} \
-        -O interval-files \
+        -O interval-files
 
         cp interval-files/*.interval_list .
     >>>
@@ -1379,7 +1396,35 @@ task SplitIntervals {
     }
 }
 
+task CreateBamIndex {
+    input {
+        File input_bam
+        String docker
+        Int preemptible
+        String memory
+    }
+    String name = basename(input_bam)
 
+    output {
+        File bai = "~{name}.bai"
+    }
+    command <<<
+        set -e
+
+        monitor_script.sh &
+
+        samtools index ~{input_bam}
+
+        mv ~{input_bam}.bai .
+    >>>
+
+    runtime {
+        disks: "local-disk " + ceil(1+size(input_bam, "GB")*1.5) + " HDD"
+        docker: docker
+        memory: memory
+        preemptible: preemptible
+    }
+}
 
 task SplitNCigarReads {
     input {
@@ -1404,6 +1449,7 @@ task SplitNCigarReads {
         monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
         SplitNCigarReads \
         -R ~{ref_fasta} \
