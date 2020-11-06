@@ -196,7 +196,7 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-    if(!mark_duplicates && !add_read_groups) {
+    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
         call CreateBamIndex {
             input:
                 input_bam = select_first([StarAlign.bam, bam]),
