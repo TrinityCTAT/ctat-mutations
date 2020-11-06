@@ -37,17 +37,21 @@ def main():
 
     parser.add_argument(
         "--left",
-        help="Path to one of the two paired RNAseq samples"
+        help="Path to one of the two paired samples"
     )
 
     parser.add_argument(
         "--right",
-        help="Path to one of the two paired RNAseq samples"
+        help="Path to one of the two paired samples"
     )
 
     parser.add_argument(
         "--bam",
         help="Path to previously aligned bam"
+    )
+    parser.add_argument(
+        "--vcf",
+        help="Path to previously generated vcf to annotate and filter"
     )
 
     parser.add_argument(
@@ -186,6 +190,7 @@ def main():
     left = args.left
     right = args.right
     bam = args.bam
+    vcf = args.vcf
     ctat_genome_lib_path = args.genome_lib_dir
     no_bqsr = args.no_bqsr
     sequencing_platform = args.sequencing_platform
@@ -250,6 +255,8 @@ def main():
         input_json['right'] = right
     if bam is not None:
         input_json['bam'] = bam
+    if vcf is not None:
+        input_json['input_vcf'] = vcf
     if extra_fasta is not None:
         input_json['extra_fasta'] = extra_fasta
 

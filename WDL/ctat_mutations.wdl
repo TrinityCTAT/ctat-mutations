@@ -6,6 +6,7 @@ workflow ctat_mutations {
         File? left
         File? right
         File? bam
+        File? input_vcf
 
         File? extra_fasta
 
@@ -74,12 +75,14 @@ workflow ctat_mutations {
         String split_n_cigar_reads_memory = "4G"
     }
     Int min_confidence_for_variant_calling = 20
+    Boolean vcf_input = defined(input_vcf)
 
     parameter_meta {
 
         left:{help:"One of the two paired RNAseq samples"}
         right:{help:"One of the two paired RNAseq samples"}
         bam:{help:"Previously aligned bam file"}
+        input_vcf:{help:"Previously generated vcf file"}
         sample_id:{help:"Sample id"}
 
         # resources
@@ -133,7 +136,7 @@ workflow ctat_mutations {
     }
 
 
-    if(!defined(bam) && (defined(star_reference)||defined(star_reference_directory))) {
+    if(!vcf_input && !defined(bam) && (defined(star_reference)||defined(star_reference_directory))) {
         call StarAlign {
             input:
                 star_reference = star_reference,
@@ -153,7 +156,7 @@ workflow ctat_mutations {
         }
     }
 
-    if(add_read_groups) {
+    if(!vcf_input && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
                 input_bam = select_first([bam, StarAlign.bam]),
@@ -167,7 +170,7 @@ workflow ctat_mutations {
     }
 
 
-    if(mark_duplicates) {
+    if(!vcf_input && mark_duplicates) {
         call MarkDuplicates {
             input:
                 input_bam = select_first([AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
@@ -178,7 +181,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
-    if(defined(extra_fasta)) {
+    if(!vcf_input && defined(extra_fasta)) {
         call MergeFastas {
             input:
                 name = "combined",
@@ -194,7 +197,7 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-    if(!mark_duplicates && !add_read_groups) {
+    if(!vcf_input && !mark_duplicates && !add_read_groups) {
         call CreateBamIndex {
             input:
                 input_bam = select_first([bam, StarAlign.bam]),
@@ -217,7 +220,7 @@ workflow ctat_mutations {
             preemptible = preemptible
     }
 
-    if(apply_bqsr && defined(db_snp_vcf)) {
+    if(!vcf_input && apply_bqsr && defined(db_snp_vcf)) {
         call BaseRecalibrator {
             input:
                 input_bam = SplitNCigarReads.bam,
@@ -252,7 +255,7 @@ workflow ctat_mutations {
     }
 
 
-    if(defined(extra_fasta)) {
+    if(!vcf_input && defined(extra_fasta)) {
         call CreateFastaIndex {
             input:
                 input_fasta = extra_fasta,
@@ -297,7 +300,7 @@ workflow ctat_mutations {
     File bam = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam])
     File bai = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index])
     if(call_variants) {
-        if(variant_scatter_count > 0) {
+        if(!vcf_input && variant_scatter_count > 0) {
             call SplitIntervals {
                 input:
                     ref_fasta = ref_fasta,
@@ -337,7 +340,7 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        if(variant_scatter_count == 0) {
+        if(!vcf_input && variant_scatter_count == 0) {
             call HaplotypeCaller {
                 input:
                     input_bam = bam,
@@ -354,7 +357,7 @@ workflow ctat_mutations {
                     stand_call_conf = min_confidence_for_variant_calling
             }
         }
-        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf])
+        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, input_vcf])
 
         call AnnotateVariants {
             input:
@@ -1101,7 +1104,7 @@ task MergeVCFs {
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        
+
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
         MergeVcfs \
         -I ~{sep=" -I " input_vcfs} \
