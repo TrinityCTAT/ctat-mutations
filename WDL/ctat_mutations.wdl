@@ -76,13 +76,12 @@ workflow ctat_mutations {
     }
     Int min_confidence_for_variant_calling = 20
     Boolean vcf_input = defined(input_vcf)
-
     parameter_meta {
 
         left:{help:"One of the two paired RNAseq samples"}
         right:{help:"One of the two paired RNAseq samples"}
         bam:{help:"Previously aligned bam file"}
-        input_vcf:{help:"Previously generated vcf file"}
+        input_vcf:{help:"Previously generated vcf file. When provided, the output from ApplyBQSR should be provided as the bam input."}
         sample_id:{help:"Sample id"}
 
         # resources
@@ -159,7 +158,7 @@ workflow ctat_mutations {
     if(!vcf_input && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
-                input_bam = select_first([bam, StarAlign.bam]),
+                input_bam = select_first([StarAlign.bam, bam]),
                 sample_id = sample_id,
                 base_name = sample_id + '.sorted',
                 sequencing_platform=sequencing_platform,
@@ -173,7 +172,7 @@ workflow ctat_mutations {
     if(!vcf_input && mark_duplicates) {
         call MarkDuplicates {
             input:
-                input_bam = select_first([AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
+                input_bam = select_first([AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
                 base_name = sample_id + ".dedupped",
                 gatk_path = gatk_path,
                 memory = mark_duplicates_memory,
@@ -197,62 +196,66 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-    if(!vcf_input && !mark_duplicates && !add_read_groups) {
+    if(!mark_duplicates && !add_read_groups) {
         call CreateBamIndex {
             input:
-                input_bam = select_first([bam, StarAlign.bam]),
+                input_bam = select_first([StarAlign.bam, bam]),
                 memory = "3G",
                 docker = docker,
                 preemptible = preemptible
         }
     }
-    call SplitNCigarReads {
-        input:
-            input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
-            input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
-            base_name = sample_id + ".split",
-            ref_fasta = fasta,
-            ref_fasta_index = fasta_index,
-            ref_dict = sequence_dict,
-            gatk_path = gatk_path,
-            memory = split_n_cigar_reads_memory,
-            docker = docker,
-            preemptible = preemptible
-    }
-
-    if(!vcf_input && apply_bqsr && defined(db_snp_vcf)) {
-        call BaseRecalibrator {
+    if(!vcf_input) {
+        call SplitNCigarReads {
             input:
-                input_bam = SplitNCigarReads.bam,
-                input_bam_index = SplitNCigarReads.bam_index,
-                recal_output_file = sample_id + ".recal_data.csv",
-                db_snp_vcf = db_snp_vcf,
-                db_snp_vcf_index = db_snp_vcf_index,
-            #                known_indels_sites = known_indels_sites,
-            #                known_indels_sites_indices = known_indels_sites_indices,
-
+                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
+                base_name = sample_id + ".split",
                 ref_fasta = fasta,
                 ref_fasta_index = fasta_index,
                 ref_dict = sequence_dict,
                 gatk_path = gatk_path,
+                memory = split_n_cigar_reads_memory,
                 docker = docker,
                 preemptible = preemptible
         }
-        call ApplyBQSR {
-            input:
-                input_bam = SplitNCigarReads.bam,
-                input_bam_index = SplitNCigarReads.bam_index,
-                base_name = sample_id + ".bqsr",
-                recalibration_report = BaseRecalibrator.recalibration_report,
-#                recalibration_plot = recalibration_plot,
-                ref_fasta = fasta,
-                ref_fasta_index = fasta_index,
-                ref_dict = sequence_dict,
-                gatk_path = gatk_path,
-                docker = docker,
-                preemptible = preemptible
+
+        if(apply_bqsr && defined(db_snp_vcf)) {
+            call BaseRecalibrator {
+                input:
+                    input_bam = SplitNCigarReads.bam,
+                    input_bam_index = SplitNCigarReads.bam_index,
+                    recal_output_file = sample_id + ".recal_data.csv",
+                    db_snp_vcf = db_snp_vcf,
+                    db_snp_vcf_index = db_snp_vcf_index,
+                #                known_indels_sites = known_indels_sites,
+                #                known_indels_sites_indices = known_indels_sites_indices,
+
+                    ref_fasta = fasta,
+                    ref_fasta_index = fasta_index,
+                    ref_dict = sequence_dict,
+                    gatk_path = gatk_path,
+                    docker = docker,
+                    preemptible = preemptible
+            }
+            call ApplyBQSR {
+                input:
+                    input_bam = SplitNCigarReads.bam,
+                    input_bam_index = SplitNCigarReads.bam_index,
+                    base_name = sample_id + ".bqsr",
+                    recalibration_report = BaseRecalibrator.recalibration_report,
+                #                recalibration_plot = recalibration_plot,
+                    ref_fasta = fasta,
+                    ref_fasta_index = fasta_index,
+                    ref_dict = sequence_dict,
+                    gatk_path = gatk_path,
+                    docker = docker,
+                    preemptible = preemptible
+            }
         }
     }
+
+
 
 
     if(!vcf_input && defined(extra_fasta)) {
@@ -297,8 +300,8 @@ workflow ctat_mutations {
 
         }
     }
-    File bam = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam])
-    File bai = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index])
+    File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
+    File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, CreateBamIndex.bai])
     if(call_variants) {
         if(!vcf_input && variant_scatter_count > 0) {
             call SplitIntervals {
@@ -315,8 +318,8 @@ workflow ctat_mutations {
             scatter (interval in SplitIntervals.interval_files) {
                 call HaplotypeCaller as HaplotypeCallerInterval {
                     input:
-                        input_bam = bam,
-                        input_bam_index = bai,
+                        input_bam = bam_for_variant_calls,
+                        input_bam_index = bai_for_variant_calls,
                         base_name = sample_id,
                         interval_list = interval,
                         ref_dict = ref_dict,
@@ -343,8 +346,8 @@ workflow ctat_mutations {
         if(!vcf_input && variant_scatter_count == 0) {
             call HaplotypeCaller {
                 input:
-                    input_bam = bam,
-                    input_bam_index = bai,
+                    input_bam = bam_for_variant_calls,
+                    input_bam_index = bai_for_variant_calls,
                     base_name = sample_id,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
@@ -375,7 +378,7 @@ workflow ctat_mutations {
                 gnomad_vcf_index=gnomad_vcf_index,
                 rna_editing_vcf=rna_editing_vcf,
                 rna_editing_vcf_index=rna_editing_vcf_index,
-                bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam, StarAlign.bam]),
+                bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
                 bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
                 include_read_var_pos_annotations=include_read_var_pos_annotations,
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
@@ -432,8 +435,8 @@ workflow ctat_mutations {
                         ref_fasta_index = ref_fasta_index,
                         ref_dict = ref_dict,
                         ref_bed = select_first([ref_bed]),
-                        bam=bam,
-                        bai=bai,
+                        bam=bam_for_variant_calls,
+                        bai=bai_for_variant_calls,
                         docker = docker,
                         memory = "2G",
                         preemptible = preemptible
