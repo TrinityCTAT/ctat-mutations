@@ -6,7 +6,8 @@ workflow ctat_mutations {
         File? left
         File? right
         File? bam
-        File? input_vcf
+        File? bai
+        File? vcf
 
         File? extra_fasta
 
@@ -75,13 +76,14 @@ workflow ctat_mutations {
         String split_n_cigar_reads_memory = "4G"
     }
     Int min_confidence_for_variant_calling = 20
-    Boolean vcf_input = defined(input_vcf)
+    Boolean vcf_input = defined(vcf)
     parameter_meta {
 
         left:{help:"One of the two paired RNAseq samples"}
         right:{help:"One of the two paired RNAseq samples"}
         bam:{help:"Previously aligned bam file"}
-        input_vcf:{help:"Previously generated vcf file. When provided, the output from ApplyBQSR should be provided as the bam input."}
+        bai:{help:"Previously aligned bam index file"}
+        vcf:{help:"Previously generated vcf file. When provided, the output from ApplyBQSR should be provided as the bam input."}
         sample_id:{help:"Sample id"}
 
         # resources
@@ -196,20 +198,20 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
-        call CreateBamIndex {
-            input:
-                input_bam = select_first([StarAlign.bam, bam]),
-                memory = "3G",
-                docker = docker,
-                preemptible = preemptible
-        }
-    }
+#    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
+#        call CreateBamIndex {
+#            input:
+#                input_bam = select_first([StarAlign.bam, bam]),
+#                memory = "3G",
+#                docker = docker,
+#                preemptible = preemptible
+#        }
+#    }
     if(!vcf_input) {
         call SplitNCigarReads {
             input:
                 input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                 base_name = sample_id + ".split",
                 ref_fasta = fasta,
                 ref_fasta_index = fasta_index,
@@ -301,7 +303,7 @@ workflow ctat_mutations {
         }
     }
     File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
-    File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, CreateBamIndex.bai])
+    File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
     if(call_variants) {
         if(!vcf_input && variant_scatter_count > 0) {
             call SplitIntervals {
@@ -360,7 +362,7 @@ workflow ctat_mutations {
                     stand_call_conf = min_confidence_for_variant_calling
             }
         }
-        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, input_vcf])
+        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
 
         call AnnotateVariants {
             input:
@@ -379,7 +381,7 @@ workflow ctat_mutations {
                 rna_editing_vcf=rna_editing_vcf,
                 rna_editing_vcf_index=rna_editing_vcf_index,
                 bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, CreateBamIndex.bai]),
+                bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                 include_read_var_pos_annotations=include_read_var_pos_annotations,
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
@@ -453,7 +455,7 @@ workflow ctat_mutations {
 
         File? extra_vcf = HaplotypeCallerExtra.output_vcf
 
-        File? vcf = variant_vcf
+        File? haplotype_caller_vcf = variant_vcf
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
@@ -626,6 +628,7 @@ task AnnotateVariants {
     command <<<
         set -e
         # monitor_script.sh &
+
 
         VCF="~{input_vcf}"
         OUT="~{base_name}.norm.groom.sorted.vcf.gz"
@@ -1067,10 +1070,13 @@ task StarAlign {
             mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
         fi
 
+        samtools index "~{base_name}.Aligned.sortedByCoord.out.bam"
+
     >>>
 
     output {
         File bam = "~{base_name}.Aligned.sortedByCoord.out.bam"
+        File bai = "~{base_name}.Aligned.sortedByCoord.out.bam.bai"
         File output_log_final = "~{base_name}.Log.final.out"
         File output_log = "~{base_name}.Log.out"
         File output_SJ = "~{base_name}.SJ.out.tab"

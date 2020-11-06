@@ -242,12 +242,13 @@ def main():
 
     properties = os.path.join(ctat_mutation_lib_path, "properties.json")
     if not os.path.exists(properties):
-        exit("Error, cannot find properties.json file in $CTAT_GENOME_LIB/ctat_mutation_lib")
+        exit("Cannot find properties.json file in {}/ctat_mutation_lib".format(ctat_genome_lib_path))
 
     with open(properties, "rt") as pr:
         property_dict = json.load(pr)
     genome_version = property_dict["Genome_version"]
     input_json = {}
+    input_json['genome_version'] = genome_version
     input_json['sample_id'] = sample_id
     if left is not None:
         input_json['left'] = left
@@ -255,8 +256,14 @@ def main():
         input_json['right'] = right
     if bam is not None:
         input_json['bam'] = bam
+        bai_paths = [bam + '.bai', os.path.splitext(bam)[0] + '.bai']
+        for bai_path in bai_paths:
+            if os.path.exists(bai_path):
+                input_json['bai'] = bai_path
+                break
+
     if vcf is not None:
-        input_json['input_vcf'] = vcf
+        input_json['vcf'] = vcf
     if extra_fasta is not None:
         input_json['extra_fasta'] = extra_fasta
 
@@ -292,7 +299,6 @@ def main():
     input_json['docker'] = 'a/b'  # hack to make cromwell happy
     input_json['variant_scatter_count'] = variant_scatter_count
 
-    input_json['genome_version'] = genome_version
     input_json['include_read_var_pos_annotations'] = not no_include_read_var_pos_annotations
     if gatk_path is not None:
         input_json['gatk_path'] = gatk_path
