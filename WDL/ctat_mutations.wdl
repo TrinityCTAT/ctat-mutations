@@ -1258,6 +1258,8 @@ task VariantFiltration {
     }
     String output_name = "~{base_name}.filtered.vcf.gz"
     String boost_tmp = "~{boosting_method}_filtered.vcf"
+    String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
+    String ctat_boost_output_indels = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_indels.vcf.gz"
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
     command <<<
         set -e
@@ -1300,14 +1302,39 @@ task VariantFiltration {
         else
             mkdir boost
 
-            ~{scripts_path}VariantBoosting/PyBoost/CTAT_Boosting_combined.py \
+            ~{scripts_path}/separate_snps_indels.py \
             --vcf ~{input_vcf} \
+            --outdir boost
+
+            #tabix boost/variants.HC_init.wAnnot.indels.vcf.gz
+            #tabix boost/variants.HC_init.wAnnot.indels.vcf.gz
+
+
+            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
             --out boost \
             --model ~{boosting_method} \
-            --predictor ~{boosting_alg_type}
+            --predictor ~{boosting_alg_type} \
+            --indels
 
-            bgzip -c boost/~{ctat_boost_output} > ~{output_name}
+            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            --vcf boost/variants.HC_init.wAnnot.snps.vcf.gz \
+            --features ~{sep=',' boosting_attributes} \
+            --out boost \
+            --model ~{boosting_method} \
+            --predictor ~{boosting_alg_type} \
+            --snps
+
+            ls boost/*.vcf | xargs -n1 bgzip -f
+
+            tabix boost/~{ctat_boost_output_snp}
+            tabix boost/~{ctat_boost_output_indels}
+
+            bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz  -o ~{output_name} --force-samples
+
+
+            #bgzip -c boost/~{ctat_boost_output} > ~{output_name}
         fi
     >>>
 
