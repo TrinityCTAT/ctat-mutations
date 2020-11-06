@@ -712,8 +712,9 @@ task AnnotateVariants {
         # PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
         if [ "~{include_read_var_pos_annotations}" == "true" ]; then
             OUT="~{base_name}.pass_read.~{vcf_extension}"
+
             THREADS="~{read_var_pos_annotation_cpu}"
-            if [ "~{include_read_var_pos_annotations}" == "true" ]; then
+            if [ $THREADS == "" ]; then
                 THREADS=$(nproc)
             fi
 
