@@ -32,7 +32,7 @@ workflow ctat_mutations {
         File? ref_bed
 
         File? cravat_lib
-        String? cravat_lib_dir
+        String? cravat_lib_directory
 
         File? star_reference
         String? star_reference_directory
@@ -72,7 +72,7 @@ workflow ctat_mutations {
         String? genome_version
         Boolean include_read_var_pos_annotations = true
         Int? read_var_pos_annotation_cpu
-        String mark_duplicates_memory = "16G"
+        String mark_duplicates_memory = "4G"
         String split_n_cigar_reads_memory = "4G"
     }
     Int min_confidence_for_variant_calling = 20
@@ -105,7 +105,10 @@ workflow ctat_mutations {
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib:{help:"CRAVAT resource archive"}
+        cravat_lib_directory:{help:"CRAVAT resource directory (for use on HPC)"}
+
         star_reference:{help:"STAR index archive"}
+        star_reference_directory:{help:"STAR index directory (for use on HPC)"}
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
@@ -369,7 +372,7 @@ workflow ctat_mutations {
                 input_vcf = variant_vcf,
                 base_name = sample_id,
                 cravat_lib = cravat_lib,
-                cravat_lib_dir = cravat_lib_dir,
+                cravat_lib_dir = cravat_lib_directory,
                 ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
                 cosmic_vcf=cosmic_vcf,
@@ -961,7 +964,7 @@ task BaseRecalibrator {
 
     >>>
     runtime {
-        memory: "1G"
+        memory: "4G"
         disks: "local-disk " + ceil((size(input_bam, "GB") * 3) + 30) + " HDD"
         docker: docker
         preemptible: preemptible
@@ -1036,6 +1039,7 @@ task StarAlign {
         File? genomeFastaFiles
         Boolean output_unmapped_reads
     }
+    Boolean is_gzip = sub(select_first([fastq1]), "^.+\\.(gz)$", "GZ") == "GZ"
 
     command <<<
         set -e
@@ -1056,7 +1060,7 @@ task StarAlign {
         --genomeDir $genomeDir \
         --runThreadN ~{cpu} \
         --readFilesIn ~{fastq1} ~{fastq2} \
-        --readFilesCommand "gunzip -c" \
+         ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
         --outSAMtype BAM SortedByCoordinate \
         --twopassMode Basic \
         --limitBAMsortRAM 30000000000 \
