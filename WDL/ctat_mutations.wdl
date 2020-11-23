@@ -73,7 +73,7 @@ workflow ctat_mutations {
         Boolean include_read_var_pos_annotations = true
         Int? read_var_pos_annotation_cpu
         String mark_duplicates_memory = "8G"
-        String split_n_cigar_reads_memory = "8G"
+        String split_n_cigar_reads_memory = "14G"
     }
     Int min_confidence_for_variant_calling = 20
     Boolean vcf_input = defined(vcf)
