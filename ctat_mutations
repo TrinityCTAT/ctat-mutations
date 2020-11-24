@@ -235,6 +235,7 @@ def main():
 
     repeat_mask_bed = os.path.join(ctat_mutation_lib_path, "repeats_ucsc_gb.bed.gz")
     ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz")
+    ucsc_exon_bed = os.path.join("/ahg/regevdata/projects/trinity/mbrown/Mutations/create_annotations/Final_output", "ucsc_exon_bed.bed.gz")
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
     cravat_lib_dir = os.path.join(ctat_mutation_lib_path, "cravat")
@@ -285,6 +286,7 @@ def main():
     input_json['cosmic_vcf_index'] = cosmic_vcf_index
     input_json['repeat_mask_bed'] = repeat_mask_bed
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
+    input_json['ucsc_exon_bed'] = ucsc_exon_bed
     input_json['ref_bed'] = ref_bed
     if not no_cravat:
         input_json['cravat_lib_dir'] = cravat_lib_dir

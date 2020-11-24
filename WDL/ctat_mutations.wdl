@@ -29,6 +29,7 @@ workflow ctat_mutations {
         File? cosmic_vcf_index
         File? repeat_mask_bed
         File? ref_splice_adj_regions_bed
+        File? ucsc_exon_bed
         File? ref_bed
 
         File? cravat_lib
@@ -103,6 +104,7 @@ workflow ctat_mutations {
         cosmic_vcf_index:{help:"COSMIC VCF index"}
         repeat_mask_bed:{help:"bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)"}
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
+        ucsc_exon_bed:{help:"For annotating DJ."}
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib:{help:"CRAVAT resource archive"}
         star_reference:{help:"STAR index archive"}
@@ -386,6 +388,7 @@ workflow ctat_mutations {
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
+                ucsc_exon_bed=ucsc_exon_bed,
                 scripts_path=scripts_path,
                 plugins_path=plugins_path,
                 genome_version=genome_version,
@@ -497,6 +500,7 @@ task FilterCancerVariants {
         ~{base_name}.cancer.groom.vcf \
         ~{base_name}.cancer.groom.filt.vcf
 
+
         # Groom before table conversion
         ~{scripts_path}/groom_vcf.py \
         ~{base_name}.cancer.groom.filt.vcf \
@@ -606,6 +610,7 @@ task AnnotateVariants {
         File? cosmic_vcf_index
 
         File? ref_splice_adj_regions_bed
+        File? ucsc_exon_bed
         String base_name
         File? cravat_lib
         String? cravat_lib_dir
@@ -770,6 +775,36 @@ task AnnotateVariants {
             --output_vcf ~{base_name}.splice.distance.vcf
 
             bgzip -c ~{base_name}.splice.distance.vcf > $OUT
+            tabix $OUT
+            VCF=$OUT
+        fi
+
+        # DJ annotation
+        if [[ -f "~{ucsc_exon_bed}" ]]; then
+            OUT="~{base_name}.DJ.~{vcf_extension}"
+
+            ~{scripts_path}/annotate_DJ.py \
+            --input_vcf ~{base_name}.splice.distance.vcf \
+            --exon_bed ~{ucsc_exon_bed} \
+            --temp_dir $TMPDIR \
+            --output_vcf ~{base_name}.DJ.vcf
+
+            bgzip -c ~{base_name}.DJ.vcf > $OUT
+            tabix $OUT
+            VCF=$OUT
+        fi
+
+        # ED annotation
+        if [[ -f "~{ucsc_exon_bed}" ]]; then
+            OUT="~{base_name}.ED.~{vcf_extension}"
+
+            ~{scripts_path}/annotate_ED.py \
+            --input_vcf ~{base_name}.DJ.vcf \
+            --output_vcf ~{base_name}.ED.vcf \
+            --reference ~{ref_fasta} \
+            --temp_dir $TMPDIR 
+
+            bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
             VCF=$OUT
         fi
@@ -1282,12 +1317,15 @@ task VariantFiltration {
         if [ "$boosting_method" == "RVBLR" ]; then
             mkdir boost
 
-            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py
-            --input_vcf variants_vcf_file,
+            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
+            --input_vcf ~{input_vcf} \
             --attributes ~{sep=',' boosting_attributes} \
             --work_dir boost \
             --score_threshold ~{boosting_score_threshold} \
-            --output_filename ~{output_name}
+            --output_filename ~{base_name}.filtered.vcf
+
+            bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
+
         elif [ "$boosting_method" == "none" ]; then
             mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
             ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
