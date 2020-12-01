@@ -31,10 +31,6 @@ RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION
 
 ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
 
-## Picard
-WORKDIR $SRC
-RUN wget https://github.com/broadinstitute/picard/releases/download/2.20.3/picard.jar
-ENV PICARD_HOME $SRC
 
 ## Samtools
 ENV SAMTOOLS_VERSION=1.7
