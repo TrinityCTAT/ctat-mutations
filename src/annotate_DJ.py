@@ -28,7 +28,7 @@ def main():
         description = "Adds exon splice distance annotations to vcf file (report up to len 10 distance away from splice).\n")
 
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
-    parser.add_argument('--exon_bed', required=True, help='path to bed file. Mutually exclusive with ctat_mutation_lib_dir')
+    parser.add_argument('--gtf', required=True, help='Path to CTAT Mutations library annotations file.')
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
     parser.add_argument("--temp_dir", default="/tmp", help="tmp directory")
 
@@ -37,9 +37,8 @@ def main():
 
 
     input_vcf = args.input_vcf
-    # ctat_mutation_lib_dir = args.ctat_mutation_lib_dir
+    gtf = args.gtf
     out_file = args.output_vcf
-    ref_exon_bed = args.exon_bed
     temp_dir = args.temp_dir
 
     # path to the temp sorted file 
@@ -50,8 +49,9 @@ def main():
 
     logger.info("\n################################\n Annotating VCF: Calculating DJ \n################################\n")
 
-    
-    logger.info("\n" + input_vcf + "\n")
+    #~~~~~~~~~~~~~~
+    # Sort VCF
+    #~~~~~~~~~~~~~~
     # Sorting the VCF file by lexicographically
     ## have to do this for bedtools closest 
     logger.info("Sorting VCF")
@@ -59,24 +59,47 @@ def main():
     # logger.info("CMD: {}".format(cmd))
     sam_output = subprocess.run(cmd, shell=True)
 
-        # Read in the input vcf as a data frame 
+    #~~~~~~~~~~~~~~
+    # Load VCF
+    #~~~~~~~~~~~~~~
+    # Read in the input vcf as a data frame 
     logger.info("Loading input VCF")
     input_vcf_df = pd.read_csv(temp_sorted_vcf,
                              sep='\t', low_memory=False, comment='#', header =None,
                              names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "ENCODING"])
 
-    logger.info(input_vcf_df)
+    #~~~~~~~~~~~~~~
+    # Get Exons file ready 
+    #~~~~~~~~~~~~~~
+    # Load and process annotation file 
+    # Get the path to the reference annotation file ref_annot.gtf
+    if os.path.exists(gtf) == False:
+        exit("File doesnt exist:{}".format(gtf))
+    # Open the file 
+    ref_annot = pd.read_csv(gtf, 
+                            sep='\t', low_memory=False, comment='#', header =None)
+    # Subset the data to get only exons 
+    ref_annot = ref_annot[ref_annot[2] == "exon"]
+    # Sort by locations and subset the data to get "chr   start   end"
+    ref_annot = ref_annot.sort_values(by=[0,3,4])
+    ref_annot = ref_annot.iloc[:,[0,3,4]]
+    # create temp bed file to pass to bedtools 
+    temp_ref_annot = os.path.join(temp_dir, "temp.ref_annot.bed")
+    ref_annot.to_csv(temp_ref_annot, header=False, index = False, sep = "\t")
+
 
     # Run BEDTools closeestBed 
     logger.info("Running closestBed")
-    cmd = "bedtools closest -header -t first -a {} -b {}".format(temp_sorted_vcf, ref_exon_bed)
+    cmd = "bedtools closest -header -t first -a {} -b {}".format(temp_sorted_vcf, temp_ref_annot)
     # logger.info("CMD: {}".format(cmd))
-    sam_output = subprocess.check_output(cmd, shell=True).decode()
+    distance_output = subprocess.check_output(cmd, shell=True).decode()
 
 
-
+    # ~~~~~~~~~~~~~~~
+    # Process Distances 
+    # ~~~~~~~~~~~~~~~    
     # Convert the VCF from a string to a pandas dataframe 
-    temp = sam_output.split('\n')
+    temp = distance_output.split('\n')
     temp.remove('')
     variants = [x for x in temp if x[0] != "#"]
     test = pd.DataFrame(variants)
@@ -97,6 +120,9 @@ def main():
       os.remove(out_file)
 
 
+    #~~~~~~~~~~~~~~~~~~~
+    # output results 
+    #~~~~~~~~~~~~~~~~~~~
 
     # Configure the vcfheader
     ## Parse out the vcf header lines 
@@ -113,7 +139,9 @@ def main():
     input_vcf_df.to_csv(out_file, mode='a', header=False, index = False, sep = "\t", quoting=csv.QUOTE_NONE)
 
 
-
+    #~~~~~~~~~~~~~~~~~~~
+    # Sort the output
+    #~~~~~~~~~~~~~~~~~~~
     cmd = "bcftools sort {} -o {}".format(out_file, out_file)
     logger.info("CMD: {}".format(cmd))
     sam_output = subprocess.run(cmd, shell=True)

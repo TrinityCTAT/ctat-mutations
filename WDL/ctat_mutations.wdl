@@ -12,6 +12,7 @@ workflow ctat_mutations {
         File? extra_fasta
 
         # resources
+        File gtf
         File ref_dict
         File ref_fasta
         File ref_fasta_index
@@ -29,7 +30,6 @@ workflow ctat_mutations {
         File? cosmic_vcf_index
         File? repeat_mask_bed
         File? ref_splice_adj_regions_bed
-        File? ucsc_exon_bed
         File? ref_bed
 
         File? cravat_lib
@@ -48,7 +48,7 @@ workflow ctat_mutations {
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
         # variant attributes on which to perform boosting
-        Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos"]
+        Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos","ED","DJ"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
@@ -88,6 +88,7 @@ workflow ctat_mutations {
         sample_id:{help:"Sample id"}
 
         # resources
+        gtf:{help:"Path to the annotations file."}
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
         ref_fasta_index:{help:"Index for ref_fasta"}
         ref_dict:{help:"Sequence dictionary for ref_fasta"}
@@ -104,7 +105,6 @@ workflow ctat_mutations {
         cosmic_vcf_index:{help:"COSMIC VCF index"}
         repeat_mask_bed:{help:"bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)"}
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
-        ucsc_exon_bed:{help:"For annotating DJ."}
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib:{help:"CRAVAT resource archive"}
         star_reference:{help:"STAR index archive"}
@@ -388,7 +388,7 @@ workflow ctat_mutations {
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
-                ucsc_exon_bed=ucsc_exon_bed,
+                gtf=gtf,
                 scripts_path=scripts_path,
                 plugins_path=plugins_path,
                 genome_version=genome_version,
@@ -610,7 +610,7 @@ task AnnotateVariants {
         File? cosmic_vcf_index
 
         File? ref_splice_adj_regions_bed
-        File? ucsc_exon_bed
+        File? gtf
         String base_name
         File? cravat_lib
         String? cravat_lib_dir
@@ -780,12 +780,12 @@ task AnnotateVariants {
         fi
 
         # DJ annotation
-        if [[ -f "~{ucsc_exon_bed}" ]]; then
+        if [[ -f "~{gtf}" ]]; then
             OUT="~{base_name}.DJ.~{vcf_extension}"
 
             ~{scripts_path}/annotate_DJ.py \
             --input_vcf ~{base_name}.splice.distance.vcf \
-            --exon_bed ~{ucsc_exon_bed} \
+            --gtf ~{gtf} \
             --temp_dir $TMPDIR \
             --output_vcf ~{base_name}.DJ.vcf
 
@@ -795,7 +795,7 @@ task AnnotateVariants {
         fi
 
         # ED annotation
-        if [[ -f "~{ucsc_exon_bed}" ]]; then
+        if [[ -f "~{gtf}" ]]; then
             OUT="~{base_name}.ED.~{vcf_extension}"
 
             ~{scripts_path}/annotate_ED.py \

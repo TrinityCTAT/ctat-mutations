@@ -134,7 +134,7 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos",
+        default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos,ED,DJ",
         help="Variant attributes on which to perform boosting",
     )
 
@@ -216,7 +216,7 @@ def main():
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
     ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
 
-    # gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
+    gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
     ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
     ref_fasta = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
@@ -235,7 +235,6 @@ def main():
 
     repeat_mask_bed = os.path.join(ctat_mutation_lib_path, "repeats_ucsc_gb.bed.gz")
     ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz")
-    ucsc_exon_bed = os.path.join("/ahg/regevdata/projects/trinity/mbrown/Mutations/create_annotations/Final_output", "ucsc_exon_bed.bed.gz")
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
     cravat_lib_dir = os.path.join(ctat_mutation_lib_path, "cravat")
@@ -273,6 +272,7 @@ def main():
     if read_var_pos_annotation_cpu is not None:
         input_json['read_var_pos_annotation_cpu'] = read_var_pos_annotation_cpu
 
+    input_json['gtf'] = gtf
     input_json['ref_dict'] = ref_dict
     input_json['ref_fasta'] = ref_fasta
     input_json['ref_fasta_index'] = ref_fasta_index
@@ -286,7 +286,6 @@ def main():
     input_json['cosmic_vcf_index'] = cosmic_vcf_index
     input_json['repeat_mask_bed'] = repeat_mask_bed
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
-    input_json['ucsc_exon_bed'] = ucsc_exon_bed
     input_json['ref_bed'] = ref_bed
     if not no_cravat:
         input_json['cravat_lib_dir'] = cravat_lib_dir
