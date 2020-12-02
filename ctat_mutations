@@ -237,7 +237,7 @@ def main():
     ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz")
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
-    cravat_lib_dir = os.path.join(ctat_mutation_lib_path, "cravat")
+    cravat_lib_directory = os.path.join(ctat_mutation_lib_path, "cravat")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
     properties = os.path.join(ctat_mutation_lib_path, "properties.json")
@@ -288,7 +288,7 @@ def main():
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
     input_json['ref_bed'] = ref_bed
     if not no_cravat:
-        input_json['cravat_lib_dir'] = cravat_lib_dir
+        input_json['cravat_lib_directory'] = cravat_lib_directory
     input_json['star_reference_directory'] = star_reference
     input_json['filter_cancer_variants'] = True
     input_json['apply_bqsr'] = not no_bqsr
