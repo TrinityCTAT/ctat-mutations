@@ -134,7 +134,7 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos",
+        default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos,ED,DJ",
         help="Variant attributes on which to perform boosting",
     )
 
@@ -216,7 +216,7 @@ def main():
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
     ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
 
-    # gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
+    gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
     ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
     ref_fasta = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
@@ -237,7 +237,7 @@ def main():
     ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz")
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
-    cravat_lib_dir = os.path.join(ctat_mutation_lib_path, "cravat")
+    cravat_lib_directory = os.path.join(ctat_mutation_lib_path, "cravat")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
     properties = os.path.join(ctat_mutation_lib_path, "properties.json")
@@ -272,6 +272,7 @@ def main():
     if read_var_pos_annotation_cpu is not None:
         input_json['read_var_pos_annotation_cpu'] = read_var_pos_annotation_cpu
 
+    input_json['gtf'] = gtf
     input_json['ref_dict'] = ref_dict
     input_json['ref_fasta'] = ref_fasta
     input_json['ref_fasta_index'] = ref_fasta_index
@@ -287,7 +288,7 @@ def main():
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
     input_json['ref_bed'] = ref_bed
     if not no_cravat:
-        input_json['cravat_lib_dir'] = cravat_lib_dir
+        input_json['cravat_lib_directory'] = cravat_lib_directory
     input_json['star_reference_directory'] = star_reference
     input_json['filter_cancer_variants'] = True
     input_json['apply_bqsr'] = not no_bqsr

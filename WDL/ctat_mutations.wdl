@@ -12,6 +12,7 @@ workflow ctat_mutations {
         File? extra_fasta
 
         # resources
+        File gtf
         File ref_dict
         File ref_fasta
         File ref_fasta_index
@@ -47,7 +48,7 @@ workflow ctat_mutations {
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
         # variant attributes on which to perform boosting
-        Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos"]
+        Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos","ED","DJ"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
@@ -87,6 +88,7 @@ workflow ctat_mutations {
         sample_id:{help:"Sample id"}
 
         # resources
+        gtf:{help:"Path to the annotations file."}
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
         ref_fasta_index:{help:"Index for ref_fasta"}
         ref_dict:{help:"Sequence dictionary for ref_fasta"}
@@ -389,6 +391,7 @@ workflow ctat_mutations {
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
+                gtf=gtf,
                 scripts_path=scripts_path,
                 plugins_path=plugins_path,
                 genome_version=genome_version,
@@ -500,6 +503,7 @@ task FilterCancerVariants {
         ~{base_name}.cancer.groom.vcf \
         ~{base_name}.cancer.groom.filt.vcf
 
+
         # Groom before table conversion
         ~{scripts_path}/groom_vcf.py \
         ~{base_name}.cancer.groom.filt.vcf \
@@ -609,6 +613,7 @@ task AnnotateVariants {
         File? cosmic_vcf_index
 
         File? ref_splice_adj_regions_bed
+        File? gtf
         String base_name
         File? cravat_lib
         String? cravat_lib_dir
@@ -773,6 +778,36 @@ task AnnotateVariants {
             --output_vcf ~{base_name}.splice.distance.vcf
 
             bgzip -c ~{base_name}.splice.distance.vcf > $OUT
+            tabix $OUT
+            VCF=$OUT
+        fi
+
+        # DJ annotation
+        if [[ -f "~{gtf}" ]]; then
+            OUT="~{base_name}.DJ.~{vcf_extension}"
+
+            ~{scripts_path}/annotate_DJ.py \
+            --input_vcf ~{base_name}.splice.distance.vcf \
+            --gtf ~{gtf} \
+            --temp_dir $TMPDIR \
+            --output_vcf ~{base_name}.DJ.vcf
+
+            bgzip -c ~{base_name}.DJ.vcf > $OUT
+            tabix $OUT
+            VCF=$OUT
+        fi
+
+        # ED annotation
+        if [[ -f "~{gtf}" ]]; then
+            OUT="~{base_name}.ED.~{vcf_extension}"
+
+            ~{scripts_path}/annotate_ED.py \
+            --input_vcf ~{base_name}.DJ.vcf \
+            --output_vcf ~{base_name}.ED.vcf \
+            --reference ~{ref_fasta} \
+            --temp_dir $TMPDIR 
+
+            bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
             VCF=$OUT
         fi
@@ -1286,12 +1321,15 @@ task VariantFiltration {
         if [ "$boosting_method" == "RVBLR" ]; then
             mkdir boost
 
-            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py
-            --input_vcf variants_vcf_file,
+            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
+            --input_vcf ~{input_vcf} \
             --attributes ~{sep=',' boosting_attributes} \
             --work_dir boost \
             --score_threshold ~{boosting_score_threshold} \
-            --output_filename ~{output_name}
+            --output_filename ~{base_name}.filtered.vcf
+
+            bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
+
         elif [ "$boosting_method" == "none" ]; then
             mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
             ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
