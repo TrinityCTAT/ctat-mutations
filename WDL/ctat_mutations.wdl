@@ -10,12 +10,13 @@ workflow ctat_mutations {
         File? vcf
 
         File? extra_fasta
+        Boolean merge_extra_fasta
 
         # resources
-        File gtf
         File ref_dict
         File ref_fasta
         File ref_fasta_index
+        File gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -26,18 +27,24 @@ workflow ctat_mutations {
         File? rna_editing_vcf
         File? rna_editing_vcf_index
 
+        File? repeat_mask_bed
+
+        File? ref_splice_adj_regions_bed
+
         File? cosmic_vcf
         File? cosmic_vcf_index
-        File? repeat_mask_bed
-        File? ref_splice_adj_regions_bed
+
         File? ref_bed
 
         File? cravat_lib
         String? cravat_lib_directory
 
+        String? genome_version
+
         File? star_reference
         String? star_reference_directory
 
+        Boolean filter_variants = true
         Boolean filter_cancer_variants = true
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
@@ -56,28 +63,29 @@ workflow ctat_mutations {
 
         Float star_extra_disk_space = 30
         Float star_fastq_disk_space_multiplier = 10
-        Boolean star_use_ssd = true
+        Boolean star_use_ssd = false
         Int star_cpu = 12
         String star_memory = "43G"
         Boolean output_unmapped_reads = false
 
-        String? haplotype_caller_args
-        String? haplotype_caller_args_for_extra_reads
+        String haplotype_caller_args = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
+        String haplotype_caller_args_for_extra_reads = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
         String haplotype_caller_memory = "6.5G"
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker # "trinityctat/ctat_mutations:2.5.0"
+        String docker = "quay.io.trinityctat/ctat_mutations:devel"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
-        String? genome_version
+
         Boolean include_read_var_pos_annotations = true
         Int? read_var_pos_annotation_cpu
         String mark_duplicates_memory = "8G"
         String split_n_cigar_reads_memory = "14G"
     }
-    Int min_confidence_for_variant_calling = 20
+
     Boolean vcf_input = defined(vcf)
+
     parameter_meta {
 
         left:{help:"One of the two paired RNAseq samples"}
@@ -88,36 +96,45 @@ workflow ctat_mutations {
         sample_id:{help:"Sample id"}
 
         # resources
-        gtf:{help:"Path to the annotations file."}
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
         ref_fasta_index:{help:"Index for ref_fasta"}
         ref_dict:{help:"Sequence dictionary for ref_fasta"}
+        gtf:{help:"Annotations GTF."}
 
         extra_fasta:{help:"Extra genome to use in alignment and variant calling."}
+        merge_extra_fasta:{help:"Whether to merge extra genome fasta to use in variant calling. Set to false when extra fasta is already included in primary fasta, but you want to process the reads from extra_fasta differently."}
 
         db_snp_vcf:{help:"dbSNP VCF file for the reference genome."}
         db_snp_vcf_index:{help:"dbSNP vcf index"}
+
         gnomad_vcf:{help:"gnomad vcf file w/ allele frequencies"}
         gnomad_vcf_index:{help:"gnomad VCF index"}
+
         rna_editing_vcf:{help:"RNA editing VCF file"}
         rna_editing_vcf_index:{help:"RNA editing VCF index"}
+
         cosmic_vcf:{help:"Coding Cosmic Mutation VCF annotated with Phenotype Information"}
         cosmic_vcf_index:{help:"COSMIC VCF index"}
+
         repeat_mask_bed:{help:"bed file containing repetive element (repeatmasker) annotations (from UCSC genome browser download)"}
+
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
+
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib:{help:"CRAVAT resource archive"}
         cravat_lib_directory:{help:"CRAVAT resource directory (for use on HPC)"}
 
         star_reference:{help:"STAR index archive"}
         star_reference_directory:{help:"STAR index directory (for use on HPC)"}
+
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
         mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
+        filter_variants:{help:"Whether to filter VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
-#        recalibration_plot:{help:"Generate recalibration plot"}
+        #        recalibration_plot:{help:"Generate recalibration plot"}
         call_variants:{help:"Whether to call variants against the reference genome"}
 
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
@@ -140,7 +157,6 @@ workflow ctat_mutations {
 
         docker:{help:"Docker or singularity image"}
     }
-
 
     if(!vcf_input && !defined(bam) && (defined(star_reference)||defined(star_reference_directory))) {
         call StarAlign {
@@ -175,7 +191,6 @@ workflow ctat_mutations {
         }
     }
 
-
     if(!vcf_input && mark_duplicates) {
         call MarkDuplicates {
             input:
@@ -187,7 +202,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
-    if(!vcf_input && defined(extra_fasta)) {
+    if(!vcf_input && defined(extra_fasta) && merge_extra_fasta) {
         call MergeFastas {
             input:
                 name = "combined",
@@ -203,15 +218,15 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-#    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
-#        call CreateBamIndex {
-#            input:
-#                input_bam = select_first([StarAlign.bam, bam]),
-#                memory = "3G",
-#                docker = docker,
-#                preemptible = preemptible
-#        }
-#    }
+    #    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
+    #        call CreateBamIndex {
+    #            input:
+    #                input_bam = select_first([StarAlign.bam, bam]),
+    #                memory = "3G",
+    #                docker = docker,
+    #                preemptible = preemptible
+    #        }
+    #    }
     if(!vcf_input) {
         call SplitNCigarReads {
             input:
@@ -262,9 +277,6 @@ workflow ctat_mutations {
         }
     }
 
-
-
-
     if(!vcf_input && defined(extra_fasta)) {
         call CreateFastaIndex {
             input:
@@ -294,23 +306,20 @@ workflow ctat_mutations {
                     input_bam_index = SplitReads.extra_bai,
                     base_name = sample_id + '_' + basename(select_first([extra_fasta])),
                     ref_dict = select_first([CreateFastaIndex.dict]),
-                    ref_fasta = select_first([extra_fasta]),
+                    ref_fasta = select_first([CreateFastaIndex.fasta]),
                     ref_fasta_index = select_first([CreateFastaIndex.fasta_index]),
                     extra_args = haplotype_caller_args_for_extra_reads,
                     gatk_path = gatk_path,
                     docker = docker,
                     memory = haplotype_caller_memory,
-                    preemptible = preemptible,
-                    stand_call_conf = min_confidence_for_variant_calling
+                    preemptible = preemptible
             }
-
-
         }
     }
     File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
     File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
     if(call_variants) {
-        if(!vcf_input && variant_scatter_count > 0) {
+        if(!vcf_input && variant_scatter_count > 1) {
             call SplitIntervals {
                 input:
                     ref_fasta = ref_fasta,
@@ -336,8 +345,7 @@ workflow ctat_mutations {
                         gatk_path = gatk_path,
                         docker = docker,
                         memory = haplotype_caller_memory,
-                        preemptible = preemptible,
-                        stand_call_conf = min_confidence_for_variant_calling
+                        preemptible = preemptible
                 }
             }
             call MergeVCFs {
@@ -363,12 +371,22 @@ workflow ctat_mutations {
                     gatk_path = gatk_path,
                     docker = docker,
                     memory = haplotype_caller_memory,
-                    preemptible = preemptible,
-                    stand_call_conf = min_confidence_for_variant_calling
+                    preemptible = preemptible
             }
         }
-        File variant_vcf = select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
 
+        if(!vcf_input && defined(extra_fasta) && SplitReads.extra_bam_number_of_reads > 0) {
+            call MergeVCFs as MergePrimaryAndExtraVCFs { # combine extra vcf with primary vcf for joint annotating and boosting
+                input:
+                    input_vcfs = select_all([select_first([MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf]), HaplotypeCallerExtra.output_vcf]),
+                    input_vcfs_indexes = [],
+                    output_vcf_name = sample_id + ".and.extra.vcf.gz",
+                    gatk_path = gatk_path,
+                    docker = docker,
+                    preemptible = preemptible
+            }
+        }
+        File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
         call AnnotateVariants {
             input:
                 input_vcf = variant_vcf,
@@ -377,6 +395,7 @@ workflow ctat_mutations {
                 cravat_lib_dir = cravat_lib_directory,
                 ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
+                gtf = gtf,
                 cosmic_vcf=cosmic_vcf,
                 cosmic_vcf_index=cosmic_vcf_index,
                 db_snp_vcf=db_snp_vcf,
@@ -391,7 +410,6 @@ workflow ctat_mutations {
                 read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
-                gtf=gtf,
                 scripts_path=scripts_path,
                 plugins_path=plugins_path,
                 genome_version=genome_version,
@@ -400,29 +418,30 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
 
-        call VariantFiltration {
-            input:
-                input_vcf = AnnotateVariants.vcf,
-                input_vcf_index = AnnotateVariants.vcf_index,
-                base_name = sample_id,
-                ref_dict = ref_dict,
-                ref_fasta = ref_fasta,
-                ref_fasta_index = ref_fasta_index,
-                boosting_alg_type = boosting_alg_type,
-                boosting_method =boosting_method,
-                boosting_attributes=boosting_attributes,
-                boosting_score_threshold=boosting_score_threshold,
-                gatk_path = gatk_path,
-                scripts_path=scripts_path,
-                docker = docker,
-                preemptible = preemptible
+        if(filter_variants) {
+            call VariantFiltration {
+                input:
+                    input_vcf = AnnotateVariants.vcf,
+                    input_vcf_index = AnnotateVariants.vcf_index,
+                    base_name = sample_id,
+                    ref_dict = ref_dict,
+                    ref_fasta = ref_fasta,
+                    ref_fasta_index = ref_fasta_index,
+                    boosting_alg_type = boosting_alg_type,
+                    boosting_method =boosting_method,
+                    boosting_attributes=boosting_attributes,
+                    boosting_score_threshold=boosting_score_threshold,
+                    gatk_path = gatk_path,
+                    scripts_path=scripts_path,
+                    docker = docker,
+                    preemptible = preemptible
+            }
         }
-
 
         if(filter_cancer_variants) {
             call FilterCancerVariants {
-                 input:
-                    input_vcf = VariantFiltration.vcf,
+                input:
+                    input_vcf = select_first([VariantFiltration.vcf, AnnotateVariants.vcf]),
                     base_name = sample_id,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
@@ -453,7 +472,6 @@ workflow ctat_mutations {
         }
     }
 
-
     output {
         File? extra_bam = SplitReads.extra_bam
         File? extra_bam_index = SplitReads.extra_bai
@@ -475,6 +493,7 @@ workflow ctat_mutations {
         File? cancer_vcf = FilterCancerVariants.cancer_vcf
     }
 }
+
 task FilterCancerVariants {
     input {
         String scripts_path
@@ -502,7 +521,6 @@ task FilterCancerVariants {
         ~{scripts_path}/filter_vcf_for_cancer_prediction_report.py \
         ~{base_name}.cancer.groom.vcf \
         ~{base_name}.cancer.groom.filt.vcf
-
 
         # Groom before table conversion
         ~{scripts_path}/groom_vcf.py \
@@ -594,6 +612,7 @@ task CancerVariantReport {
         File cancer_igv_report = "~{base_name}.cancer.igvjs_viewer.html"
     }
 }
+
 task AnnotateVariants {
     input {
         File input_vcf
@@ -613,7 +632,6 @@ task AnnotateVariants {
         File? cosmic_vcf_index
 
         File? ref_splice_adj_regions_bed
-        File? gtf
         String base_name
         File? cravat_lib
         String? cravat_lib_dir
@@ -621,6 +639,8 @@ task AnnotateVariants {
 
         File ref_fasta
         File ref_fasta_index
+        File gtf
+
         String plugins_path
         String scripts_path
         String? genome_version
@@ -805,7 +825,7 @@ task AnnotateVariants {
             --input_vcf ~{base_name}.DJ.vcf \
             --output_vcf ~{base_name}.ED.vcf \
             --reference ~{ref_fasta} \
-            --temp_dir $TMPDIR 
+            --temp_dir $TMPDIR
 
             bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
@@ -888,7 +908,6 @@ task MarkDuplicates {
         Int preemptible
     }
 
-
     command <<<
         set -e
         # monitor_script.sh &
@@ -916,7 +935,6 @@ task MarkDuplicates {
         preemptible: preemptible
     }
 
-
 }
 
 task AddOrReplaceReadGroups {
@@ -930,7 +948,6 @@ task AddOrReplaceReadGroups {
         String sample_id
     }
     String unique_id = sub(sample_id, "\\.", "_")
-
 
     command <<<
         set -e
@@ -1007,7 +1024,6 @@ task BaseRecalibrator {
 
 }
 
-
 task ApplyBQSR {
     input {
         File input_bam
@@ -1021,7 +1037,6 @@ task ApplyBQSR {
         String docker
         Int preemptible
     }
-
 
     command <<<
 
@@ -1082,20 +1097,20 @@ task StarAlign {
 
         genomeDir="~{star_reference}"
         if [ "$genomeDir" == "" ]; then
-            genomeDir="~{star_reference_directory}"
+        genomeDir="~{star_reference_directory}"
         fi
 
         if [ -f "${genomeDir}" ] ; then
-            mkdir genome_dir
-            tar xf ~{star_reference} -C genome_dir --strip-components 1
-            genomeDir="genome_dir"
+        mkdir genome_dir
+        tar xf ~{star_reference} -C genome_dir --strip-components 1
+        genomeDir="genome_dir"
         fi
 
         STAR \
         --genomeDir $genomeDir \
         --runThreadN ~{cpu} \
         --readFilesIn ~{fastq1} ~{fastq2} \
-         ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
+        ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
         --outSAMtype BAM SortedByCoordinate \
         --twopassMode Basic \
         --limitBAMsortRAM 30000000000 \
@@ -1106,8 +1121,8 @@ task StarAlign {
 
 
         if [ "~{output_unmapped_reads}" == "true" ] ; then
-            mv ~{base_name}.Unmapped.out.mate1 ~{base_name}.Unmapped.out.mate1.fastq
-            mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
+        mv ~{base_name}.Unmapped.out.mate1 ~{base_name}.Unmapped.out.mate1.fastq
+        mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
         fi
 
         samtools index "~{base_name}.Aligned.sortedByCoord.out.bam"
@@ -1133,6 +1148,7 @@ task StarAlign {
 
 }
 
+
 task MergeVCFs {
     input {
         Array[File] input_vcfs
@@ -1152,6 +1168,16 @@ task MergeVCFs {
         set -e
         # monitor_script.sh &
 
+        python <<CODE
+        # make sure vcf index exists
+        import subprocess
+        import os
+        input_vcfs = '~{sep=',' input_vcfs}'.split(',')
+        for input_vcf in input_vcfs:
+            if not os.path.exists(input_vcf + '.tbi') and not os.path.exists(input_vcf + '.csi') and not os.path.exists(input_vcf + '.idx'):
+                subprocess.check_call(['bcftools', 'index', input_vcf])
+        CODE
+
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
 
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
@@ -1169,7 +1195,6 @@ task MergeVCFs {
 
 }
 
-
 task MergeFastas {
     input {
         File ref_fasta
@@ -1180,7 +1205,6 @@ task MergeFastas {
         String name
         String gatk_path
     }
-
 
     command <<<
         cat ~{ref_fasta} ~{extra_fasta} > ~{name}.fa
@@ -1207,7 +1231,6 @@ task MergeFastas {
     }
 }
 
-
 task CreateFastaIndex {
     input {
         File? input_fasta
@@ -1216,18 +1239,17 @@ task CreateFastaIndex {
         Int preemptible
         String gatk_path
     }
-    String prefix = basename(select_first([input_fasta]))
-    String prefix_no_ext = basename(select_first([input_fasta]), ".fa")
-
+    String fasta_basename = basename(select_first([input_fasta]))
+    String prefix_no_ext = basename(basename(select_first([input_fasta]), ".fa"), ".fasta")
     command <<<
 
-        samtools faidx ~{input_fasta}
-        mv ~{input_fasta}.fai .
+        cp ~{input_fasta} ~{fasta_basename}
+        samtools faidx ~{fasta_basename}
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
         CreateSequenceDictionary \
-        -R ~{input_fasta} \
+        -R ~{fasta_basename} \
         -O ~{prefix_no_ext}.dict
     >>>
 
@@ -1241,10 +1263,12 @@ task CreateFastaIndex {
     }
 
     output {
-        File fasta_index = "~{prefix}.fai"
+        File fasta = fasta_basename
+        File fasta_index = "~{fasta_basename}.fai"
         File dict = "~{prefix_no_ext}.dict"
     }
 }
+
 task SplitReads {
     input {
         File? input_bam
@@ -1258,16 +1282,24 @@ task SplitReads {
         String ref_name
     }
 
-
     command <<<
-        EXTRA_CHR=$(awk '{print $1}' ~{extra_fasta_index} | tr '\n' ' ')
-        REF_CHR=$(awk '{print $1}' ~{ref_fasta_index} | tr '\n' ' ')
 
-        samtools view -b ~{input_bam} $EXTRA_CHR > ~{extra_name}.bam
+        python <<CODE
+        import pandas as pd
+        import subprocess
+
+        extra_chr = pd.read_csv('~{extra_fasta_index}', sep='\t', header=None, index_col=0).index
+        ref_chr = pd.read_csv('~{ref_fasta_index}', sep='\t', header=None, index_col=0).index
+        ref_chr = ref_chr.difference(extra_chr)
+        pd.DataFrame(index=ref_chr).to_csv('ref.txt', header=False, sep=" ")
+        pd.DataFrame(index=extra_chr).to_csv('extra.txt', header=False, sep=" ")
+        CODE
+
+        samtools view -b ~{input_bam} $(cat extra.txt) > ~{extra_name}.bam
+        samtools view -b ~{input_bam} $(cat ref.txt) > ~{ref_name}.bam
+
         samtools index ~{extra_name}.bam
         samtools view -c -F 260 ~{extra_name}.bam > "~{extra_name}_nreads.txt"
-
-        samtools view -b ~{input_bam} $REF_CHR > ~{ref_name}.bam
         samtools index ~{ref_name}.bam
     >>>
 
@@ -1313,6 +1345,7 @@ task VariantFiltration {
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
     String ctat_boost_output_indels = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_indels.vcf.gz"
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
+
     command <<<
         set -e
         # monitor_script.sh &
@@ -1406,6 +1439,7 @@ task VariantFiltration {
 
 }
 
+
 task SplitChromosomes {
     input {
         File ref_fasta_index
@@ -1419,14 +1453,14 @@ task SplitChromosomes {
 
         python <<CODE
         with open("~{ref_fasta_index}") as fh:
-            for line in fh:
-                vals = line.split("\t")
-                chromosome = vals[0]
-                chr_length = vals[1]
+        for line in fh:
+        vals = line.split("\t")
+        chromosome = vals[0]
+        chr_length = vals[1]
 
-                interval_file = "{}.intervals".format(chromosome)
-                with open(interval_file, "w") as ofh:
-                    ofh.write("{}:1-{}\n".format(chromosome, chr_length))
+        interval_file = "{}.intervals".format(chromosome)
+        with open(interval_file, "w") as ofh:
+            ofh.write("{}:1-{}\n".format(chromosome, chr_length))
         CODE
     >>>
 
@@ -1443,6 +1477,7 @@ task SplitChromosomes {
         Array[File] interval_files = glob("*.intervals")
     }
 }
+
 task SplitIntervals {
     input {
         File? intervals
@@ -1466,9 +1501,9 @@ task SplitIntervals {
         ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
         SplitIntervals \
         -R ~{ref_fasta} \
-        ~{"-L " + intervals} \
         -scatter ~{scatter_count} \
-        -O interval-files
+        -O interval-files \
+        ~{"-L " + intervals}
 
         cp interval-files/*.interval_list .
     >>>
@@ -1570,7 +1605,6 @@ task HaplotypeCaller {
         String docker
         Int preemptible
         String memory
-        Int? stand_call_conf
         String? extra_args
     }
 
@@ -1588,9 +1622,6 @@ task HaplotypeCaller {
         -R ~{ref_fasta} \
         -I ~{input_bam} \
         -O ~{base_name}.vcf.gz \
-        -dont-use-soft-clipped-bases \
-        --stand-call-conf ~{default="20"  stand_call_conf} \
-        --recover-dangling-heads true \
         ~{"" + extra_args} \
         ~{"-L " + interval_list}
     >>>
