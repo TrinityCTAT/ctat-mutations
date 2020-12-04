@@ -733,6 +733,11 @@ task AnnotateVariants {
             --output $OUT \
             $VCF
 
+            #must groom for gatk compat
+            ~{scripts_path}/groom_vcf.py $OUT ~{base_name}.rna_edit.groom.vcf
+
+            OUT="~{base_name}.rna_edit.groom.vcf.gz"
+            bgzip -c ~{base_name}.rna_edit.groom.vcf > $OUT
             tabix $OUT
             VCF=$OUT
         fi
