@@ -16,7 +16,7 @@ workflow ctat_mutations {
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File gtf
+        File? gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -291,8 +291,8 @@ workflow ctat_mutations {
             input:
                 input_bam = select_first([ApplyBQSR.bam, SplitNCigarReads.bam]),
                 input_bam_index = select_first([ApplyBQSR.bam_index, SplitNCigarReads.bam_index]),
-                extra_name = sample_id + '_' + basename(select_first([extra_fasta])),
-                ref_name = basename(ref_fasta),
+                extra_name = sample_id + '_' + basename(basename(select_first([extra_fasta]), ".fa"), ".fasta"),
+                ref_name = basename(basename(ref_fasta, ".fa"), ".fasta"),
                 extra_fasta_index = CreateFastaIndex.fasta_index,
                 ref_fasta_index = ref_fasta_index,
                 memory = "2G",
@@ -639,7 +639,7 @@ task AnnotateVariants {
 
         File ref_fasta
         File ref_fasta_index
-        File gtf
+        File? gtf
 
         String plugins_path
         String scripts_path
@@ -1285,22 +1285,43 @@ task SplitReads {
     command <<<
 
         python <<CODE
-        import pandas as pd
-        import subprocess
+        extra_chr = []
+        ref_chr = []
 
-        extra_chr = pd.read_csv('~{extra_fasta_index}', sep='\t', header=None, index_col=0).index
-        ref_chr = pd.read_csv('~{ref_fasta_index}', sep='\t', header=None, index_col=0).index
-        ref_chr = ref_chr.difference(extra_chr)
-        pd.DataFrame(index=ref_chr).to_csv('ref.txt', header=False, sep=" ")
-        pd.DataFrame(index=extra_chr).to_csv('extra.txt', header=False, sep=" ")
+        def parse_fai(path):
+            values = set()
+            with open(path, 'rt') as f:
+                for line in f:
+                    line = line.strip()
+                    if line != '':
+                        values.add(line.split('\t')[0])
+            return values
+
+        def to_txt(values, path):
+            is_first = True
+            with open(path, 'wt') as f:
+                for val in values:
+                    if not is_first:
+                        f.write(' ')
+                    f.write(val)
+                    is_first = False
+
+        extra_chr = parse_fai('~{extra_fasta_index}')
+        ref_chr = parse_fai('~{ref_fasta_index}')
+        ref_chr = ref_chr - extra_chr
+
+        to_txt(ref_chr, 'ref.txt')
+        to_txt(extra_chr, 'extra.txt')
         CODE
 
         samtools view -b ~{input_bam} $(cat extra.txt) > ~{extra_name}.bam
         samtools view -b ~{input_bam} $(cat ref.txt) > ~{ref_name}.bam
 
         samtools index ~{extra_name}.bam
-        samtools view -c -F 260 ~{extra_name}.bam > "~{extra_name}_nreads.txt"
         samtools index ~{ref_name}.bam
+
+        samtools view -c -F 260 ~{extra_name}.bam > "~{extra_name}_nreads.txt"
+
     >>>
 
     runtime {
