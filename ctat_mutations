@@ -114,7 +114,7 @@ def main():
     parser.add_argument(
         "--boosting_method",
         default="none",
-        choices=["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"],
+        choices=["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost", "NGBoost", "XGBoost", "SVML", "SVM_RBF", "LR"],
         help="Variant calling boosting method",
     )
 
