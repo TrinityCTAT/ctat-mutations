@@ -10,7 +10,7 @@ workflow ctat_mutations {
         File? vcf
 
         File? extra_fasta
-        Boolean merge_extra_fasta
+        Boolean merge_extra_fasta = true
 
         # resources
         File ref_dict
