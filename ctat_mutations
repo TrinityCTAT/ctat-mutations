@@ -4,8 +4,9 @@
 
 import os
 import subprocess
-import sys
 import tempfile
+
+import sys
 
 if sys.version_info[0] != 3:
     print("This script requires Python 3")
@@ -171,6 +172,7 @@ def main():
         action="store_true",
         help="Do not mark duplicates"
     )
+
     parser.add_argument(
         "--version",
         action="store_true",
@@ -185,6 +187,18 @@ def main():
         help="Optional path to cromwell jar file",
     )
 
+    parser.add_argument(
+        "--star_memory",
+        help="Memory for STAR alignment step"
+    )
+    parser.add_argument(
+        "--mark_duplicates_memory",
+        help="Memory for mark duplicates step"
+    )
+    parser.add_argument(
+        "--split_n_cigar_reads_memory",
+        help="Memory for split n cigar reads step"
+    )
     args = parser.parse_args()
 
     left = args.left
@@ -207,7 +221,9 @@ def main():
     no_mark_duplicates = args.no_mark_duplicates
     extra_fasta = args.extra_fasta
     read_var_pos_annotation_cpu = args.read_var_pos_annotation_cpu
-
+    mark_duplicates_memory = args.mark_duplicates_memory
+    star_memory = args.star_memory
+    split_n_cigar_reads_memory = args.split_n_cigar_reads_memory
     if left is None and bam is None:
         exit("Either FASTQ files or a previously aligned bam file must be provided.")
 
@@ -303,8 +319,16 @@ def main():
     input_json['include_read_var_pos_annotations'] = not no_include_read_var_pos_annotations
     if gatk_path is not None:
         input_json['gatk_path'] = gatk_path
-    # input_json['star_cpu=' + star_cpu)
-    # input_json['star_memory=' + star_memory)
+
+    if mark_duplicates_memory is not None:
+        input_json['mark_duplicates_memory'] = mark_duplicates_memory
+
+    if split_n_cigar_reads_memory is not None:
+        input_json['split_n_cigar_reads_memory'] = split_n_cigar_reads_memory
+
+    if star_memory is not None:
+        input_json['star_memory'] = star_memory
+
 
     _, json_file = tempfile.mkstemp(suffix='.json')
     base_dir = os.path.dirname(os.path.realpath(__file__))
