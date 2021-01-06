@@ -75,7 +75,7 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
-RUN pip install requests open-cravat==2.0.1 pandas xgboost sklearn
+RUN pip install requests open-cravat==2.0.1 pandas==1.1.5 xgboost==1.3.1 scikit-learn==0.24.0
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
