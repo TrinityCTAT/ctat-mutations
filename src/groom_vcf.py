@@ -20,13 +20,10 @@ LSTR_REQUIRED_FILTER_FIELDS = [STR_ID, STR_DESCRIPTION]
 ## VCF entries related
 I_INFO_COL = 7
 
-import sys, os, re
+import re
 import argparse
-import csv
 
-sys.path.insert(0, os.path.sep.join([os.path.dirname(os.path.realpath(__file__)), "../PyLib"]))
 import ctat_util
-
 
 
 prsr_arguments = argparse.ArgumentParser(prog="groom_vcf.py",
@@ -102,7 +99,7 @@ if args.str_input_file:
                         if re.match("extra_vcf_info", dict_header_token[STR_ID]):
                             # cravat added a field we dont want
                             continue
-                                
+
                         # Order and write tokens
                         str_header_token = ",".join(["=".join([str_key,dict_header_token[str_key]]) for str_key in LSTR_REQUIRED_INFO_FIELDS])
                         str_header_token = str_header_type +"<" + str_header_token + ">"
@@ -134,7 +131,7 @@ if args.str_input_file:
                 ## only yielding 'chr*' contigs
                 if not re.search("^chr", lstr_line[0]):
                     continue
-                
+
                 # Remove spaces in the INFO data
                 lstr_line[I_INFO_COL] = lstr_line[I_INFO_COL].replace(" ","_")
 
@@ -144,7 +141,7 @@ if args.str_input_file:
                     if not re.match("extra_vcf_info", I_info_pt):
                         new_I_INFO_pts.append(I_info_pt)
                 lstr_line[I_INFO_COL] = ";".join(new_I_INFO_pts)
-                            
+
 
             # Store
             lstr_vcf.append(STR_VCF_DELIMITER.join(lstr_line))
