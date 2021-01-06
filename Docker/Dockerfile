@@ -110,3 +110,5 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
 
 
+RUN apt-get install pbzip2
+
