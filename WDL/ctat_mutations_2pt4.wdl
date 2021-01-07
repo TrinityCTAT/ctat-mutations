@@ -53,9 +53,9 @@ task ctat_mutations {
 
     mv OUTDIR/variants.HC_init.wAnnot.vcf.gz ${sample_name}.variants.HC_init.wAnnot.vcf.gz
     mv OUTDIR/variants.HC_hard_cutoffs_applied.vcf.gz ${sample_name}.variants.HC_hard_cutoffs_applied.vcf.gz
-    mv OUTDIR/variants.HC_hard_cutoffs_applied.cancer.vcf ${sample_name}.cancer.vcf
-    mv OUTDIR/variants.HC_hard_cutoffs_applied.cancer.tab ${sample_name}.cancer.tab
-    mv OUTDIR/variants.HC_hard_cutoffs_applied.cancer.igvjs_viewer.html ${sample_name}.cancer.igvjs_viewer.html
+    mv OUTDIR/cancer.vcf ${sample_name}.cancer.vcf
+    mv OUTDIR/cancer.tab ${sample_name}.cancer.tab
+    mv OUTDIR/igvjs_viewer.html ${sample_name}.cancer.igvjs_viewer.html
     mv OUTDIR/work_dir/dedupped.bam ${sample_name}.STAR.dedupped.bam
     mv OUTDIR/work_dir/dedupped.bai ${sample_name}.STAR.dedupped.bam.bai
     mv OUTDIR/work_dir/Aligned.sortedByCoord.out.bam ${sample_name}.STAR.bam
