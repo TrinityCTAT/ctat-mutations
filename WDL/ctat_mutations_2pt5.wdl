@@ -1,4 +1,4 @@
-workflow ctat_mutations_2pt4 {
+workflow ctat_mutations_wf {
 
   File ctat_genome_lib_tar
 
@@ -80,7 +80,7 @@ task ctat_mutations {
 
   
   runtime {
-    memory : "50G"
+    memory : "50GB"
     disks: "local-disk 300 HDD"
     docker: docker
     cpu: threads

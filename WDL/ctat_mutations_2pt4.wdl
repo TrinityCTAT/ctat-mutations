@@ -80,7 +80,7 @@ task ctat_mutations {
 
   
   runtime {
-    memory : "50G"
+    memory : "50GB"
     disks: "local-disk 300 HDD"
     docker: docker
     cpu: threads
