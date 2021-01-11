@@ -73,7 +73,7 @@ workflow ctat_mutations {
         String haplotype_caller_memory = "6.5G"
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker = "quay.io/trinityctat/ctat_mutations:devel"
+        String docker = "trinityctat/ctat_mutations:devel"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
