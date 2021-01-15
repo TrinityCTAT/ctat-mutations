@@ -58,9 +58,9 @@ def separate_snps_indels(df_vcf, args):
     info_vcf = df_vcf['INFO']
     num_rows = df_vcf['INFO'].shape[0]
 
-    logger.info("Number of SNPs: %d", num_rows)
+    logger.info("Total number of variants: %d", num_rows)
 
-
+    logger.info("Processing VCF information ...")
     DF = pd.DataFrame()
     info_df = df_vcf['INFO'].str.split(';')
     lst = []
@@ -69,7 +69,7 @@ def separate_snps_indels(df_vcf, args):
         df_row = df_vcf.loc[j]
         lst_info = info_df[j]
         dict_info = {i.split('=')[0]:i.split('=')[1] if '=' in i else {i.split('=')[0]:1} for i in lst_info}
-        dict_info['IND'] = df_row['CHROM']+':'+str(df_row['POS'])
+        dict_info['IND'] = df_row['CHROM']+':'+str(df_row['POS']) + "-" + df_row['REF'] + ":" + df_row['ALT']
         dict_info['REF'] = df_row['REF']
         dict_info['ALT'] = df_row['ALT']
         dict_info['QUAL'] = df_row['QUAL']
@@ -77,15 +77,24 @@ def separate_snps_indels(df_vcf, args):
         dict_info['GT'] = df_row[-1].split(':')[0]
         lst.append(dict_info)
 
+    # Create an index for the dataframe 
     DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
 
     logger.info("Extracting INDELs ...")
     DF_indels = DF[(DF['ALT'].str.len().gt(1)) | (DF['REF'].str.len().gt(1)) ]
-    logger.info("Number of INDELs: %d", DF_indels.shape[0])
+    indel_count = DF_indels.shape[0]
+    logger.info("Number of INDELs: %d", indel_count)
 
     logger.info('Extracting SNPs ...')
     DF_snps = DF[(DF['ALT'].str.len()==1) & (DF['REF'].str.len()==1)]
-    logger.info('Number of SNPs: %d', DF_snps.shape[0])
+    snp_count = DF_snps.shape[0]
+    logger.info('Number of SNPs: %d', snp_count)
+
+    # check that all variants are accounted for 
+    total_count = indel_count + snp_count 
+    if total_count != num_rows:
+        logging.error("SNP count and INDEL count do not add up to the total number of variations present!")
+        exit(0)
 
     return DF_indels, DF_snps
 
@@ -120,13 +129,13 @@ def main():
 
 
     ## Write Indels output file
-    vcf['chr:pos'] = vcf['CHROM']+':'+ vcf['POS'].astype(str)
-    df_bm_indels = vcf[vcf['chr:pos'].isin(list(data_indels.index))]
+    vcf['chr:pos-ref:alt'] = vcf['CHROM']+':'+ vcf['POS'].astype(str) + "-" + vcf['REF'] + ":" + vcf['ALT']
+    df_bm_indels = vcf[vcf['chr:pos-ref:alt'].isin(list(data_indels.index))]
     df_bm_indels = df_bm_indels.iloc[:, :-1]
 
     ## Write SNPs output file
-    vcf['chr:pos'] = vcf['CHROM']+':'+ vcf['POS'].astype(str)
-    df_bm_snps = vcf[vcf['chr:pos'].isin(list(data_snps.index))]
+    vcf['chr:pos-ref:alt'] = vcf['CHROM']+':'+ vcf['POS'].astype(str) + "-" + vcf['REF'] + ":" + vcf['ALT']
+    df_bm_snps = vcf[vcf['chr:pos-ref:alt'].isin(list(data_snps.index))]
     df_bm_snps = df_bm_snps.iloc[:, :-1]
 
     logger.info("Writing Indels")

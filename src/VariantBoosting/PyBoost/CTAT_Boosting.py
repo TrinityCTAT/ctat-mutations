@@ -58,10 +58,18 @@ SEED = 42
 
 def preprocess(df_vcf, args):
 
+    # Variable to hold the desired variant type 
+    if args.indels:
+        variant = "Indels"
+    elif args.snps:
+        variant = "SNPs"
+    else:
+        variant = "Variants"
+
     info_vcf = df_vcf['INFO']
     num_rows = df_vcf['INFO'].shape[0]
 
-    logger.info("Number of SNPs before Boosting: %d", num_rows)
+    logger.info("Number of variants before Boosting: %d", num_rows)
 
     DF = pd.DataFrame()
     info_df = df_vcf['INFO'].str.split(';')
@@ -98,6 +106,14 @@ def preprocess(df_vcf, args):
     # RS is an absolute requirement
     if 'RS' not in features:
         features.append('RS')
+
+    # If running on INDELS, there mostlikely wont be any RNAEDIT
+    ## Remove the RNAEDIT if it doesnt exist 
+    if args.indels:
+        if 'RNAEDIT' not in DF.columns:
+            features.remove('RNAEDIT')
+            logger.info("Removing RNAEDIT feature because no RNA editing present.")
+
 
     df_subset = DF[features]
     
@@ -144,10 +160,10 @@ def preprocess(df_vcf, args):
         df_subset[na_cols] = df_subset[na_cols].fillna(df_subset[na_cols].median())
 
     ## Remove RNAediting sites
-    logger.info("Removing RNAediting sites ...")
     if 'RNAEDIT' in df_subset.columns:
+        logger.info("Removing RNAediting sites ...")
         df_subset = df_subset[df_subset['RNAEDIT']==0]
-        logger.info("Number of SNPs after removing RNAediting sites: %d", df_subset.shape[0])
+        logger.info("Number of variants after removing RNAediting sites: %d", df_subset.shape[0])
 
     ## Replace NA with 0 in remaining columns
     df_subset = df_subset.fillna(0)
@@ -175,8 +191,10 @@ class CTAT_Boosting:
         ## Training data
         if args.predictor.lower() == 'classifier': 
             self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_data, self.y_data, train_size=0.6,  stratify= self.y_data, random_state=SEED)
+            print(self.X_train.shape, self.X_test.shape)
         elif args.predictor.lower() == 'regressor':
             self.X_train, self.y_train = self.X_data, self.y_data
+        
         
         return self
 
@@ -196,28 +214,23 @@ class CTAT_Boosting:
         ## Comment: If error with singular matrix, increase size of input data from 0.05 to 0.15
         if args.predictor.lower() == 'classifier': 
             from ngboost import NGBClassifier as ngb
-            learner = DecisionTreeRegressor(criterion='friedman_mse', max_depth=5, random_state = SEED)
+            learner = DecisionTreeRegressor(criterion='friedman_mse', max_depth=6, random_state = SEED)
             ngb = ngb(Base = learner, 
-                n_estimators = 20000,
+                n_estimators = 2000,
                 Score = MLE, 
                 Dist = Bernoulli, 
-                #minibatch_frac = 0.8, 
                 random_state = SEED)
 
-            #Base = default_tree_learner,
-            #    learning_rate = 0.07164014524564591,
-            #n_estimators = 4304, 
-            #Score = LogScore, #LogScore,
-            #Dist = Bernoulli,
-            #minibatch_frac = 0.641965630798811,
-            #col_sample = 0.902179879147728,
-            #random_state=SEED)
             
         elif args.predictor.lower() == 'regressor':
             from ngboost import NGBRegressor as ngb
             learner = DecisionTreeRegressor(criterion='friedman_mse', max_depth=3, random_state = SEED)
-            ngb = ngb(n_estimators=1000,
-                   Base=default_tree_learner, Dist=Normal, Score=MLE, minibatch_frac=0.5, col_sample=0.5)
+            ngb = ngb(Base = default_tree_learner,
+             Dist = Exponential, 
+             Score = LogScore, 
+             learning_rate=0.01,
+             minibatch_frac = 0.6, 
+             col_sample = 0.6)
                
         ## Fit model
         ngb.fit(self.X_train, np.asarray(self.y_train).astype(int) )
@@ -241,17 +254,30 @@ class CTAT_Boosting:
         elif args.predictor.lower() == 'regressor':
             from sklearn.ensemble import GradientBoostingRegressor as sgbt
         
-        ## Initialize model
-        sgbt = sgbt(loss = 'deviance',
-                    learning_rate = 0.17110866380667414,
-                    max_depth = 5, 
-                    subsample = 0.97907543526326 , 
-                    criterion = 'friedman_mse', 
-                    max_features = None, 
-                    n_estimators = 336, 
-                    min_samples_split = 527, 
-                    min_samples_leaf = 1,
-                    random_state = SEED)
+        if args.predictor.lower() == 'classifier': 
+            from sklearn.ensemble import GradientBoostingClassifier as sgbt
+            ## Initialize model
+            sgbt = sgbt(loss = 'deviance',
+                        learning_rate = 0.17110866380667414,
+                        max_depth = 5, 
+                        subsample = 0.97907543526326 , 
+                        criterion = 'friedman_mse', 
+                        max_features = None, 
+                        n_estimators = 336, 
+                        min_samples_split = 527, 
+                        min_samples_leaf = 1,
+                        random_state = SEED)
+
+        elif args.predictor.lower() == 'regressor':
+            from sklearn.ensemble import GradientBoostingRegressor as sgbt
+
+            sgbt = sgbt(subsample = 0.5, 
+                criterion = 'mse',
+                min_samples_leaf = 5,
+                n_estimators = 500,
+                max_depth = 8,
+                max_features = 'log2',
+                learning_rate = 0.01)
 
         ## Fit regressor to the training set
         sgbt.fit(self.X_train, self.y_train)
@@ -271,66 +297,78 @@ class CTAT_Boosting:
         logger.info("Running Gradient Boosting ... ")
 
 
-        penalty = (float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1])))
-
+        
         if args.predictor.lower() == 'classifier': 
             from xgboost import XGBClassifier as xgb
-        
 
-            penalty = (float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1]))) #np.sqrt
-
-            xg_regression_model = xgb( objective = 'binary:logistic',
-                                                    n_estimator    = 40000, ##30000
+            if args.snps:
+                    penalty = (float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1]))) #np.sqrt
+                    xg_model = xgb( objective = 'binary:logistic',
                                                     max_depth      = 6,
                                                     colsample_bytree = 0.6,
                                                     scale_pos_weight = penalty 
                                                     )
+            elif args.indels:
+                    penalty = float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1])) #np.sqr
+                    xg_model = xgb(objective ='binary:logistic',
+                            n_estimators = 200,
+                            eta = 0.001,
+                            n_jobs = -1)
+            
+
 
         elif args.predictor.lower() == 'regressor':
-            from xgboost import XGBRegressor as xgb
-            xg_regression_model = xgb(#objective = 'binary:logistic',#reg:squarederror
-                                                   n_estimator    = 40000, 
-                                                    #max_depth      = 6,
-                                                    colsample_bytree = 0.6,#5767898736661754, 
-                                                    scale_pos_weight = penalty,
-                                                    reg_lambda = 0.0001    
-                                                    )
-    
-        '''
-        xg_regression_model = xgb( objective = 'binary:logistic',
-                                                n_estimator    = 30000, 
-                                                max_depth      = 6,
-                                                colsample_bytree = 0.6,#5767898736661754, 
-                                                scale_pos_weight = penalty ##np.sqrt
-                                                )
-        '''
+            if args.snps:
+                    penalty = (float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1]))) #np.sqrt
+                    from xgboost import XGBRegressor as xgb
+                    xg_model = xgb(
+                                                           n_estimator    = 40000, 
+                                                            max_depth      = 6,
+                                                            colsample_bytree = 0.6,
+                                                            scale_pos_weight = penalty,
+                                                            reg_lambda = 0.001    
+                                                            )
+            elif args.indels:
+                    penalty = float(len(self.y_data[self.y_data==0])/len(self.y_data[self.y_data==1])) #np.sqr
+                    from xgboost import XGBRegressor as xgb
+                    if penalty > 2:
 
-        '''
-        xg_regression_model = xgb(objective = 'binary:logistic',
-                                    max_depth = 7, 
-                                    eta = 0.362,
-                                    n_estimators = 50,
-                                    subsample = 1,
-                                    colsample_bytree = 1,
-                                    scale_pos_weight = 1.43,
-                                    gamma = 16.1375, 
-                                    reg_lambda = 0.001,
-                                    random_state= SEED) 
-        '''
-        
+                        ##stomach    
+                        xg_model = xgb( 
+                            objective ='binary:logistic',
+                            colsample_bytree = 0.6,
+                            max_depth = 8,
+                            min_child_weight = 5,
+                            importance_type='gain',
+                            reg_lambda = 10,
+                            subsample = 0.05,
+                            min_split_loss = 100)
+                        
 
+                    else:
+                        
+                        ##Improved: Works on GIAB, Bone, Breast, K562
+                        xg_model = xgb( 
+                        objective ='binary:logistic',
+                            colsample_bytree = 0.6, 
+                            min_child_weight = 5, 
+                            importance_type='gain',
+                            max_depth = 8,
+                            reg_lambda = 10)
+                        
+            
             
         
         ## Fit the regressor to the training set
-        xg_regression_model.fit(self.X_train, self.y_train)
+        xg_model.fit(self.X_train, self.y_train)
 
 
         ## Predict the labels 
-        self.y_pred = xg_regression_model.predict(self.X_data)
+        self.y_pred = xg_model.predict(self.X_data)
         if args.predictor.lower() == 'regressor':
             self.y_pred = logistic.cdf(self.y_pred)
         self.data['boosting_score'] = self.y_pred
-        self.model = xg_regression_model
+        self.model = xg_model
         
         return self 
 
@@ -342,20 +380,20 @@ class CTAT_Boosting:
         # Initialilze the ababoost regressor 
         if args.predictor.lower() == 'classifier': 
             from sklearn.tree import DecisionTreeClassifier as dtree
-            from sklearn.ensemble import AdaBoostClassifier 
+            from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor 
         elif args.predictor.lower() == 'regressor':
             from sklearn.tree import  DecisionTreeRegressor as dtree
+            from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor 
         
         dtree_model = dtree(max_depth= 3)
         
         if args.predictor.lower() == 'classifier': 
 
-            dtree_model = dtree(max_depth=8)
-            ada_model = AdaBoostClassifier(base_estimator = dtree_model,
-                                        n_estimators = 20000,
-                                        learning_rate = 0.05698665653647903,
-                                        algorithm ='SAMME' ,
-                                         random_state = SEED)
+            ada_model = AdaBoostRegressor(base_estimator = dtree_model, 
+                                            n_estimators=20000,
+                                            loss =  'linear',
+                                            random_state= 23
+                                            )
 
         elif args.predictor.lower() == 'regressor':
             ada_model = AdaBoostRegressor(base_estimator = dtree_model, 
@@ -386,13 +424,7 @@ class CTAT_Boosting:
     def RF(self, args):  ## Random Forest
         
         logger.info("Running Random Forest... ")
-        ## conda install -c glemaitre imbalanced-learn
-        '''
-        Class weight:
-        { 0:0.67, 1:0.33 } #expected 2:1
-        { 0:0.75, 1:0.25 } #expected 3:1
-        { 0:0.8, 1:0.2 }   #expected 4:1
-        '''
+
         if args.predictor.lower() == 'classifier': 
             from sklearn.ensemble import RandomForestClassifier as randomforest
 
@@ -400,35 +432,15 @@ class CTAT_Boosting:
                             class_weight = 'balanced',
                             random_state=42)
             
-            '''
-            import imblearn
-            from imblearn.ensemble import BalancedRandomForestClassifier
-            
-            rf = BalancedRandomForestClassifier(n_estimators = 5891,
-                     criterion = 'entropy',
-                     max_depth = 6,
-                     max_features = 'sqrt',                     
-                     #min_samples_split = 0.12,
-                     #min_samples_leaf = 1,
-                     class_weight = 'balanced', 
-                     random_state = SEED)
-            '''
-            '''
-            
-            rf = randomforest(n_estimators = 5891,
-                     criterion = 'entropy',
-                     max_depth = 18,
-                     max_features = 'sqrt',                     
-                     min_samples_split = 20,
-                     min_samples_leaf = 1,
-                     class_weight = 'balanced', 
-                     random_state = SEED)
-            '''
         
         elif args.predictor.lower() == 'regressor':
             from sklearn.ensemble import RandomForestRegressor as randomforest
             ## Initialize RandomForest             
-            rf = randomforest(n_estimators = 5000, warm_start=True,random_state=42)
+            rf = randomforest(n_estimators= 20000,
+            max_depth = 4,
+            random_state = 42,
+            max_samples = 0.6, 
+            n_jobs=-1)
 
         rf.fit(self.X_train, self.y_train)
 
@@ -456,13 +468,21 @@ class CTAT_Boosting:
         X_train = pd.DataFrame(scaler.fit_transform(self.X_train), columns = self.X_train.columns)
         X_data = pd.DataFrame(scaler.fit_transform(self.X_data), columns = self.X_data.columns)
 
-        ## Fit the model to the training set       
-        svm = svm_model(kernel='rbf',
-            C = 99.76108321528396,
-            #gamma='scale',
-            class_weight = 'balanced',
-            random_state = SEED
-            )
+        if args.predictor.lower() == 'classifier': 
+            from sklearn.svm import SVC as svm_model
+            ## Fit the model to the training set       
+            svm = svm_model(kernel='rbf',
+                C = 99.76108321528396,
+                class_weight = 'balanced',
+                random_state = SEED
+                )
+
+        elif args.predictor.lower() == 'regressor':
+            from sklearn.svm import SVR as svm_model
+            svm = svm_model(kernel='rbf',
+                C = 10,
+                gamma = 20
+                )
 
         svm.fit(X_train, self.y_train)
         
@@ -491,14 +511,22 @@ class CTAT_Boosting:
         X_data = pd.DataFrame(scaler.fit_transform(self.X_data), columns = self.X_data.columns)
 
 
-        ## Fit the regressor to the training set        
-        svm = svm_model(penalty = 'l2', 
-            loss = 'hinge', 
-            C = 100, 
-            class_weight = 'balanced',
-            max_iter = 10000,
-            random_state = SEED)
+        if args.predictor.lower() == 'classifier': 
+            from sklearn.svm import LinearSVC as svm_model
+            ## Declare model    
+            svm = svm_model(penalty = 'l2', 
+                loss = 'squared_hinge', 
+                C = 100, 
+                class_weight = 'balanced',
+                max_iter = 10000,
+                random_state = SEED)
 
+        elif args.predictor.lower() == 'regressor':
+            from sklearn.svm import LinearSVR as svm_model
+            svm = svm_model(C = 100)
+        
+
+        ## Fit model
         svm.fit(X_train, self.y_train)
         
         ## Predict the labels 
@@ -577,6 +605,8 @@ def feature_importance(boost_obj, args):
             name = 'feature_importance_' +args.predictor +'_snps.pdf'
     elif args.indels:
             name = 'feature_importance_' +args.predictor +'_indels.pdf'
+    elif args.all:
+            name = 'feature_importance_' +args.predictor +'.pdf'
     plt.savefig(os.path.join(path,name), bbox_inches='tight')
 
 
@@ -611,9 +641,11 @@ def filter_variants(boost_obj, args):
         plt.ylabel('ECDF_Score')
         plt.title('ECDF')
         if args.snps:
-            name = 'ecdf_' +args.predictor +'_snps.png'
+            name = 'ecdf_' +args.model+'_'+args.predictor +'_snps.png'
         elif args.indels:
-            name = 'ecdf_' +args.predictor +'_indels.png'
+            name = 'ecdf_' +args.model+'_'+args.predictor +'_indels.png'
+        elif args.all:
+            name = 'ecdf_' +args.model+'_'+args.predictor +'.png'
 
         plt.savefig(os.path.join(path,name))
 
@@ -621,8 +653,7 @@ def filter_variants(boost_obj, args):
 
 
 def main():
-
-    logger.info("\n ############################# \n Begining the Boosting Process \n ############################# ")
+    logger.info("\n ########################## \n Running CTAT Boosting \n ##########################")
     ## Input arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
         description = "Performs Boosting on GATK detected SNPs \n")
@@ -630,16 +661,17 @@ def main():
     # Mandatory arguments 
     parser.add_argument('--vcf', required = True, help="Input vcf.")
     parser.add_argument("--out", required=True, help="output directory")
-    parser.add_argument("--model",  help="Specify Boosting model - RF, AdaBoost, SGBoost, GradBoost, SVM, NGBoost", default = 'SGBoost')
+    parser.add_argument("--model",  help="Specify Boosting model - RF, AdaBoost, SGBoost, GradBoost, SVM, NGBoost", default = 'GBoost')
     parser.add_argument("--features", 
                         required = False, 
                         type     = str,
                         help     = "Features for Boosting (RS required) [comma separated without space]",
                         #default = "DP, Entropy, FS,BaseQRankSum,Homopolymer,  MLEAF, MQ, MQRankSum,QD, RNAEDIT, RPT, ReadPosRankSum, SOR,SPLICEADJ,RS, TMMR, TDM, MMF, VAF") ## Old features
-                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RNAEDIT,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2" )
+                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2" )
     parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier", required=False, default = 'classifier')
     parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
     parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
+    parser.add_argument("--all",  action='store_true', default=False, help="Extract only snps")
 
     # Argument parser 
     args = parser.parse_args()
@@ -647,9 +679,16 @@ def main():
     ## Check if the output folder exists
     if not os.path.exists(args.out):
             os.makedirs(args.out)
+
+    # imform on what is being ran 
+    if args.indels:
+        msg = "Running boosting on INDELS"
+    elif args.snps:
+        msg = "Running boosting on SNPS"
+    else:
+        msg = "Running boosting on INDELS and SNPS"
+    logger.info(msg)
     
-    
-    logger.info("********  Preprocess The Data  ******** ")
 
     ## Load vcf
     logger.info("Loading input VCF ... ")
@@ -670,7 +709,7 @@ def main():
         logger.info("Classification ... ")
     else:
         logger.info("Regression ... ")
-    logger.info("********  Runnning Boosting ********  ")
+    logger.info("Runnning Boosting ... ")
     boost_obj = CTAT_Boosting()
     boost_obj = CTAT_Boosting.data_matrix(boost_obj, data, args)
     
@@ -695,7 +734,7 @@ def main():
     elif args.model.lower() == 'lr':
         boost_obj = CTAT_Boosting.LR(boost_obj, args)
     else:
-        print("Boosting model not recognized. Please use one of AdaBoost, SGBoost, RF, GBoost, SVML, SVMG, LR")
+        print("Boosting model not recognized. Please use one of AdaBoost, SGBoost, RF, GBoost, SVML, SVM_RBF, LR")
         exit(1)
     
     logger.info("Plotting Feature Imporance")
@@ -709,21 +748,23 @@ def main():
         vcf_lines = gzip.open(args.vcf, 'rt').readlines()
     else:
         vcf_lines = open(args.vcf, 'r').readlines()
+
     vcf_header = [line for line in vcf_lines if line.startswith('#')]
 
     ## Write final output file
     vcf['chr:pos'] = vcf['CHROM']+':'+ vcf['POS'].astype(str)
     df_bm = vcf[vcf['chr:pos'].isin(real_snps)]
     df_bm = df_bm.iloc[:, :-1]
-    logger.info("Number of SNPs after Boosting: %d", len(df_bm))
-    
+    logger.info("Number of variants after Boosting: %d", len(df_bm))
 
     logger.info("Writing Output")
     if args.snps:
         file_name = args.model+'_'+args.predictor+'_ctat_boosting_snps.vcf'
     elif args.indels:
         file_name = args.model+'_'+args.predictor+'_ctat_boosting_indels.vcf'
-    #file_name = args.model+'_'+args.predictor+'_ctat_boosting.vcf'
+    elif args.all:
+        file_name = args.model+'_'+args.predictor+'_ctat_boosting.vcf'
+
     out_file = os.path.join(args.out, file_name)
     with open(out_file,'w') as csv_file:
         for item in vcf_header:  
