@@ -75,7 +75,7 @@ workflow ctat_mutations {
         String haplotype_caller_memory = "6.5G"
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker = "trinityctat/ctat_mutations:devel"
+        String docker = "trinityctat/ctat_mutations:2.6.0-alpha.1"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
@@ -1385,11 +1385,11 @@ task VariantFiltration {
 
         boosting_method="~{boosting_method}"
         seperate_snps_indels="~{seperate_snps_indels}"
-        
+
         # if [ "$boosting_method" == "RVBLR" ]; then
         if [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" == "true" ]; then
-            # Run RVBLR on SNPs and INDELs seprately then combine the filtered results together 
-            
+            # Run RVBLR on SNPs and INDELs seprately then combine the filtered results together
+
             mkdir boost
 
             # Split the input vcf into indels and snps
@@ -1413,11 +1413,11 @@ task VariantFiltration {
             bcftools merge boost/~{ctat_rvblr_output_snp} boost/~{ctat_rvblr_output_indels} -Oz  -o ~{output_name} --force-samples
 
         elif [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" != "true" ]; then
-            # Run RVBLR with SNPs and INDELs combined 
-                
+            # Run RVBLR with SNPs and INDELs combined
+
                 mkdir boost
 
-                # Run indels and snps together 
+                # Run indels and snps together
                 ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
                 --input_vcf ~{input_vcf} \
                 --attributes ~{sep=',' boosting_attributes} \
