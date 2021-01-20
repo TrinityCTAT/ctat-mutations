@@ -1,8 +1,10 @@
 #!/usr/bin/env Rscript
 
 ### use these attributes from VCF file to make a model
-attributes = c("QD","ReadPosRankSum", "FS", "VPR", "VAF", "VMMF",
-               "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT", "INDEL")
+# attributes = c("QD","ReadPosRankSum", "FS", "VPR", "VAF", "VMMF",
+#                "SPLICEADJ", "RPT", "Homopolymer", "Entropy", "RNAEDIT", "INDEL")
+
+attributes = c("DJ","ReadPosRankSum","QD","FS","ED","PctExtPos","RS")
 
 args = commandArgs(TRUE)
 if(length(args) < 2 || length(args) > 3) {
