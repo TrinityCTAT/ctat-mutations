@@ -127,6 +127,12 @@ def main():
     )
 
     parser.add_argument(
+        "--seperate_snps_indels",
+        action="store_true",
+        help="Run boosting on SNPs and INDELS seperately.",
+    )
+
+    parser.add_argument(
         "--boosting_score_threshold",
         default=0.05,
         type=float,
@@ -209,6 +215,7 @@ def main():
     no_bqsr = args.no_bqsr
     sequencing_platform = args.sequencing_platform
     boosting_method = args.boosting_method
+    seperate_snps_indels = args.seperate_snps_indels
     variant_scatter_count = args.variant_scatter_count
     boosting_alg_type = args.boosting_alg_type
     boosting_score_threshold = args.boosting_score_threshold
@@ -310,6 +317,8 @@ def main():
     input_json['apply_bqsr'] = not no_bqsr
     input_json['boosting_alg_type'] = boosting_alg_type
     input_json['boosting_method'] = boosting_method
+    if seperate_snps_indels:
+        input_json['seperate_snps_indels'] = True
     input_json['boosting_attributes'] = boosting_attributes.split(',')
     input_json['boosting_score_threshold'] = boosting_score_threshold
     input_json['sequencing_platform'] = sequencing_platform

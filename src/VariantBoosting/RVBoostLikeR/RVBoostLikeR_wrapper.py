@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--work_dir", type=str, required=True, help="working directory name for intermediates")
 
     parser.add_argument("--attributes", type=str, required=False, help="vcf info attributes to use for scoring purposes",
-                        default="QD,ReadPosRankSum,FS,VPR,VAF,VMMF,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT")
+                        default="DJ,ReadPosRankSum,QD,FS,ED,PctExtPos,RS")
     
 
     parser.add_argument("--score_threshold", type=float, required=False, default=0.05, help="score threshold for filtering rvboost results")

@@ -54,6 +54,8 @@ workflow ctat_mutations {
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
+        Boolean seperate_snps_indels = true
+
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos","ED","DJ"]
         # minimum score threshold for boosted variant selection"
@@ -141,6 +143,7 @@ workflow ctat_mutations {
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
         boosting_method:{help:"Variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
+        seperate_snps_indels:{help:"Run boosting on INDELS and SNPs separately."}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"Variant attributes on which to perform boosting"}
@@ -429,6 +432,7 @@ workflow ctat_mutations {
                     ref_fasta_index = ref_fasta_index,
                     boosting_alg_type = boosting_alg_type,
                     boosting_method =boosting_method,
+                    seperate_snps_indels = seperate_snps_indels,
                     boosting_attributes=boosting_attributes,
                     boosting_score_threshold=boosting_score_threshold,
                     gatk_path = gatk_path,
@@ -1357,6 +1361,7 @@ task VariantFiltration {
         File ref_fasta_index
         String boosting_alg_type
         String boosting_method
+        Boolean seperate_snps_indels
         Array[String] boosting_attributes
         Float boosting_score_threshold
 
@@ -1370,6 +1375,8 @@ task VariantFiltration {
     String boost_tmp = "~{boosting_method}_filtered.vcf"
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
     String ctat_boost_output_indels = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_indels.vcf.gz"
+    String ctat_rvblr_output_snp = "~{boosting_method}_ctat_boosting_snps.vcf.gz"
+    String ctat_rvblr_output_indels = "~{boosting_method}_ctat_boosting_indels.vcf.gz"
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
     command <<<
@@ -1377,17 +1384,48 @@ task VariantFiltration {
         # monitor_script.sh &
 
         boosting_method="~{boosting_method}"
-        if [ "$boosting_method" == "RVBLR" ]; then
+        seperate_snps_indels="~{seperate_snps_indels}"
+        
+        # if [ "$boosting_method" == "RVBLR" ]; then
+        if [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" == "true" ]; then
+            # Run RVBLR on SNPs and INDELs seprately then combine the filtered results together 
+            
             mkdir boost
 
-            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
-            --input_vcf ~{input_vcf} \
+            # Split the input vcf into indels and snps
+            ~{scripts_path}/separate_snps_indels.py \
+            --vcf ~{input_vcf} \
+            --outdir boost
+
+            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper_separate.py \
+            --input_vcf_snp boost/variants.HC_init.wAnnot.snps.vcf.gz \
+            --input_vcf_indel boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --attributes ~{sep=',' boosting_attributes} \
             --work_dir boost \
             --score_threshold ~{boosting_score_threshold} \
-            --output_filename ~{base_name}.filtered.vcf
+            --output_filename ~{ctat_boost_output_indels}
 
-            bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
+            ls boost/*.vcf | xargs -n1 bgzip -f
+
+            tabix boost/~{ctat_rvblr_output_snp}
+            tabix boost/~{ctat_rvblr_output_indels}
+
+            bcftools merge boost/~{ctat_rvblr_output_snp} boost/~{ctat_rvblr_output_indels} -Oz  -o ~{output_name} --force-samples
+
+        elif [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" != "true" ]; then
+            # Run RVBLR with SNPs and INDELs combined 
+                
+                mkdir boost
+
+                # Run indels and snps together 
+                ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
+                --input_vcf ~{input_vcf} \
+                --attributes ~{sep=',' boosting_attributes} \
+                --work_dir boost \
+                --score_threshold ~{boosting_score_threshold} \
+                --output_filename ~{base_name}.filtered.vcf
+
+                bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
 
         elif [ "$boosting_method" == "none" ]; then
             mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
