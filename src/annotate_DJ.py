@@ -2,7 +2,7 @@
 # coding: utf-8
 
 #------------------------------
-# Import the needed libraries 
+# Import the needed libraries
 #------------------------------
 
 import pandas as pd
@@ -15,7 +15,7 @@ import argparse
 
 
 
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s : %(levelname)s : %(message)s',
                     datefmt='%H:%M:%S')
 logger = logging.getLogger('ctat_boosting')
@@ -41,7 +41,7 @@ def main():
     out_file = args.output_vcf
     temp_dir = args.temp_dir
 
-    # path to the temp sorted file 
+    # path to the temp sorted file
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     temp_sorted_vcf = os.path.join(temp_dir, "temp.sorted.vcf")
@@ -53,7 +53,7 @@ def main():
     # Sort VCF
     #~~~~~~~~~~~~~~
     # Sorting the VCF file by lexicographically
-    ## have to do this for bedtools closest 
+    ## have to do this for bedtools closest
     logger.info("Sorting VCF")
     cmd = "grep '^#' {} > {} && grep -v '^#' {} | LC_ALL=C sort -t $'\t' -k1,1 -k2,2n >> {}".format(input_vcf, temp_sorted_vcf, input_vcf, temp_sorted_vcf)
     # logger.info("CMD: {}".format(cmd))
@@ -62,33 +62,33 @@ def main():
     #~~~~~~~~~~~~~~
     # Load VCF
     #~~~~~~~~~~~~~~
-    # Read in the input vcf as a data frame 
+    # Read in the input vcf as a data frame
     logger.info("Loading input VCF")
     input_vcf_df = pd.read_csv(temp_sorted_vcf,
                              sep='\t', low_memory=False, comment='#', header =None,
                              names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "ENCODING"])
 
     #~~~~~~~~~~~~~~
-    # Get Exons file ready 
+    # Get Exons file ready
     #~~~~~~~~~~~~~~
-    # Load and process annotation file 
+    # Load and process annotation file
     # Get the path to the reference annotation file ref_annot.gtf
     if os.path.exists(gtf) == False:
         exit("File doesnt exist:{}".format(gtf))
-    # Open the file 
-    ref_annot = pd.read_csv(gtf, 
+    # Open the file
+    ref_annot = pd.read_csv(gtf,
                             sep='\t', low_memory=False, comment='#', header =None)
-    # Subset the data to get only exons 
+    # Subset the data to get only exons
     ref_annot = ref_annot[ref_annot[2] == "exon"]
     # Sort by locations and subset the data to get "chr   start   end"
     ref_annot = ref_annot.sort_values(by=[0,3,4])
     ref_annot = ref_annot.iloc[:,[0,3,4]]
-    # create temp bed file to pass to bedtools 
+    # create temp bed file to pass to bedtools
     temp_ref_annot = os.path.join(temp_dir, "temp.ref_annot.bed")
     ref_annot.to_csv(temp_ref_annot, header=False, index = False, sep = "\t")
 
 
-    # Run BEDTools closeestBed 
+    # Run BEDTools closeestBed
     logger.info("Running closestBed")
     cmd = "bedtools closest -header -t first -a {} -b {}".format(temp_sorted_vcf, temp_ref_annot)
     # logger.info("CMD: {}".format(cmd))
@@ -96,17 +96,19 @@ def main():
 
 
     # ~~~~~~~~~~~~~~~
-    # Process Distances 
-    # ~~~~~~~~~~~~~~~    
-    # Convert the VCF from a string to a pandas dataframe 
+    # Process Distances
+    # ~~~~~~~~~~~~~~~
+    # Convert the VCF from a string to a pandas dataframe
     temp = distance_output.split('\n')
     temp.remove('')
     variants = [x for x in temp if x[0] != "#"]
     test = pd.DataFrame(variants)
-    ## split the one column into many 
+    if len(test) == 0:
+        exit("No variants")
+    ## split the one column into many
     vcf = test[0].str.split("\t",expand = True)
 
-    # find the distances 
+    # find the distances
     logger.info("Generating Distances")
     test = pd.DataFrame()
     test["ldist"] = abs(pd.to_numeric(vcf[1]) - pd.to_numeric(vcf[11]))
@@ -115,21 +117,21 @@ def main():
     distances_string = ";DJ=" + distances.astype(str)
     input_vcf_df["INFO"] = vcf[7] + distances_string
 
-    # Remove the output file if it exist 
+    # Remove the output file if it exist
     if os.path.exists(out_file):
       os.remove(out_file)
 
 
     #~~~~~~~~~~~~~~~~~~~
-    # output results 
+    # output results
     #~~~~~~~~~~~~~~~~~~~
 
     # Configure the vcfheader
-    ## Parse out the vcf header lines 
+    ## Parse out the vcf header lines
     header = [x for x in temp if x[0] == "#"]
     ## add the new DJ annotation info
     header.insert(-1,"##INFO=<ID=DJ,Number=1,Type=Integer,Description=\"Distance to closest junction\">" )
-    ## Join each line and write to a file 
+    ## Join each line and write to a file
     vcf_header = "\n".join(header) + "\n"
     add_header = open(out_file,"w")
     add_header.write(vcf_header)
