@@ -37,12 +37,10 @@ workflow ctat_mutations {
         File? ref_bed
 
         File? cravat_lib
-        String? cravat_lib_directory
 
         String? genome_version
 
         File? star_reference
-        String? star_reference_directory
 
         Boolean filter_variants = true
         Boolean filter_cancer_variants = true
@@ -123,11 +121,9 @@ workflow ctat_mutations {
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
 
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
-        cravat_lib:{help:"CRAVAT resource archive"}
-        cravat_lib_directory:{help:"CRAVAT resource directory (for use on HPC)"}
+        cravat_lib:{help:"CRAVAT resource archive or directory"}
 
-        star_reference:{help:"STAR index archive"}
-        star_reference_directory:{help:"STAR index directory (for use on HPC)"}
+        star_reference:{help:"STAR index archive or directory"}
 
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
@@ -161,11 +157,10 @@ workflow ctat_mutations {
         docker:{help:"Docker or singularity image"}
     }
 
-    if(!vcf_input && !defined(bam) && (defined(star_reference)||defined(star_reference_directory))) {
+    if(!vcf_input && !defined(bam) && (defined(star_reference))) {
         call StarAlign {
             input:
                 star_reference = star_reference,
-                star_reference_directory = star_reference_directory,
                 fastq1 = left,
                 fastq2 = right,
                 output_unmapped_reads = output_unmapped_reads,
@@ -395,7 +390,6 @@ workflow ctat_mutations {
                 input_vcf = variant_vcf,
                 base_name = sample_id,
                 cravat_lib = cravat_lib,
-                cravat_lib_dir = cravat_lib_directory,
                 ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
                 gtf = gtf,
@@ -638,7 +632,6 @@ task AnnotateVariants {
         File? ref_splice_adj_regions_bed
         String base_name
         File? cravat_lib
-        String? cravat_lib_dir
         File? repeat_mask_bed
 
         File ref_fasta
@@ -656,7 +649,7 @@ task AnnotateVariants {
         Int preemptible
     }
     String vcf_extension = "vcf.gz"
-    Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib_dir))then 100 else 0)
+    Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
         set -e
         # monitor_script.sh &
@@ -816,7 +809,7 @@ task AnnotateVariants {
             OUT="~{base_name}.DJ.~{vcf_extension}"
 
             ~{scripts_path}/annotate_DJ.py \
-            --input_vcf ~{base_name}.splice.distance.vcf \
+            --input_vcf $VCF \
             --gtf ~{gtf} \
             --temp_dir $TMPDIR \
             --output_vcf ~{base_name}.DJ.vcf
@@ -831,7 +824,7 @@ task AnnotateVariants {
             OUT="~{base_name}.ED.~{vcf_extension}"
 
             ~{scripts_path}/annotate_ED.py \
-            --input_vcf ~{base_name}.DJ.vcf \
+            --input_vcf $VCF \
             --output_vcf ~{base_name}.ED.vcf \
             --reference ~{ref_fasta} \
             --temp_dir $TMPDIR
@@ -858,9 +851,7 @@ task AnnotateVariants {
 
         # cravat
         cravat_lib_dir="~{cravat_lib}"
-        if [ "$cravat_lib_dir" == "" ]; then
-            cravat_lib_dir="~{cravat_lib_dir}"
-        fi
+
         if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ] && [ "$cravat_lib_dir" != "" ]; then
 
             OUT="~{base_name}.cravat.vcf.gz"
@@ -1084,7 +1075,6 @@ task ApplyBQSR {
 task StarAlign {
     input {
         File? star_reference
-        String? star_reference_directory
         File? fastq1
         File? fastq2
         Int cpu
@@ -1105,14 +1095,11 @@ task StarAlign {
         # monitor_script.sh &
 
         genomeDir="~{star_reference}"
-        if [ "$genomeDir" == "" ]; then
-        genomeDir="~{star_reference_directory}"
-        fi
 
         if [ -f "${genomeDir}" ] ; then
-        mkdir genome_dir
-        tar xf ~{star_reference} -C genome_dir --strip-components 1
-        genomeDir="genome_dir"
+            mkdir genome_dir
+            tar xf ~{star_reference} -C genome_dir --strip-components 1
+            genomeDir="genome_dir"
         fi
 
         STAR \

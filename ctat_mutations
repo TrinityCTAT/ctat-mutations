@@ -310,9 +310,9 @@ def main():
     input_json['repeat_mask_bed'] = repeat_mask_bed
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
     input_json['ref_bed'] = ref_bed
-    if not no_cravat:
-        input_json['cravat_lib_directory'] = cravat_lib_directory
-    input_json['star_reference_directory'] = star_reference
+    if not no_cravat and cravat_lib_directory is not None:
+        input_json['cravat_lib'] = cravat_lib_directory
+    input_json['star_reference'] = star_reference
     input_json['filter_cancer_variants'] = True
     input_json['apply_bqsr'] = not no_bqsr
     input_json['boosting_alg_type'] = boosting_alg_type
