@@ -35,7 +35,8 @@ def main():
 
     input_vcf = args.input_vcf
     if input_vcf.endswith('.gz'):
-        subprocess.run(['gunzip', input_vcf])
+        if not os.path.exists(input_vcf[:len(input_vcf) - 3]):
+            subprocess.run(['gunzip', input_vcf])
         input_vcf = input_vcf[:len(input_vcf) - 3]
     gtf = args.gtf
     out_file = args.output_vcf
