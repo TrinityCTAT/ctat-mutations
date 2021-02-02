@@ -5,14 +5,13 @@
 # Import the needed libraries
 #------------------------------
 
-import pandas as pd
-import subprocess
-import csv
-import os, sys
-import logging
 import argparse
+import csv
+import logging
+import os
+import subprocess
 
-
+import pandas as pd
 
 
 logging.basicConfig(level=logging.INFO,
@@ -34,9 +33,11 @@ def main():
 
     args = parser.parse_args()
 
-
-
     input_vcf = args.input_vcf
+    if input_vcf.endswith('.gz'):
+        if not os.path.exists(input_vcf[:len(input_vcf) - 3]):
+            subprocess.run(['gunzip', input_vcf])
+        input_vcf = input_vcf[:len(input_vcf) - 3]
     gtf = args.gtf
     out_file = args.output_vcf
     temp_dir = args.temp_dir
@@ -57,7 +58,7 @@ def main():
     logger.info("Sorting VCF")
     cmd = "grep '^#' {} > {} && grep -v '^#' {} | LC_ALL=C sort -t $'\t' -k1,1 -k2,2n >> {}".format(input_vcf, temp_sorted_vcf, input_vcf, temp_sorted_vcf)
     # logger.info("CMD: {}".format(cmd))
-    sam_output = subprocess.run(cmd, shell=True)
+    subprocess.run(cmd, shell=True)
 
     #~~~~~~~~~~~~~~
     # Load VCF
@@ -103,19 +104,18 @@ def main():
     temp.remove('')
     variants = [x for x in temp if x[0] != "#"]
     test = pd.DataFrame(variants)
-    if len(test) == 0:
-        exit("No variants")
-    ## split the one column into many
-    vcf = test[0].str.split("\t",expand = True)
+    if len(test) >0:
+        ## split the one column into many
+        vcf = test[0].str.split("\t",expand = True)
 
-    # find the distances
-    logger.info("Generating Distances")
-    test = pd.DataFrame()
-    test["ldist"] = abs(pd.to_numeric(vcf[1]) - pd.to_numeric(vcf[11]))
-    test["rdist"] = abs(pd.to_numeric(vcf[12]) - pd.to_numeric(vcf[1]))
-    distances = test.min(axis=1)
-    distances_string = ";DJ=" + distances.astype(str)
-    input_vcf_df["INFO"] = vcf[7] + distances_string
+        # find the distances
+        logger.info("Generating Distances")
+        test = pd.DataFrame()
+        test["ldist"] = abs(pd.to_numeric(vcf[1]) - pd.to_numeric(vcf[11]))
+        test["rdist"] = abs(pd.to_numeric(vcf[12]) - pd.to_numeric(vcf[1]))
+        distances = test.min(axis=1)
+        distances_string = ";DJ=" + distances.astype(str)
+        input_vcf_df["INFO"] = vcf[7] + distances_string
 
     # Remove the output file if it exist
     if os.path.exists(out_file):
@@ -146,7 +146,7 @@ def main():
     #~~~~~~~~~~~~~~~~~~~
     cmd = "bcftools sort {} -o {}".format(out_file, out_file)
     logger.info("CMD: {}".format(cmd))
-    sam_output = subprocess.run(cmd, shell=True)
+    subprocess.run(cmd, shell=True)
 
 if __name__ == "__main__":
 
