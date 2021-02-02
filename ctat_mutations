@@ -346,7 +346,7 @@ def main():
     input_json['plugins_path'] = plugins_dir
     input_json['scripts_path'] = scripts_dir
     wdl_dir = os.path.join(base_dir, 'WDL')
-    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-53.1.jar')
+    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-55.jar')
     cromwell_conf = os.path.join(wdl_dir, 'local_provider_config.inc.conf')
     input_json_with_prefix = {}
     for key in input_json:

@@ -113,7 +113,7 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
 
-RUN wget https://github.com/broadinstitute/cromwell/releases/download/53.1/cromwell-53.1.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-53.1.jar
+RUN wget https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
 RUN wget https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 ENV PATH=/usr/local/src/ctat-mutations/WDL/:$PATH
