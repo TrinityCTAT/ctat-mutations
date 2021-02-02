@@ -2,12 +2,31 @@ FROM ubuntu:18.04
 
 MAINTAINER bhaas@broadinstitute.org
 
-RUN apt-get update && apt-get install -y gcc g++ perl python3 automake make \
-    wget curl libdb-dev \
-    bzip2 zlibc zlib1g zlib1g-dev default-jre \
-    python3-setuptools python3-dev build-essential python3-distutils \
-    unzip libbz2-dev liblzma-dev && \
-    apt-get clean
+RUN apt-get update && apt-get install -y \
+    automake \
+    build-essential \
+    bzip2 \
+    curl \
+    default-jre \
+    g++ \
+    gcc \
+    git \
+    libbz2-dev \
+    libdb-dev \
+    liblzma-dev \
+    libssl-dev \
+    make \
+    pbzip2 \
+    perl \
+    python3 \
+    python3-dev \
+    python3-distutils \
+    python3-setuptools \
+    unzip \
+    wget \
+    zlib1g \
+    zlib1g-dev \
+    zlibc
 
 # make python3 be the default python
 RUN ln -sf /usr/bin/python3 /usr/bin/python
@@ -30,7 +49,6 @@ RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION
     rm $SRC/gatk-${GATK_VERSION}.zip
 
 ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
-
 
 ## Samtools
 ENV SAMTOOLS_VERSION=1.7
@@ -65,7 +83,14 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools-2
    cp bin/* $BIN/ && \
    rm $SRC/bedtools-2.28.0.tar.gz
 
-RUN apt-get update && apt-get install -y git && apt-get clean
+# pblat
+RUN wget https://github.com/icebert/pblat/archive/2.5.tar.gz && \
+   tar -zxvf 2.5.tar.gz && \
+   cd pblat-2.5 && \
+   make && \
+   cp pblat $BIN/ && \
+   rm $SRC/2.5.tar.gz
+
 
 ## update igv-reports to current bleeding edge
 WORKDIR $SRC
@@ -92,9 +117,6 @@ RUN wget https://github.com/broadinstitute/cromwell/releases/download/53.1/cromw
 RUN wget https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 ENV PATH=/usr/local/src/ctat-mutations/WDL/:$PATH
-
-
-RUN apt-get install pbzip2
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
