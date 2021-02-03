@@ -58,7 +58,7 @@ def main():
     logger.info("Sorting VCF")
     cmd = "grep '^#' {} > {} && grep -v '^#' {} | LC_ALL=C sort -t $'\t' -k1,1 -k2,2n >> {}".format(input_vcf, temp_sorted_vcf, input_vcf, temp_sorted_vcf)
     # logger.info("CMD: {}".format(cmd))
-    subprocess.run(cmd, shell=True)
+    subprocess.run(cmd, shell=True, executable='/bin/bash')
 
     #~~~~~~~~~~~~~~
     # Load VCF
