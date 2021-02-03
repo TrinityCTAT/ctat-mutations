@@ -1,11 +1,14 @@
-FROM ubuntu:18.04
+FROM continuumio/miniconda3:4.7.12
 
 MAINTAINER bhaas@broadinstitute.org
 
-RUN apt-get update && apt-get install -y \
+# for java
+RUN mkdir /usr/share/man/man1/
+RUN apt-get -qq update && apt-get -qq -y install --no-install-recommends \
     automake \
     build-essential \
     bzip2 \
+    ca-certificates \
     curl \
     default-jre \
     g++ \
@@ -18,24 +21,13 @@ RUN apt-get update && apt-get install -y \
     make \
     pbzip2 \
     perl \
-    python3 \
-    python3-dev \
-    python3-distutils \
-    python3-setuptools \
     unzip \
     wget \
     zlib1g \
     zlib1g-dev \
     zlibc
 
-# make python3 be the default python
-RUN ln -sf /usr/bin/python3 /usr/bin/python
-
-RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-  python get-pip.py
-
 RUN curl -L http://cpanmin.us | perl - App::cpanminus
-
 RUN cpanm install URI::Escape
 
 ENV SRC /usr/local/src
@@ -51,7 +43,7 @@ RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION
 ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
 
 ## Samtools
-ENV SAMTOOLS_VERSION=1.11
+ENV SAMTOOLS_VERSION=1.9
 WORKDIR $SRC
 RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" && \
     wget $SAMTOOLS_URL && \
@@ -61,10 +53,10 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
     rm $SRC/samtools-${SAMTOOLS_VERSION}.tar.bz2
 
 ## BCFtools
-RUN wget https://github.com/samtools/bcftools/releases/download/1.11/bcftools-1.11.tar.bz2 && \
-    tar xvf bcftools-1.11.tar.bz2 && \
-    cd bcftools-1.11 && ./configure && make && make install && \
-    rm $SRC/bcftools-1.11.tar.bz2
+RUN wget https://github.com/samtools/bcftools/releases/download/1.9/bcftools-1.9.tar.bz2 && \
+    tar xvf bcftools-1.9.tar.bz2 && \
+    cd bcftools-1.9 && ./configure && make && make install && \
+    rm $SRC/bcftools-1.9.tar.bz2
 
 ## STAR Aligner
 WORKDIR $SRC
@@ -99,7 +91,7 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
-RUN pip install requests open-cravat==2.2.1 pandas==1.1.5 xgboost==1.3.3 scikit-learn==0.24.1
+RUN conda install -y pip && pip install requests open-cravat==2.2.1 pandas==1.2.1 xgboost==1.3.3 scikit-learn==0.24.1
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
