@@ -59,7 +59,7 @@ workflow ctat_mutations {
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
-        String gatk_path = "/usr/local/src/gatk-4.1.7.0/gatk" #"/gatk/gatk"
+        String gatk_path = "gatk" # assume in path
 
         Float star_extra_disk_space = 30
         Float star_fastq_disk_space_multiplier = 10
