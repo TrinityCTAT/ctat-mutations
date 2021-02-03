@@ -51,7 +51,7 @@ RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION
 ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
 
 ## Samtools
-ENV SAMTOOLS_VERSION=1.7
+ENV SAMTOOLS_VERSION=1.9
 WORKDIR $SRC
 RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" && \
     wget $SAMTOOLS_URL && \
