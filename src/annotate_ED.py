@@ -136,7 +136,7 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~
     logger.info("Outputing the annotated VCF.")
     header = []
-    with gzip.open(input_vcf, 'r') if input_vcf.endswith('.gz') else open(input_vcf, "r") as vcf:
+    with gzip.open(input_vcf, 'rt') if input_vcf.endswith('.gz') else open(input_vcf, "rt") as vcf:
         for line in vcf.readlines():
             # check to see if header, is so append the line to header
             if line[0] == "#":
