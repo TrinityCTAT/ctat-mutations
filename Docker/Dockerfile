@@ -43,7 +43,7 @@ ENV BIN  /usr/local/bin
 
 ## pull down gatk
 WORKDIR $SRC
-ENV GATK_VERSION=4.1.7.0
+ENV GATK_VERSION=4.1.9.0
 RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
     unzip gatk-${GATK_VERSION}.zip && \
     rm $SRC/gatk-${GATK_VERSION}.zip
@@ -51,7 +51,7 @@ RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION
 ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
 
 ## Samtools
-ENV SAMTOOLS_VERSION=1.9
+ENV SAMTOOLS_VERSION=1.11
 WORKDIR $SRC
 RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" && \
     wget $SAMTOOLS_URL && \
@@ -61,10 +61,10 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
     rm $SRC/samtools-${SAMTOOLS_VERSION}.tar.bz2
 
 ## BCFtools
-RUN wget https://github.com/samtools/bcftools/releases/download/1.9/bcftools-1.9.tar.bz2 && \
-    tar xvf bcftools-1.9.tar.bz2 && \
-    cd bcftools-1.9 && ./configure && make && make install && \
-    rm $SRC/bcftools-1.9.tar.bz2
+RUN wget https://github.com/samtools/bcftools/releases/download/1.11/bcftools-1.11.tar.bz2 && \
+    tar xvf bcftools-1.11.tar.bz2 && \
+    cd bcftools-1.11 && ./configure && make && make install && \
+    rm $SRC/bcftools-1.11.tar.bz2
 
 ## STAR Aligner
 WORKDIR $SRC
@@ -76,12 +76,12 @@ RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" 
     rm ${STAR_VERSION}.tar.gz
 
 ## Bedtools
-RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools-2.28.0.tar.gz && \
-   tar -zxvf bedtools-2.28.0.tar.gz && \
+RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2.30.0.tar.gz && \
+   tar -zxvf bedtools-2.30.0.tar.gz && \
    cd bedtools2 && \
    make && \
    cp bin/* $BIN/ && \
-   rm $SRC/bedtools-2.28.0.tar.gz
+   rm $SRC/bedtools-2.30.0.tar.gz
 
 # pblat
 RUN wget https://github.com/icebert/pblat/archive/2.5.tar.gz && \
@@ -91,7 +91,6 @@ RUN wget https://github.com/icebert/pblat/archive/2.5.tar.gz && \
    cp pblat $BIN/ && \
    rm $SRC/2.5.tar.gz
 
-
 ## update igv-reports to current bleeding edge
 WORKDIR $SRC
 ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
@@ -100,7 +99,7 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
-RUN pip install requests open-cravat==2.0.1 pandas==1.1.5 xgboost==1.3.1 scikit-learn==0.24.0
+RUN pip install requests open-cravat==2.2.1 pandas==1.1.5 xgboost==1.3.3 scikit-learn==0.24.1
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
@@ -116,6 +115,7 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
 RUN wget https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
 RUN wget https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+
 ENV PATH=/usr/local/src/ctat-mutations/WDL/:$PATH
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
