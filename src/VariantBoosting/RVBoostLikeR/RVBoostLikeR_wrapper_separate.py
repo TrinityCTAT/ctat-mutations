@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--score_threshold", type=float, required=False, default=0.05, help="score threshold for filtering rvboost results")
 
 
-    parser.add_argument("--output_filename", required=True, help="name of output file containing final list of variants")
+    # parser.add_argument("--output_filename", required=True, help="name of output file containing final list of variants")
     
     args = parser.parse_args()
     

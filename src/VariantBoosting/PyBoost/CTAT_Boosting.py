@@ -87,7 +87,7 @@ def preprocess(df_vcf, args):
         dict_info['GT'] = df_row[-1].split(':')[0]
         lst.append(dict_info)
     
-    logger.info("INDELs included ...")
+    
     DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
     if 'GT' in DF.columns:
         DF = pd.get_dummies(DF, columns=['GT'], prefix='GT')
@@ -99,9 +99,14 @@ def preprocess(df_vcf, args):
     
     features = args.features.replace(' ','').split(",")
 
+    # conditions to remove the feature if not present 
     if args.snps:
         if 'GT_1/2' in features:
             features.remove('GT_1/2')
+    if 'GT_1/2' not in DF.columns:
+        if 'GT_1/2' in features:
+            features.remove('GT_1/2')
+            logger.info("Removing GT_1/2 feature because no GT_1/2 is present.")
 
     # RS is an absolute requirement
     if 'RS' not in features:
@@ -111,8 +116,9 @@ def preprocess(df_vcf, args):
     ## Remove the RNAEDIT if it doesnt exist 
     if args.indels:
         if 'RNAEDIT' not in DF.columns:
-            features.remove('RNAEDIT')
-            logger.info("Removing RNAEDIT feature because no RNA editing present.")
+            if 'RNAEDIT' in features:
+                features.remove('RNAEDIT')
+                logger.info("Removing RNAEDIT feature because no RNA editing present.")
 
 
     df_subset = DF[features]
@@ -543,12 +549,16 @@ class CTAT_Boosting:
     def LR(self, args): ## Logistic Regression (only classification)
  
         logger.info("Running Logistic Regression ... ")
+        msg = "running with method: {}".format(args.predictor)
+        logger.info(msg)
 
         if args.predictor.lower() == 'classifier': 
             from sklearn.linear_model import LogisticRegression
 
         if args.predictor.lower() == 'regressor':
-            print('ERROR: Logistic Regression is a classification model. Please use another model.')
+            msg = 'ERROR: Logistic Regression is a classification model. Please use another model.'
+            logger.info(msg)
+            print(msg)
             exit(0) 
         
         from sklearn.preprocessing import MinMaxScaler
@@ -624,7 +634,9 @@ def filter_variants(boost_obj, args):
     elif args.predictor.lower() == 'regressor':
         fitted_values = boost_obj.y_pred
 
-        RS1 = list(boost_obj.y_data.nonzero()[0])
+        # RS1 = list(boost_obj.y_data.nonzero()[0])
+
+        RS1 = list(boost_obj.y_data.to_numpy().nonzero()[0])
         ecdf_func = ECDF([ fitted_values[idx] for idx in RS1 ])
         fitted_value_scores = ecdf_func(fitted_values)
         

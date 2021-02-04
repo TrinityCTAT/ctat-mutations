@@ -54,10 +54,12 @@ workflow ctat_mutations {
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
-        Boolean seperate_snps_indels = true
+        Boolean seperate_snps_indels = false
 
         # variant attributes on which to perform boosting
-        Array[String] boosting_attributes =  ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos","ED","DJ"]
+        Array[String] boosting_attributes =  
+        ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","SPLICEADJ","TCR","TDM","VAF","VMMF","GT_1/2"]
+        # ["QD","ReadPosRankSum","FS","SPLICEADJ","RPT","Homopolymer","Entropy","RNAEDIT","VPR","VAF","VMMF","PctExtPos","ED","DJ"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
@@ -1402,15 +1404,17 @@ task VariantFiltration {
             --input_vcf_indel boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --attributes ~{sep=',' boosting_attributes} \
             --work_dir boost \
-            --score_threshold ~{boosting_score_threshold} \
-            --output_filename ~{ctat_boost_output_indels}
+            --score_threshold ~{boosting_score_threshold}
 
             ls boost/*.vcf | xargs -n1 bgzip -f
 
-            tabix boost/~{ctat_rvblr_output_snp}
-            tabix boost/~{ctat_rvblr_output_indels}
+            cp boost/~{ctat_rvblr_output_snp} .
+            cp boost/~{ctat_rvblr_output_indels} .
 
-            bcftools merge boost/~{ctat_rvblr_output_snp} boost/~{ctat_rvblr_output_indels} -Oz  -o ~{output_name} --force-samples
+            tabix ~{ctat_rvblr_output_snp}
+            tabix ~{ctat_rvblr_output_indels}
+
+            bcftools merge ~{ctat_rvblr_output_snp} ~{ctat_rvblr_output_indels} -Oz  -o ~{output_name} --force-samples
 
         elif [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" != "true" ]; then
             # Run RVBLR with SNPs and INDELs combined 
