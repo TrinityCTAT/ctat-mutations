@@ -141,7 +141,6 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        #default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos,ED,DJ",
         default = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2",
         help="Variant attributes on which to perform boosting",
     )
@@ -311,10 +310,10 @@ def main():
     input_json['repeat_mask_bed'] = repeat_mask_bed
     input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
     input_json['ref_bed'] = ref_bed
-    if not no_cravat:
-        input_json['cravat_lib_directory'] = cravat_lib_directory
-    input_json['star_reference_directory'] = star_reference
-    input_json['filter_cancer_variants'] = False#True
+    if not no_cravat and cravat_lib_directory is not None:
+        input_json['cravat_lib'] = cravat_lib_directory
+    input_json['star_reference'] = star_reference
+    input_json['filter_cancer_variants'] = False
     input_json['apply_bqsr'] = not no_bqsr
     input_json['boosting_alg_type'] = boosting_alg_type
     input_json['boosting_method'] = boosting_method
@@ -347,7 +346,7 @@ def main():
     input_json['plugins_path'] = plugins_dir
     input_json['scripts_path'] = scripts_dir
     wdl_dir = os.path.join(base_dir, 'WDL')
-    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-53.1.jar')
+    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-55.jar')
     cromwell_conf = os.path.join(wdl_dir, 'local_provider_config.inc.conf')
     input_json_with_prefix = {}
     for key in input_json:
