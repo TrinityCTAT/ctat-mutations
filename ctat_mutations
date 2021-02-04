@@ -141,7 +141,7 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default="QD,ReadPosRankSum,FS,SPLICEADJ,RPT,Homopolymer,Entropy,RNAEDIT,VPR,VAF,VMMF,PctExtPos,ED,DJ",
+        default = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2",
         help="Variant attributes on which to perform boosting",
     )
 
@@ -313,7 +313,7 @@ def main():
     if not no_cravat and cravat_lib_directory is not None:
         input_json['cravat_lib'] = cravat_lib_directory
     input_json['star_reference'] = star_reference
-    input_json['filter_cancer_variants'] = True
+    input_json['filter_cancer_variants'] = False
     input_json['apply_bqsr'] = not no_bqsr
     input_json['boosting_alg_type'] = boosting_alg_type
     input_json['boosting_method'] = boosting_method
