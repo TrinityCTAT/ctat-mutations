@@ -55,7 +55,7 @@ workflow ctat_mutations {
         Boolean seperate_snps_indels = false
 
         # variant attributes on which to perform boosting
-        Array[String] boosting_attributes =  
+        Array[String] boosting_attributes =
         ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","SPLICEADJ","TCR","TDM","VAF","VMMF","GT_1/2"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
@@ -303,7 +303,7 @@ workflow ctat_mutations {
                 input:
                     input_bam = SplitReads.extra_bam,
                     input_bam_index = SplitReads.extra_bai,
-                    base_name = sample_id + '_' + basename(select_first([extra_fasta])),
+                    base_name = sample_id + '_' + basename(basename(select_first([extra_fasta]), ".fa"), ".fasta"),
                     ref_dict = select_first([CreateFastaIndex.dict]),
                     ref_fasta = select_first([CreateFastaIndex.fasta]),
                     ref_fasta_index = select_first([CreateFastaIndex.fasta_index]),
