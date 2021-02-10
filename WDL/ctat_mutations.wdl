@@ -1431,12 +1431,12 @@ task VariantFiltration {
             --filter "QD < 2.0" \
             --filter-name "SPLICEADJ" \
             --filter "SPLICEADJ < 3" \
-            -O tmp.vcf.gz
+            -O tmp.vcf
 
             ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
             SelectVariants \
             --R ~{ref_fasta} \
-            --V tmp.vcf.gz \
+            --V tmp.vcf \
             -select-type SNP \
             --exclude-filtered \
             -O ~{output_name}
