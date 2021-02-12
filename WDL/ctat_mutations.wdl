@@ -49,6 +49,7 @@ workflow ctat_mutations {
         Boolean add_read_groups = true
         Boolean call_variants = true
 
+        Int variant_filtration_cpu = 1
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
@@ -432,6 +433,7 @@ workflow ctat_mutations {
                     boosting_score_threshold=boosting_score_threshold,
                     gatk_path = gatk_path,
                     scripts_path=scripts_path,
+                    cpu=variant_filtration_cpu,
                     docker = docker,
                     preemptible = preemptible
             }
@@ -1357,6 +1359,7 @@ task VariantFiltration {
         String gatk_path
         String docker
         Int preemptible
+        Int cpu
 
     }
     String output_name = "~{base_name}.filtered.vcf.gz"
@@ -1482,6 +1485,7 @@ task VariantFiltration {
 
     runtime {
         docker: docker
+        cpu: cpu
         memory: "3 GB"
         disks: "local-disk " + ceil((size(input_vcf, "GB") * 2) + 30) + " HDD"
         preemptible: preemptible
