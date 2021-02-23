@@ -922,7 +922,6 @@ task MarkDuplicates {
         --OUTPUT ~{base_name}.bam  \
         --CREATE_INDEX true \
         --METRICS_FILE ~{base_name}.metrics
-
     >>>
 
     output {
@@ -932,7 +931,7 @@ task MarkDuplicates {
     }
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 3)) + " HDD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 2) * 3.25)) + " HDD"
         docker: docker
         memory: memory
         preemptible: preemptible
