@@ -91,7 +91,7 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
-RUN conda install -y pip && pip install requests open-cravat==2.2.1 pandas==1.2.1 xgboost==1.3.3 scikit-learn==0.24.1
+RUN conda install -y pip && pip install requests open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 scikit-learn==0.24.1
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
@@ -103,7 +103,7 @@ ENV CTAT_MUTATIONS_COMMIT=90758f30995de9a95fae9695f406b0c165a2525d
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
-
+#
 RUN wget https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
 RUN wget https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
