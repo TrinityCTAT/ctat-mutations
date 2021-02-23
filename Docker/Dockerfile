@@ -31,12 +31,12 @@ RUN curl -L http://cpanmin.us | perl - App::cpanminus
 RUN cpanm install URI::Escape
 
 ENV SRC /usr/local/src
-ENV BIN  /usr/local/bin
+ENV BIN /usr/local/bin
 
-## pull down gatk
+## gatk
 WORKDIR $SRC
 ENV GATK_VERSION=4.1.9.0
-RUN wget https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
+RUN wget -q https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
     unzip gatk-${GATK_VERSION}.zip && \
     rm $SRC/gatk-${GATK_VERSION}.zip
 
@@ -46,29 +46,29 @@ ENV GATK_HOME $SRC/gatk-${GATK_VERSION}
 ENV SAMTOOLS_VERSION=1.9
 WORKDIR $SRC
 RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2" && \
-    wget $SAMTOOLS_URL && \
+    wget -q $SAMTOOLS_URL && \
     tar xvf samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     cd samtools-${SAMTOOLS_VERSION}/htslib-${SAMTOOLS_VERSION} && ./configure && make && make install && \
     cd ../ && ./configure --without-curses && make && make install && \
     rm $SRC/samtools-${SAMTOOLS_VERSION}.tar.bz2
 
 ## BCFtools
-RUN wget https://github.com/samtools/bcftools/releases/download/1.9/bcftools-1.9.tar.bz2 && \
+RUN wget -q https://github.com/samtools/bcftools/releases/download/1.9/bcftools-1.9.tar.bz2 && \
     tar xvf bcftools-1.9.tar.bz2 && \
     cd bcftools-1.9 && ./configure && make && make install && \
     rm $SRC/bcftools-1.9.tar.bz2
 
-## STAR Aligner
+## STAR
 WORKDIR $SRC
 ENV STAR_VERSION=2.7.2b
 RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" &&\
-    wget -P $SRC $STAR_URL &&\
+    wget -q -P $SRC $STAR_URL &&\
     tar -xvf $SRC/${STAR_VERSION}.tar.gz -C $SRC && \
     mv $SRC/STAR-${STAR_VERSION}/bin/Linux_x86_64_static/STAR /usr/local/bin && \
     rm ${STAR_VERSION}.tar.gz
 
 ## Bedtools
-RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2.30.0.tar.gz && \
+RUN wget -q https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2.30.0.tar.gz && \
    tar -zxvf bedtools-2.30.0.tar.gz && \
    cd bedtools2 && \
    make && \
@@ -76,7 +76,7 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2
    rm $SRC/bedtools-2.30.0.tar.gz
 
 # pblat
-RUN wget https://github.com/icebert/pblat/archive/2.5.tar.gz && \
+RUN wget -q https://github.com/icebert/pblat/archive/2.5.tar.gz && \
    tar -zxvf 2.5.tar.gz && \
    cd pblat-2.5 && \
    make && \
@@ -103,15 +103,14 @@ ENV CTAT_MUTATIONS_COMMIT=90758f30995de9a95fae9695f406b0c165a2525d
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout ${CTAT_MUTATIONS_COMMIT}
-#
-RUN wget https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
-RUN wget https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
-RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 
-ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
+RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
+RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
 
+ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
