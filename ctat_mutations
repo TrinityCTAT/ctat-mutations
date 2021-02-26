@@ -155,6 +155,11 @@ def main():
         type=int,
         help="Number of CPUs to use for adding variant position in read annotation",
     )
+    parser.add_argument(
+        "--star_cpu",
+        type=int,
+        help="Number of CPUs for STAR aligner",
+    )
 
     parser.add_argument(
         "--variant_scatter_count",
@@ -228,6 +233,7 @@ def main():
     no_mark_duplicates = args.no_mark_duplicates
     extra_fasta = args.extra_fasta
     read_var_pos_annotation_cpu = args.read_var_pos_annotation_cpu
+    star_cpu = args.star_cpu
     # mark_duplicates_memory = args.mark_duplicates_memory
     # star_memory = args.star_memory
     # split_n_cigar_reads_memory = args.split_n_cigar_reads_memory
@@ -294,7 +300,8 @@ def main():
         input_json['mark_duplicates'] = False
     if read_var_pos_annotation_cpu is not None:
         input_json['read_var_pos_annotation_cpu'] = read_var_pos_annotation_cpu
-
+    if star_cpu is not None:
+        input_json['star_cpu'] = star_cpu
     input_json['gtf'] = gtf
     input_json['ref_dict'] = ref_dict
     input_json['ref_fasta'] = ref_fasta
