@@ -52,8 +52,8 @@ workflow ctat_mutations {
         Int variant_filtration_cpu = 1
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "none" # ["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]
-        Boolean seperate_snps_indels = false
+        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
+        Boolean seperate_snps_indels = true
 
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
@@ -92,7 +92,7 @@ workflow ctat_mutations {
 
         left:{help:"One of the two paired RNAseq samples"}
         right:{help:"One of the two paired RNAseq samples"}
-        bam:{help:"Previously aligned bam file"}
+        bam:{help:"Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input."}
         bai:{help:"Previously aligned bam index file"}
         vcf:{help:"Previously generated vcf file. When provided, the output from ApplyBQSR should be provided as the bam input."}
         sample_id:{help:"Sample id"}

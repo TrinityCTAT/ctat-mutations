@@ -97,12 +97,12 @@ RUN oc config md > /dev/null
 
 ## NCIP CTAT mutations
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_VER=2.5.0
-ENV CTAT_MUTATIONS_COMMIT=90758f30995de9a95fae9695f406b0c165a2525d
+
+ENV CTAT_MUTATIONS_TAG=2.6.0-alpha.1
 
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
-    git checkout ${CTAT_MUTATIONS_COMMIT}
+    git checkout tags/${CTAT_MUTATIONS_TAG} -b devel
 
 RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/55/cromwell-55.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-55.jar
 RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
