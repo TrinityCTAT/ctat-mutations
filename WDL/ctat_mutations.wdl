@@ -94,7 +94,7 @@ workflow ctat_mutations {
         right:{help:"One of the two paired RNAseq samples"}
         bam:{help:"Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input."}
         bai:{help:"Previously aligned bam index file"}
-        vcf:{help:"Previously generated vcf file. When provided, the output from ApplyBQSR should be provided as the bam input."}
+        vcf:{help:"Previously generated vcf file to annotate and filter. When provided, the output from ApplyBQSR should be provided as the bam input."}
         sample_id:{help:"Sample id"}
 
         # resources
