@@ -48,11 +48,11 @@ def main():
 
     parser.add_argument(
         "--bam",
-        help="Path to previously aligned bam"
+        help="Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input."
     )
     parser.add_argument(
         "--vcf",
-        help="Path to previously generated vcf to annotate and filter"
+        help="Previously generated vcf file to annotate and filter. When provided, the output from ApplyBQSR should be provided as the bam input."
     )
 
     parser.add_argument(
@@ -70,7 +70,7 @@ def main():
     parser.add_argument(
         "--genome_lib_dir",
         default=os.environ.get("CTAT_GENOME_LIB"),
-        help="Genome lib directory - see http://FusionFilter.github.io for details.  Uses env variable CTAT_GENOME_LIB as default",
+        help="Genome lib directory - see http://FusionFilter.github.io for details. Uses env variable CTAT_GENOME_LIB as default",
     )
 
     # parser.add_argument(
@@ -141,7 +141,7 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2",
+        default="AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2",
         help="Variant attributes on which to perform boosting",
     )
 
@@ -243,12 +243,13 @@ def main():
     if not ctat_genome_lib_path:
         exit("Error, missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
-    ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
-
     gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
     ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
     ref_fasta = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
+    star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
+
+    ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
 
     db_snp_vcf = os.path.join(ctat_mutation_lib_path, "dbsnp.vcf.gz")
     db_snp_vcf_index = os.path.join(ctat_mutation_lib_path, "dbsnp.vcf.gz.tbi")
@@ -267,7 +268,6 @@ def main():
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
     cravat_lib_directory = os.path.join(ctat_mutation_lib_path, "cravat")
-    star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
     properties = os.path.join(ctat_mutation_lib_path, "properties.json")
     if not os.path.exists(properties):
@@ -290,7 +290,8 @@ def main():
             if os.path.exists(bai_path):
                 input_json['bai'] = bai_path
                 break
-
+        if input_json.get('bai') is None:
+            raise ValueError('No bam index found')
     if vcf is not None:
         input_json['vcf'] = vcf
     if extra_fasta is not None:
