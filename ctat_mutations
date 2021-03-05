@@ -28,9 +28,6 @@ import json
 VERSION = "__BLEEDING_EDGE__"
 
 
-# VERSION = "2.5.0"
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Performs mutation detection in RNA-Seq"
@@ -285,8 +282,9 @@ def main():
         input_json['right'] = right
     if bam is not None:
         input_json['bam'] = bam
-        bai_paths = [bam + '.bai', os.path.splitext(bam)[0] + '.bai']
-        for bai_path in bai_paths:
+        if not os.path.exists(bam):
+            raise ValueError('Bam not found')
+        for bai_path in [bam + '.bai', os.path.splitext(bam)[0] + '.bai']:
             if os.path.exists(bai_path):
                 input_json['bai'] = bai_path
                 break
@@ -354,7 +352,7 @@ def main():
     input_json['plugins_path'] = plugins_dir
     input_json['scripts_path'] = scripts_dir
     wdl_dir = os.path.join(base_dir, 'WDL')
-    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-55.jar')
+    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-57.jar')
     cromwell_conf = os.path.join(wdl_dir, 'local_provider_config.inc.conf')
     input_json_with_prefix = {}
     for key in input_json:
