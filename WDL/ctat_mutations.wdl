@@ -37,10 +37,12 @@ workflow ctat_mutations {
         File? ref_bed
 
         File? cravat_lib
+        String? cravat_lib_dir
 
         String? genome_version
 
         File? star_reference
+        String? star_reference_dir
 
         Boolean filter_variants = true
         Boolean filter_cancer_variants = true
@@ -123,9 +125,11 @@ workflow ctat_mutations {
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
 
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
-        cravat_lib:{help:"CRAVAT resource archive or directory"}
+        cravat_lib:{help:"CRAVAT resource archive"}
+        cravat_lib_dir:{help:"CRAVAT resource directory (for non-Terra use)"}
 
-        star_reference:{help:"STAR index archive or directory"}
+        star_reference:{help:"STAR index archive"}
+        star_reference_dir:{help:"STAR directory (for non-Terra use)"}
 
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
@@ -159,10 +163,11 @@ workflow ctat_mutations {
         docker:{help:"Docker or singularity image"}
     }
 
-    if(!vcf_input && !defined(bam) && (defined(star_reference))) {
+    if(!vcf_input && !defined(bam) && (defined(star_reference_dir) || defined(star_reference))) {
         call StarAlign {
             input:
                 star_reference = star_reference,
+                star_reference_dir = star_reference_dir,
                 fastq1 = left,
                 fastq2 = right,
                 output_unmapped_reads = output_unmapped_reads,
@@ -392,6 +397,7 @@ workflow ctat_mutations {
                 input_vcf = variant_vcf,
                 base_name = sample_id,
                 cravat_lib = cravat_lib,
+                cravat_lib_dir = cravat_lib_dir,
                 ref_fasta = ref_fasta,
                 ref_fasta_index = ref_fasta_index,
                 gtf = gtf,
@@ -635,6 +641,7 @@ task AnnotateVariants {
         File? ref_splice_adj_regions_bed
         String base_name
         File? cravat_lib
+        String? cravat_lib_dir
         File? repeat_mask_bed
 
         File ref_fasta
@@ -854,6 +861,9 @@ task AnnotateVariants {
 
         # cravat
         cravat_lib_dir="~{cravat_lib}"
+        if [ "$cravat_lib_dir" == "" ]; then
+            cravat_lib_dir="~{cravat_lib_dir}"
+        fi
 
         if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ] && [ "$cravat_lib_dir" != "" ]; then
 
@@ -1077,6 +1087,7 @@ task ApplyBQSR {
 task StarAlign {
     input {
         File? star_reference
+        String? star_reference_dir
         File? fastq1
         File? fastq2
         Int cpu
@@ -1097,6 +1108,9 @@ task StarAlign {
         # monitor_script.sh &
 
         genomeDir="~{star_reference}"
+        if [ "$genomeDir" == "" ]; then
+            genomeDir="~{star_reference_dir}"
+        fi
 
         if [ -f "${genomeDir}" ] ; then
             mkdir genome_dir
