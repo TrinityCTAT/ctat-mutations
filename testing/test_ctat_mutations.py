@@ -27,9 +27,10 @@ def test_benchmarking(tmp_path):
 def test_boosting(boosting_method, boosting_alg_type, tmp_path):
     tmp_path = str(tmp_path)
     check_call(
-        [os.path.abspath('./ctat_mutations'), '--sample_id', 'test', '--boosting_method',
+        [os.path.abspath('./ctat_mutations'),
          '--left', os.path.abspath('testing/reads_1.fastq.gz'), '--right', os.path.abspath('testing/reads_2.fastq.gz'),
-         boosting_method, '--boosting_alg_type', boosting_alg_type], cwd=tmp_path)
+         '--sample_id', 'test', '--boosting_method', boosting_method, '--boosting_alg_type', boosting_alg_type],
+        cwd=tmp_path)
     check_output(tmp_path)
 
 
