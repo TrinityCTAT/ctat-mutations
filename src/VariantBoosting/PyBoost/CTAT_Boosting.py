@@ -72,6 +72,17 @@ def preprocess(df_vcf, args):
     logger.info("Number of variants before Boosting: %d", num_rows)
 
     DF = pd.DataFrame()
+
+    # Check # 
+    ## check if there are enough variants to analyze. 
+    ## if not, throw an error and exit 
+    if num_rows == 1: 
+        msg = "There are too few variants to analyze. \n Please review your data, or run the analysis without separation of SNPs and Indels."
+        logger.error(msg)
+        exit()
+    if num_rows == 0: 
+        return DF
+
     info_df = df_vcf['INFO'].str.split(';')
     lst = []
 
@@ -111,6 +122,9 @@ def preprocess(df_vcf, args):
     # RS is an absolute requirement
     if 'RS' not in features:
         features.append('RS')
+    if 'RS' not in DF.columns:
+        logger.info("Adding RS feature.")
+        DF['RS'] = np.nan
 
     # If running on INDELS, there mostlikely wont be any RNAEDIT
     ## Remove the RNAEDIT if it doesnt exist 
@@ -119,6 +133,23 @@ def preprocess(df_vcf, args):
             if 'RNAEDIT' in features:
                 features.remove('RNAEDIT')
                 logger.info("Removing RNAEDIT feature because no RNA editing present.")
+
+    # If the following features are not found in the columns, remove them 
+    ## Remove the Homopolymer if it doesnt exist 
+    if 'Homopolymer' not in DF.columns:
+        if 'Homopolymer' in features:
+            features.remove('Homopolymer')
+            logger.info("Removing Homopolymer feature because no Homopolymer is present.")
+    ## Remove the SAO if it doesnt exist 
+    if 'SAO' not in DF.columns:
+        if 'SAO' in features:
+            features.remove('SAO')
+            logger.info("Removing SAO feature because no SAO is present.")
+    ## Remove the SPLICEADJ if it doesnt exist 
+    if 'SPLICEADJ' not in DF.columns:
+        if 'SPLICEADJ' in features:
+            features.remove('SPLICEADJ')
+            logger.info("Removing SPLICEADJ feature because no SPLICEADJ is present.")
 
 
     df_subset = DF[features]
@@ -714,6 +745,12 @@ def main():
     ## Preprocess data
     logger.info("Preprocess Data ... ")
     data = preprocess(vcf, args)
+
+    # If there is no data, dont continue to boosting 
+    if data.empty:
+        logger.info("No variants present. Skipping boosting on this data.")
+        return None
+
     print('Features used for modeling: ', features)
 
     ## Boosting
@@ -721,7 +758,7 @@ def main():
         logger.info("Classification ... ")
     else:
         logger.info("Regression ... ")
-    logger.info("Runnning Boosting ... ")
+    logger.info("Running Boosting ... ")
     boost_obj = CTAT_Boosting()
     boost_obj = CTAT_Boosting.data_matrix(boost_obj, data, args)
     
