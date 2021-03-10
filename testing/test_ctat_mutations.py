@@ -34,16 +34,6 @@ def test_boosting(boosting_method, boosting_alg_type, tmp_path):
     check_output(tmp_path)
 
 
-def test_boosting_single_fastq(boosting_method, boosting_alg_type, tmp_path):
-    tmp_path = str(tmp_path)
-    check_call(
-        [os.path.abspath('./ctat_mutations'),
-         '--left', os.path.abspath('testing/reads_1.fastq.gz'), '--sample_id', 'test', '--boosting_method',
-         boosting_method, '--boosting_alg_type', boosting_alg_type],
-        cwd=tmp_path)
-    check_output(tmp_path)
-
-
 # test the full pipeline with fastq input and diff with known good output
 def test_fastqs(tmp_path):
     tmp_path = str(tmp_path)
