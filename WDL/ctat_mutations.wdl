@@ -1133,8 +1133,8 @@ task StarAlign {
 
 
         if [ "~{output_unmapped_reads}" == "true" ] ; then
-        mv ~{base_name}.Unmapped.out.mate1 ~{base_name}.Unmapped.out.mate1.fastq
-        mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
+            mv ~{base_name}.Unmapped.out.mate1 ~{base_name}.Unmapped.out.mate1.fastq
+            mv ~{base_name}.Unmapped.out.mate2 ~{base_name}.Unmapped.out.mate2.fastq
         fi
 
         samtools index "~{base_name}.Aligned.sortedByCoord.out.bam"
@@ -1464,10 +1464,6 @@ task VariantFiltration {
             --vcf ~{input_vcf} \
             --outdir boost
 
-            #tabix boost/variants.HC_init.wAnnot.indels.vcf.gz
-            #tabix boost/variants.HC_init.wAnnot.indels.vcf.gz
-
-
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
@@ -1486,13 +1482,16 @@ task VariantFiltration {
 
             ls boost/*.vcf | xargs -n1 bgzip -f
 
-            tabix boost/~{ctat_boost_output_snp}
-            tabix boost/~{ctat_boost_output_indels}
+            if [[ -f "boost/~{ctat_boost_output_snp}" && -f "boost/~{ctat_boost_output_indels}" ]]; then
+                tabix boost/~{ctat_boost_output_snp}
+                tabix boost/~{ctat_boost_output_indels}
+                bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
+            elif [[ -f "boost/~{ctat_boost_output_snp}" ]]; then
+                mv boost/~{ctat_boost_output_snp} ~{output_name}
+            elif [[ -f "boost/~{ctat_boost_output_indels}" ]]; then
+                mv boost/~{ctat_boost_output_indels} ~{output_name}
+            fi
 
-            bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz  -o ~{output_name} --force-samples
-
-
-            #bgzip -c boost/~{ctat_boost_output} > ~{output_name}
         fi
     >>>
 
@@ -1510,44 +1509,6 @@ task VariantFiltration {
 
 }
 
-
-task SplitChromosomes {
-    input {
-        File ref_fasta_index
-        String docker
-        Int preemptible
-        String memory
-    }
-    command <<<
-        set -e
-        # monitor_script.sh &
-
-        python <<CODE
-        with open("~{ref_fasta_index}") as fh:
-        for line in fh:
-        vals = line.split("\t")
-        chromosome = vals[0]
-        chr_length = vals[1]
-
-        interval_file = "{}.intervals".format(chromosome)
-        with open(interval_file, "w") as ofh:
-            ofh.write("{}:1-{}\n".format(chromosome, chr_length))
-        CODE
-    >>>
-
-    runtime {
-        docker: docker
-        bootDiskSizeGb: 12
-        memory: memory
-        disks: "local-disk " + ceil(size(ref_fasta_index, "GB")*2) + " HDD"
-        preemptible: preemptible
-        cpu: 1
-    }
-
-    output {
-        Array[File] interval_files = glob("*.intervals")
-    }
-}
 
 task SplitIntervals {
     input {
