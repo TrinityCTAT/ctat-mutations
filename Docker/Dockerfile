@@ -33,6 +33,10 @@ RUN cpanm install URI::Escape
 ENV SRC /usr/local/src
 ENV BIN /usr/local/bin
 
+RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
+# Run an oc command to generate config files
+RUN oc config md > /dev/null
+
 ## gatk
 WORKDIR $SRC
 ENV GATK_VERSION=4.1.9.0
@@ -91,15 +95,9 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
-RUN conda install -y pip && pip install requests open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 scikit-learn==0.24.1
-# Run an oc command to generate config files
-RUN oc config md > /dev/null
-
 ## NCIP CTAT mutations
 WORKDIR $SRC
-
 ENV CTAT_MUTATIONS_TAG=2.6.0-alpha.1
-
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout tags/${CTAT_MUTATIONS_TAG} -b devel
