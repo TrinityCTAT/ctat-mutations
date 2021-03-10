@@ -126,7 +126,7 @@ def main():
     parser.add_argument(
         "--no_seperate_snps_indels",
         action="store_true",
-        help="Do not run boosting on SNPs and indels seperately.",
+        help="Do not run RVBLR boosting on SNPs and indels seperately.",
     )
 
     parser.add_argument(

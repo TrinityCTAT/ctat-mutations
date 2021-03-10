@@ -145,7 +145,7 @@ workflow ctat_mutations {
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
         boosting_method:{help:"Variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
-        seperate_snps_indels:{help:"Run boosting on INDELS and SNPs separately."}
+        seperate_snps_indels:{help:"Run RVBLR boosting on INDELS and SNPs separately."}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"Variant attributes on which to perform boosting"}
