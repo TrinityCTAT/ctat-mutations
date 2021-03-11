@@ -28,6 +28,15 @@ import json
 VERSION = "__BLEEDING_EDGE__"
 
 
+def is_in_path(path):
+    try:
+        if subprocess.run(['which', path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).returncode != 0:
+            return False
+    except:
+        return False
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Performs mutation detection in RNA-Seq"
@@ -84,7 +93,7 @@ def main():
     parser.add_argument(
         "--boosting_method",
         default="GBoost",
-        choices=["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"],
+        choices=["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "RVBLR", "SGBoost", "SVM_RBF", "SVML", "XGBoost"],
         help="Variant calling boosting method",
     )
 
@@ -306,11 +315,10 @@ def main():
     input_json['include_read_var_pos_annotations'] = not no_include_read_var_pos_annotations
     if gatk_path is not None:
         input_json['gatk_path'] = gatk_path
-    try:
-        if subprocess.run([gatk_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).returncode != 0:
-            exit('GATK not found')
-    except:
+    if not is_in_path(gatk_path):
         exit('GATK not found')
+    if not is_in_path('pblat'):
+        exit('pblat not found')
 
     # if mark_duplicates_memory is not None:
     #     input_json['mark_duplicates_memory'] = mark_duplicates_memory
