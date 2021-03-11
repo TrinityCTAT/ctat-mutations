@@ -54,7 +54,7 @@ workflow ctat_mutations {
         Int variant_filtration_cpu = 1
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
+        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "RVBLR", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
         Boolean seperate_snps_indels = true
 
         # variant attributes on which to perform boosting
@@ -69,12 +69,12 @@ workflow ctat_mutations {
         Float star_fastq_disk_space_multiplier = 10
         Boolean star_use_ssd = false
         Int star_cpu = 12
-        String star_memory = "43G"
+        Float star_memory = 43
         Boolean output_unmapped_reads = false
 
         String haplotype_caller_args = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
         String haplotype_caller_args_for_extra_reads = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
-        String haplotype_caller_memory = "6.5G"
+        Float haplotype_caller_memory = 6.5
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
         String docker = "trinityctat/ctat_mutations:2.6.0-alpha.1"
@@ -84,8 +84,8 @@ workflow ctat_mutations {
 
         Boolean include_read_var_pos_annotations = true
         Int? read_var_pos_annotation_cpu
-        String mark_duplicates_memory = "8G"
-        String split_n_cigar_reads_memory = "14G"
+        Float mark_duplicates_memory = 8
+        Float split_n_cigar_reads_memory = 14
     }
 
     Boolean vcf_input = defined(vcf)
@@ -144,7 +144,7 @@ workflow ctat_mutations {
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"Variant calling boosting method", choices:["none", "RVBLR", "RF", "AdaBoost", "SGBoost", "GBoost"]}
+        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "RVBLR", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]}
         seperate_snps_indels:{help:"Run RVBLR boosting on INDELS and SNPs separately."}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
@@ -214,7 +214,6 @@ workflow ctat_mutations {
                 ref_fasta = ref_fasta,
                 extra_fasta = extra_fasta,
                 gatk_path = gatk_path,
-                memory = "2G",
                 docker = docker,
                 preemptible = preemptible
         }
@@ -286,7 +285,6 @@ workflow ctat_mutations {
         call CreateFastaIndex {
             input:
                 input_fasta = extra_fasta,
-                memory = "2G",
                 docker = docker,
                 gatk_path = gatk_path,
                 preemptible = preemptible
@@ -300,7 +298,6 @@ workflow ctat_mutations {
                 ref_name = basename(basename(ref_fasta, ".fa"), ".fasta"),
                 extra_fasta_index = CreateFastaIndex.fasta_index,
                 ref_fasta_index = ref_fasta_index,
-                memory = "2G",
                 docker = docker,
                 preemptible = preemptible
         }
@@ -333,8 +330,7 @@ workflow ctat_mutations {
                     scatter_count = variant_scatter_count,
                     docker = docker,
                     gatk_path = gatk_path,
-                    preemptible = preemptible,
-                    memory="2G"
+                    preemptible = preemptible
             }
             scatter (interval in SplitIntervals.interval_files) {
                 call HaplotypeCaller as HaplotypeCallerInterval {
@@ -419,7 +415,6 @@ workflow ctat_mutations {
                 plugins_path=plugins_path,
                 genome_version=genome_version,
                 docker = docker,
-                memory = "4G",
                 preemptible = preemptible
         }
 
@@ -456,7 +451,6 @@ workflow ctat_mutations {
                     scripts_path=scripts_path,
                     gatk_path = gatk_path,
                     docker = docker,
-                    memory = "2G",
                     preemptible = preemptible
             }
 
@@ -472,7 +466,6 @@ workflow ctat_mutations {
                         bam=bam_for_variant_calls,
                         bai=bai_for_variant_calls,
                         docker = docker,
-                        memory = "2G",
                         preemptible = preemptible
                 }
             }
@@ -513,7 +506,6 @@ task FilterCancerVariants {
 
         String base_name
         String docker
-        String memory
         Int preemptible
     }
 
@@ -536,7 +528,7 @@ task FilterCancerVariants {
 
         # Convert filtered VCF file to tab file.
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx1500m" \
         VariantsToTable \
         -R \
         ~{ref_fasta} \
@@ -566,7 +558,7 @@ task FilterCancerVariants {
     runtime {
         disks: "local-disk " + ceil((size(ref_fasta, "GB") * 3) + 30) + " HDD"
         docker: docker
-        memory: memory
+        memory: "2G"
         preemptible: preemptible
         cpu : 1
     }
@@ -589,7 +581,6 @@ task CancerVariantReport {
         File ref_bed
         String base_name
         String docker
-        String memory
         Int preemptible
     }
 
@@ -611,7 +602,7 @@ task CancerVariantReport {
     runtime {
         disks: "local-disk " + ceil((size(bam, "GB") * 3) + 30) + " HDD"
         docker: docker
-        memory: memory
+        memory: "2G"
         preemptible: preemptible
         cpu : 1
     }
@@ -655,7 +646,6 @@ task AnnotateVariants {
 
         Int? read_var_pos_annotation_cpu
         String docker
-        String memory
         Int preemptible
     }
     String vcf_extension = "vcf.gz"
@@ -685,9 +675,9 @@ task AnnotateVariants {
         # SnpEff
         if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ]; then
             OUT="~{base_name}.snpeff.vcf.gz" # does not gzip
-            mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
             bgzip -cd $VCF | \
-            java -Xmx$(echo $mem)m -jar ~{plugins_path}/snpEff.jar \
+            java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
             -nostats -noLof -no-downstream -no-upstream -noLog \
             ~{genome_version} > ~{base_name}.snpeff.tmp.vcf
 
@@ -905,7 +895,7 @@ task AnnotateVariants {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: memory
+        memory: "4G"
         preemptible: preemptible
         cpu : 1
     }
@@ -917,16 +907,17 @@ task MarkDuplicates {
         String base_name
         String gatk_path
         String docker
-        String memory
+        Float memory
         Int preemptible
     }
+    Int command_mem = ceil(memory*1000 - 500)
 
     command <<<
         set -e
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         MarkDuplicates \
         --INPUT ~{input_bam} \
         --OUTPUT ~{base_name}.bam  \
@@ -943,7 +934,7 @@ task MarkDuplicates {
     runtime {
         disks: "local-disk " + ceil(((size(input_bam, "GB") + 2) * 3.25)) + " HDD"
         docker: docker
-        memory: memory
+        memory: memory + "GB"
         preemptible: preemptible
     }
 
@@ -966,7 +957,7 @@ task AddOrReplaceReadGroups {
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx500m" \
         AddOrReplaceReadGroups \
         --INPUT ~{input_bam} \
         --OUTPUT ~{base_name}.sorted.bam \
@@ -1018,7 +1009,7 @@ task BaseRecalibrator {
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx3500m" \
         BaseRecalibrator \
         -R ~{ref_fasta} \
         -I ~{input_bam} \
@@ -1054,12 +1045,12 @@ task ApplyBQSR {
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
 
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx3000m" \
         PrintReads \
         -I ~{input_bam} \
         -O tmp.bam
 
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx3000m" \
         ApplyBQSR \
         --add-output-sam-program-record \
         -R ~{ref_fasta} \
@@ -1155,7 +1146,7 @@ task StarAlign {
         disks: "local-disk " + ceil(size(fastq1, "GB")*fastq_disk_space_multiplier + size(fastq2, "GB") * fastq_disk_space_multiplier + size(star_reference, "GB")*8 + extra_disk_space) + " " + (if use_ssd then "SSD" else "HDD")
         docker: docker
         cpu: cpu
-        memory: memory
+        memory: memory + "GB"
     }
 
 }
@@ -1192,7 +1183,7 @@ task MergeVCFs {
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
 
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx2000m" \
         MergeVcfs \
         -I ~{sep=" -I " input_vcfs} \
         -O ~{output_vcf_name}
@@ -1212,17 +1203,17 @@ task MergeFastas {
         File ref_fasta
         File? extra_fasta
         String docker
-        String memory
         Int preemptible
         String name
         String gatk_path
     }
 
+
     command <<<
         cat ~{ref_fasta} ~{extra_fasta} > ~{name}.fa
         samtools faidx ~{name}.fa
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx1500m" \
         CreateSequenceDictionary \
         -R ~{name}.fa
     >>>
@@ -1230,7 +1221,7 @@ task MergeFastas {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: memory
+        memory: "2G"
         disks: "local-disk " + ceil(10 + 2*size(ref_fasta, "GB"))  + " HDD"
         preemptible: preemptible
         cpu: 1
@@ -1247,7 +1238,6 @@ task CreateFastaIndex {
     input {
         File? input_fasta
         String docker
-        String memory
         Int preemptible
         String gatk_path
     }
@@ -1259,7 +1249,7 @@ task CreateFastaIndex {
         samtools faidx ~{fasta_basename}
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx1500m" \
         CreateSequenceDictionary \
         -R ~{fasta_basename} \
         -O ~{prefix_no_ext}.dict
@@ -1268,7 +1258,7 @@ task CreateFastaIndex {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: memory
+        memory: "2G"
         disks: "local-disk " + ceil(size(input_fasta, "GB")*2) + " HDD"
         preemptible: preemptible
         cpu: 1
@@ -1288,7 +1278,6 @@ task SplitReads {
         File ref_fasta_index
         File? extra_fasta_index
         String docker
-        String memory
         Int preemptible
         String extra_name
         String ref_name
@@ -1339,7 +1328,7 @@ task SplitReads {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: memory
+        memory: "2G"
         disks: "local-disk " + ceil(size(input_bam, "GB")*2 + size(extra_fasta_index, "GB")*2) + " HDD"
         preemptible: preemptible
         cpu: 1
@@ -1435,7 +1424,7 @@ task VariantFiltration {
 
         elif [ "$boosting_method" == "none" ]; then
             mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-            ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+            ~{gatk_path} --java-options "-Xmx2500m" \
             VariantFiltration \
             --R ~{ref_fasta} \
             --V ~{input_vcf} \
@@ -1449,7 +1438,7 @@ task VariantFiltration {
             --filter "SPLICEADJ < 3" \
             -O tmp.vcf
 
-            ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+            ~{gatk_path} --java-options "-Xmx2500m" \
             SelectVariants \
             --R ~{ref_fasta} \
             --V tmp.vcf \
@@ -1520,8 +1509,6 @@ task SplitIntervals {
         String docker
         Int preemptible
         String gatk_path
-        String memory
-
     }
 
     command <<<
@@ -1529,8 +1516,7 @@ task SplitIntervals {
         # monitor_script.sh &
 
         mkdir interval-files
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx1500m" \
         SplitIntervals \
         -R ~{ref_fasta} \
         -scatter ~{scatter_count} \
@@ -1543,7 +1529,7 @@ task SplitIntervals {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: memory
+        memory: "2G"
         disks: "local-disk " + ceil(size(ref_fasta, "GB")*2) + " HDD"
         preemptible: preemptible
         cpu: 1
@@ -1595,8 +1581,9 @@ task SplitNCigarReads {
         String gatk_path
         String docker
         Int preemptible
-        String memory
+        Float memory
     }
+    Int command_mem = ceil(memory*1000 - 500)
 
     output {
         File bam = "${base_name}.bam"
@@ -1608,7 +1595,7 @@ task SplitNCigarReads {
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
 
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         SplitNCigarReads \
         -R ~{ref_fasta} \
         -I ~{input_bam} \
@@ -1619,7 +1606,7 @@ task SplitNCigarReads {
     runtime {
         disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 5 + size(ref_fasta, "GB"))) + " HDD"
         docker: docker
-        memory: memory
+        memory: memory + "GB"
         preemptible: preemptible
     }
 }
@@ -1636,9 +1623,10 @@ task HaplotypeCaller {
         String gatk_path
         String docker
         Int preemptible
-        String memory
+        Float memory
         String? extra_args
     }
+    Int command_mem = ceil(memory*1000 - 500)
 
     output {
         File output_vcf = "${base_name}.vcf.gz"
@@ -1649,7 +1637,7 @@ task HaplotypeCaller {
         # monitor_script.sh &
 
         mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
-        ~{gatk_path} --java-options "-Xmx$(echo $mem)m" \
+        ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         HaplotypeCaller \
         -R ~{ref_fasta} \
         -I ~{input_bam} \
