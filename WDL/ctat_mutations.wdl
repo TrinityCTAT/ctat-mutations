@@ -54,7 +54,7 @@ workflow ctat_mutations {
         Int variant_filtration_cpu = 1
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "RVBLR", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
+        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
         Boolean seperate_snps_indels = true
 
         # variant attributes on which to perform boosting
@@ -144,8 +144,7 @@ workflow ctat_mutations {
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "RVBLR", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]}
-        seperate_snps_indels:{help:"Run RVBLR boosting on INDELS and SNPs separately."}
+        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"Variant attributes on which to perform boosting"}
@@ -429,7 +428,6 @@ workflow ctat_mutations {
                     ref_fasta_index = ref_fasta_index,
                     boosting_alg_type = boosting_alg_type,
                     boosting_method =boosting_method,
-                    seperate_snps_indels = seperate_snps_indels,
                     boosting_attributes=boosting_attributes,
                     boosting_score_threshold=boosting_score_threshold,
                     gatk_path = gatk_path,
@@ -1352,7 +1350,6 @@ task VariantFiltration {
         File ref_fasta_index
         String boosting_alg_type
         String boosting_method
-        Boolean seperate_snps_indels
         Array[String] boosting_attributes
         Float boosting_score_threshold
 
@@ -1376,7 +1373,6 @@ task VariantFiltration {
         # monitor_script.sh &
 
         boosting_method="~{boosting_method}"
-        seperate_snps_indels="~{seperate_snps_indels}"
 
         # if [ "$boosting_method" == "RVBLR" ]; then
         if [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" == "true" ]; then

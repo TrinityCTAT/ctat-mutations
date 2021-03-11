@@ -21,7 +21,6 @@ RUN apt-get -qq update && apt-get -qq -y install --no-install-recommends \
     make \
     pbzip2 \
     perl \
-    r-base \
     unzip \
     wget \
     zlib1g \
@@ -38,7 +37,6 @@ RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pand
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
-RUN R -e 'install.packages("gbm", repos="http://cran.us.r-project.org")'
 
 ## gatk
 WORKDIR $SRC
