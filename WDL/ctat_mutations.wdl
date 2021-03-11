@@ -527,7 +527,7 @@ task FilterCancerVariants {
         ~{base_name}.cancer.vcf
 
         # Convert filtered VCF file to tab file.
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx1500m" \
         VariantsToTable \
         -R \
@@ -916,7 +916,7 @@ task MarkDuplicates {
         set -e
         # monitor_script.sh &
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         MarkDuplicates \
         --INPUT ~{input_bam} \
@@ -956,7 +956,6 @@ task AddOrReplaceReadGroups {
         set -e
         # monitor_script.sh &
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
         ~{gatk_path} --java-options "-Xmx500m" \
         AddOrReplaceReadGroups \
         --INPUT ~{input_bam} \
@@ -1008,7 +1007,7 @@ task BaseRecalibrator {
         set -e
         # monitor_script.sh &
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx3500m" \
         BaseRecalibrator \
         -R ~{ref_fasta} \
@@ -1043,7 +1042,7 @@ task ApplyBQSR {
 
     command <<<
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
 
         ~{gatk_path} --java-options "-Xmx3000m" \
         PrintReads \
@@ -1181,7 +1180,7 @@ task MergeVCFs {
                 subprocess.check_call(['bcftools', 'index', input_vcf])
         CODE
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
 
         ~{gatk_path} --java-options "-Xmx2000m" \
         MergeVcfs \
@@ -1212,7 +1211,7 @@ task MergeFastas {
     command <<<
         cat ~{ref_fasta} ~{extra_fasta} > ~{name}.fa
         samtools faidx ~{name}.fa
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx1500m" \
         CreateSequenceDictionary \
         -R ~{name}.fa
@@ -1248,7 +1247,7 @@ task CreateFastaIndex {
         cp ~{input_fasta} ~{fasta_basename}
         samtools faidx ~{fasta_basename}
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx1500m" \
         CreateSequenceDictionary \
         -R ~{fasta_basename} \
@@ -1423,7 +1422,7 @@ task VariantFiltration {
                 bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
 
         elif [ "$boosting_method" == "none" ]; then
-            mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
             ~{gatk_path} --java-options "-Xmx2500m" \
             VariantFiltration \
             --R ~{ref_fasta} \
@@ -1593,7 +1592,7 @@ task SplitNCigarReads {
         set -e
         # monitor_script.sh &
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
 
         ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         SplitNCigarReads \
@@ -1636,7 +1635,7 @@ task HaplotypeCaller {
         set -e
         # monitor_script.sh &
 
-        mem=$(cat /proc/meminfo | grep MemAvailable | awk 'BEGIN { FS=" " } ; { print int($2/1000) }')
+
         ~{gatk_path} --java-options "-Xmx~{command_mem}m" \
         HaplotypeCaller \
         -R ~{ref_fasta} \
