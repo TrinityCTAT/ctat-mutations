@@ -794,9 +794,9 @@ def main():
 
     ## Extract vcf header
     if re.search("\.gz$", args.vcf):
-        vcf_lines = gzip.open(args.vcf, 'rt').readlines()
+        vcf_lines = gzip.open(args.vcf, 'rt', encoding='utf-8').readlines()
     else:
-        vcf_lines = open(args.vcf, 'r').readlines()
+        vcf_lines = open(args.vcf, 'r', encoding='utf-8').readlines()
 
     vcf_header = [line for line in vcf_lines if line.startswith('#')]
 
