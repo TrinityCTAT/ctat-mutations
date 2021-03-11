@@ -30,7 +30,12 @@ VERSION = "__BLEEDING_EDGE__"
 
 def is_in_path(path):
     try:
-        if subprocess.run(['which', path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).returncode != 0:
+        if (
+            subprocess.run(
+                ["which", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ).returncode
+            != 0
+        ):
             return False
     except:
         return False
@@ -42,34 +47,23 @@ def main():
         description="Performs mutation detection in RNA-Seq"
     )
 
-    parser.add_argument(
-        "--left",
-        help="Path to one of the two paired samples"
-    )
+    parser.add_argument("--left", help="Path to one of the two paired samples")
 
-    parser.add_argument(
-        "--right",
-        help="Path to one of the two paired samples"
-    )
+    parser.add_argument("--right", help="Path to one of the two paired samples")
 
     parser.add_argument(
         "--bam",
-        help="Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input."
+        help="Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input.",
     )
     parser.add_argument(
         "--vcf",
-        help="Previously generated vcf file to annotate and filter. When provided, the output from ApplyBQSR should be provided as the bam input."
+        help="Previously generated vcf file to annotate and filter. When provided, the output from ApplyBQSR should be provided as the bam input.",
     )
 
-    parser.add_argument(
-        "--sample_id",
-        required=True,
-        help="Sample id"
-    )
+    parser.add_argument("--sample_id", required=True, help="Sample id")
 
     parser.add_argument(
-        "--extra_fasta",
-        help="Extra genome to use in alignment and variant calling"
+        "--extra_fasta", help="Extra genome to use in alignment and variant calling"
     )
 
     parser.add_argument(
@@ -87,13 +81,24 @@ def main():
     parser.add_argument(
         "--sequencing_platform",
         default="ILLUMINA",
-        help="Sequencing platform used to generate the sample"
+        help="Sequencing platform used to generate the sample",
     )
 
     parser.add_argument(
         "--boosting_method",
         default="GBoost",
-        choices=["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"],
+        choices=[
+            "none",
+            "AdaBoost",
+            "GBoost",
+            "LR",
+            "NGBoost",
+            "RF",
+            "SGBoost",
+            "SVM_RBF",
+            "SVML",
+            "XGBoost",
+        ],
         help="Variant calling boosting method",
     )
 
@@ -128,9 +133,7 @@ def main():
         help="Number of CPUs to use for adding variant position in read annotation",
     )
     parser.add_argument(
-        "--star_cpu",
-        type=int,
-        help="Number of CPUs for STAR aligner",
+        "--star_cpu", type=int, help="Number of CPUs for STAR aligner",
     )
 
     parser.add_argument(
@@ -140,30 +143,32 @@ def main():
         help="Number of parallel variant caller jobs",
     )
     parser.add_argument(
-        "--no_cravat",
-        action="store_true",
-        help="Skips CRAVAT annotations",
+        "--no_cravat", action="store_true", help="Skips CRAVAT annotations",
     )
 
     parser.add_argument(
-        "--no_mark_duplicates",
-        action="store_true",
-        help="Do not mark duplicates"
+        "--no_mark_duplicates", action="store_true", help="Do not mark duplicates"
     )
 
     parser.add_argument(
-        "--version",
-        action="store_true",
-        help="Show version info: {}".format(VERSION),
+        "--version", action="store_true", help="Show version info: {}".format(VERSION),
     )
     parser.add_argument(
         "--gatk",
-        default='gatk',
+        default="gatk",
         help="Optional path to GATK when not running in a docker container",
     )
     parser.add_argument(
-        "--cromwell",
-        help="Optional path to cromwell jar file",
+        "--cromwell", help="Optional path to cromwell jar file",
+    )
+
+    parser.add_argument(
+        "-O",
+        "--outputdir",
+        type=str,
+        default=None,
+        dest="outputdir",
+        help="output directory",
     )
 
     # parser.add_argument(
@@ -201,6 +206,8 @@ def main():
     extra_fasta = args.extra_fasta
     read_var_pos_annotation_cpu = args.read_var_pos_annotation_cpu
     star_cpu = args.star_cpu
+    output_directory = args.outputdir
+
     # mark_duplicates_memory = args.mark_duplicates_memory
     # star_memory = args.star_memory
     # split_n_cigar_reads_memory = args.split_n_cigar_reads_memory
@@ -209,6 +216,15 @@ def main():
 
     if ctat_genome_lib_path is None or not os.path.exists(ctat_genome_lib_path):
         exit("Missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
+
+    if left is not None:
+        left = os.path.abspath(left)
+    if right is not None:
+        right = os.path.abspath(right)
+    if bam is not None:
+        bam = os.path.abspath(bam)
+    if vcf is not None:
+        vcf = os.path.abspath(vcf)
 
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
     if not os.path.exists(ctat_genome_lib_path):
@@ -219,7 +235,9 @@ def main():
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
-    ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
+    ctat_mutation_lib_path = os.path.abspath(
+        os.path.join(ctat_genome_lib_path, "ctat_mutation_lib")
+    )
     if not os.path.exists(ctat_mutation_lib_path):
         exit("ctat_mutation_lib at {} not found".format(ctat_mutation_lib_path))
     db_snp_vcf = os.path.join(ctat_mutation_lib_path, "dbsnp.vcf.gz")
@@ -229,87 +247,97 @@ def main():
     gnomad_vcf_index = os.path.join(ctat_mutation_lib_path, "gnomad-lite.vcf.gz.csi")
 
     rna_editing_vcf = os.path.join(ctat_mutation_lib_path, "RNAediting.library.vcf.gz")
-    rna_editing_vcf_index = os.path.join(ctat_mutation_lib_path, "RNAediting.library.vcf.gz.csi")
+    rna_editing_vcf_index = os.path.join(
+        ctat_mutation_lib_path, "RNAediting.library.vcf.gz.csi"
+    )
 
     cosmic_vcf = os.path.join(ctat_mutation_lib_path, "cosmic.vcf.gz")
     cosmic_vcf_index = os.path.join(ctat_mutation_lib_path, "cosmic.vcf.gz.csi")
 
     repeat_mask_bed = os.path.join(ctat_mutation_lib_path, "repeats_ucsc_gb.bed.gz")
-    ref_splice_adj_regions_bed = os.path.join(ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz")
+    ref_splice_adj_regions_bed = os.path.join(
+        ctat_mutation_lib_path, "ref_annot.splice_adj.bed.gz"
+    )
     ref_bed = os.path.join(ctat_mutation_lib_path, "refGene.sort.bed.gz")
 
     cravat_lib_directory = os.path.join(ctat_mutation_lib_path, "cravat")
 
     properties = os.path.join(ctat_mutation_lib_path, "properties.json")
     if not os.path.exists(properties):
-        exit("Cannot find properties.json file in {}/ctat_mutation_lib".format(ctat_genome_lib_path))
+        exit(
+            "Cannot find properties.json file in {}/ctat_mutation_lib".format(
+                ctat_genome_lib_path
+            )
+        )
 
     with open(properties, "rt") as pr:
         property_dict = json.load(pr)
     genome_version = property_dict["Genome_version"]
     input_json = {}
-    input_json['genome_version'] = genome_version
-    input_json['sample_id'] = sample_id
+    input_json["genome_version"] = genome_version
+    input_json["sample_id"] = sample_id
     if left is not None:
-        input_json['left'] = left
+        input_json["left"] = left
     if right is not None:
-        input_json['right'] = right
+        input_json["right"] = right
     if bam is not None:
-        input_json['bam'] = bam
+        input_json["bam"] = bam
         if not os.path.exists(bam):
-            raise ValueError('Bam not found')
-        for bai_path in [bam + '.bai', os.path.splitext(bam)[0] + '.bai']:
+            raise ValueError("Bam not found")
+        for bai_path in [bam + ".bai", os.path.splitext(bam)[0] + ".bai"]:
             if os.path.exists(bai_path):
-                input_json['bai'] = bai_path
+                input_json["bai"] = bai_path
                 break
-        if input_json.get('bai') is None:
-            raise ValueError('No bam index found')
+        if input_json.get("bai") is None:
+            raise ValueError("No bam index found")
     if vcf is not None:
-        input_json['vcf'] = vcf
+        input_json["vcf"] = vcf
     if extra_fasta is not None:
-        input_json['extra_fasta'] = extra_fasta
+        input_json["extra_fasta"] = extra_fasta
 
     if no_mark_duplicates:
-        input_json['mark_duplicates'] = False
+        input_json["mark_duplicates"] = False
     if read_var_pos_annotation_cpu is not None:
-        input_json['read_var_pos_annotation_cpu'] = read_var_pos_annotation_cpu
+        input_json["read_var_pos_annotation_cpu"] = read_var_pos_annotation_cpu
     if star_cpu is not None:
-        input_json['star_cpu'] = star_cpu
-    input_json['gtf'] = gtf
-    input_json['ref_dict'] = ref_dict
-    input_json['ref_fasta'] = ref_fasta
-    input_json['ref_fasta_index'] = ref_fasta_index
-    input_json['db_snp_vcf'] = db_snp_vcf
-    input_json['db_snp_vcf_index'] = db_snp_vcf_index
-    input_json['gnomad_vcf'] = gnomad_vcf
-    input_json['gnomad_vcf_index'] = gnomad_vcf_index
-    input_json['rna_editing_vcf'] = rna_editing_vcf
-    input_json['rna_editing_vcf_index'] = rna_editing_vcf_index
-    input_json['cosmic_vcf'] = cosmic_vcf
-    input_json['cosmic_vcf_index'] = cosmic_vcf_index
-    input_json['repeat_mask_bed'] = repeat_mask_bed
-    input_json['ref_splice_adj_regions_bed'] = ref_splice_adj_regions_bed
-    input_json['ref_bed'] = ref_bed
+        input_json["star_cpu"] = star_cpu
+    input_json["gtf"] = gtf
+    input_json["ref_dict"] = ref_dict
+    input_json["ref_fasta"] = ref_fasta
+    input_json["ref_fasta_index"] = ref_fasta_index
+    input_json["db_snp_vcf"] = db_snp_vcf
+    input_json["db_snp_vcf_index"] = db_snp_vcf_index
+    input_json["gnomad_vcf"] = gnomad_vcf
+    input_json["gnomad_vcf_index"] = gnomad_vcf_index
+    input_json["rna_editing_vcf"] = rna_editing_vcf
+    input_json["rna_editing_vcf_index"] = rna_editing_vcf_index
+    input_json["cosmic_vcf"] = cosmic_vcf
+    input_json["cosmic_vcf_index"] = cosmic_vcf_index
+    input_json["repeat_mask_bed"] = repeat_mask_bed
+    input_json["ref_splice_adj_regions_bed"] = ref_splice_adj_regions_bed
+    input_json["ref_bed"] = ref_bed
     if not no_cravat and cravat_lib_directory is not None:
-        input_json['cravat_lib_dir'] = cravat_lib_directory
-    input_json['star_reference_dir'] = star_reference
-    input_json['filter_cancer_variants'] = True
-    input_json['apply_bqsr'] = not no_bqsr
-    input_json['boosting_alg_type'] = boosting_alg_type
-    input_json['boosting_method'] = boosting_method
-    input_json['boosting_attributes'] = boosting_attributes.split(',')
-    input_json['boosting_score_threshold'] = boosting_score_threshold
-    input_json['sequencing_platform'] = sequencing_platform
-    input_json['docker'] = 'a/b'  # hack to make cromwell happy
-    input_json['variant_scatter_count'] = variant_scatter_count
+        input_json["cravat_lib_dir"] = cravat_lib_directory
+    input_json["star_reference_dir"] = star_reference
+    input_json["filter_cancer_variants"] = True
+    input_json["apply_bqsr"] = not no_bqsr
+    input_json["boosting_alg_type"] = boosting_alg_type
+    input_json["boosting_method"] = boosting_method
+    input_json["boosting_attributes"] = boosting_attributes.split(",")
+    input_json["boosting_score_threshold"] = boosting_score_threshold
+    input_json["sequencing_platform"] = sequencing_platform
+    input_json["docker"] = "a/b"  # hack to make cromwell happy
+    input_json["variant_scatter_count"] = variant_scatter_count
 
-    input_json['include_read_var_pos_annotations'] = not no_include_read_var_pos_annotations
+    input_json[
+        "include_read_var_pos_annotations"
+    ] = not no_include_read_var_pos_annotations
     if gatk_path is not None:
-        input_json['gatk_path'] = gatk_path
+        input_json["gatk_path"] = gatk_path
     if not is_in_path(gatk_path):
-        exit('GATK not found')
-    if not is_in_path('pblat'):
-        exit('pblat not found')
+        exit("GATK not found")
+    if not is_in_path("pblat"):
+        exit("pblat not found")
 
     # if mark_duplicates_memory is not None:
     #     input_json['mark_duplicates_memory'] = mark_duplicates_memory
@@ -320,31 +348,87 @@ def main():
     # if star_memory is not None:
     #     input_json['star_memory'] = star_memory
 
-
-    _, json_file = tempfile.mkstemp(suffix='.json')
+    _, json_file = tempfile.mkstemp(suffix=".json")
     base_dir = os.path.dirname(os.path.realpath(__file__))
-    scripts_dir = os.path.join(base_dir, 'src')
-    plugins_dir = os.path.join(base_dir, 'plugins')
-    input_json['plugins_path'] = plugins_dir
-    input_json['scripts_path'] = scripts_dir
-    wdl_dir = os.path.join(base_dir, 'WDL')
-    cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-57.jar')
+    scripts_dir = os.path.join(base_dir, "src")
+    plugins_dir = os.path.join(base_dir, "plugins")
+    input_json["plugins_path"] = plugins_dir
+    input_json["scripts_path"] = scripts_dir
+    wdl_dir = os.path.join(base_dir, "WDL")
+    cromwell_jar = (
+        cromwell if cromwell is not None else os.path.join(wdl_dir, "cromwell-57.jar")
+    )
     if not os.path.exists(cromwell_jar):
-        exit('Cromwell jar file not found. Please run download_cromwell.sh to download.')
-    cromwell_conf = os.path.join(wdl_dir, 'local_provider_config.inc.conf')
+        exit(
+            "Cromwell jar file not found. Please run download_cromwell.sh to download."
+        )
+    cromwell_conf = os.path.join(wdl_dir, "local_provider_config.inc.conf")
     if not os.path.exists(cromwell_conf):
-        exit('Cromwell configuration not found')
+        exit("Cromwell configuration not found")
+
+    if output_directory is not None:
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+        os.chdir(output_directory)
+
     input_json_with_prefix = {}
     for key in input_json:
-        input_json_with_prefix['ctat_mutations.{}'.format(key)] = input_json[key]
-    with open(json_file, 'wt') as out:
+        input_json_with_prefix["ctat_mutations.{}".format(key)] = input_json[key]
+    with open(json_file, "wt") as out:
         out.write(json.dumps(input_json_with_prefix))
-    cromwell_args = ['java', '-Dconfig.file={}'.format(cromwell_conf), '-jar',
-                     cromwell_jar, 'run', '-i', json_file,
-                     os.path.join(wdl_dir, 'ctat_mutations.wdl')]
+    cromwell_args = [
+        "java",
+        "-Dconfig.file={}".format(cromwell_conf),
+        "-jar",
+        cromwell_jar,
+        "run",
+        "-i",
+        json_file,
+        os.path.join(wdl_dir, "ctat_mutations.wdl"),
+    ]
 
     subprocess.run(cromwell_args)
     os.remove(json_file)
+
+    # capture final outputs of interest
+    output_files = (
+        subprocess.check_output("find ./cromwell-executions -type f", shell=True)
+        .decode()
+        .split("\n")
+    )
+
+    for output_file in output_files:
+        if (
+            re.search(
+                "/execution/.*HC_standard.*(sortedByCoord.out|dedupped|bqsr).bam(.bai)?$",
+                output_file,
+            )
+            or re.search(
+                "/call-AnnotateVariants/execution/.*.HC_standard.annotated", output_file
+            )
+            or re.search(
+                "/call-VariantFiltration/execution/.*.HC_standard.filtered.vcf.gz$",
+                output_file,
+            )
+            or re.search(
+                "call-FilterCancerVariants/execution/.*.HC_standard.cancer.tsv$",
+                output_file,
+            )
+            or re.search(
+                "call-CancerVariantReport/execution/.*.HC_standard.cancer.igvjs_viewer.html$",
+                output_file,
+            )
+            or re.search(
+                "call-FilterCancerVariants/execution/.*.HC_standard.cancer.vcf$",
+                output_file,
+            )
+            or re.search(
+                "call-StarAlign/execution/example.HC_standard.star.SJ.out.tab$",
+                output_file,
+            )
+        ):
+
+            subprocess.check_call("ln -sf {} .".format(output_file), shell=True)
 
 
 if __name__ == "__main__":
