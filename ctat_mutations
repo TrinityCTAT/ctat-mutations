@@ -63,32 +63,11 @@ def main():
         help="Extra genome to use in alignment and variant calling"
     )
 
-    # Resources
     parser.add_argument(
         "--genome_lib_dir",
         default=os.environ.get("CTAT_GENOME_LIB"),
         help="Genome lib directory - see http://FusionFilter.github.io for details. Uses env variable CTAT_GENOME_LIB as default",
     )
-
-    # parser.add_argument(
-    #     "--reference",
-    #     help="Path to the reference genome to use in the analysis pipeline.",
-    # )
-    #
-    # parser.add_argument(
-    #     "--dbsnp_vcf",
-    #     help="dbsnp vcf file for the reference genome.",
-    # )
-    #
-    # parser.add_argument(
-    #     "--ref_bed",
-    #     help="Bed file for reference genome, required only if making the mutation inspector json. If given the json file will be made. Please make sure the bed file is indexed and that bed.idx file is in the same folder with the same file basename as the related bed file.",
-    # )
-    #
-    # parser.add_argument(
-    #     "--cosmic_vcf",
-    #     help="Coding Cosmic Mutation VCF annotated with Phenotype Information",
-    # )
 
     parser.add_argument(
         "--no_bqsr",
@@ -101,13 +80,6 @@ def main():
         default="ILLUMINA",
         help="Sequencing platform used to generate the sample"
     )
-
-    # parser.add_argument(
-    #     "--plot",
-    #     dest="f_optional_recalibration_plot",
-    #     default=False,
-    #     help="Turns off plotting recalibration of alignments.",
-    # )
 
     parser.add_argument(
         "--boosting_method",
@@ -169,11 +141,6 @@ def main():
         action="store_true",
         help="Skips CRAVAT annotations",
     )
-    # parser.add_argument(
-    #     "--docker",
-    #     required=True,
-    #     help="Docker or singularity image",
-    # )
 
     parser.add_argument(
         "--no_mark_duplicates",
@@ -188,7 +155,8 @@ def main():
     )
     parser.add_argument(
         "--gatk",
-        help="Optional path to GATK when not running in a container",
+        default='gatk',
+        help="Optional path to GATK when not running in a docker container",
     )
     parser.add_argument(
         "--cromwell",
@@ -237,9 +205,12 @@ def main():
     if left is None and bam is None:
         exit("Either FASTQ files or a previously aligned bam file must be provided.")
 
-    if not ctat_genome_lib_path:
-        exit("Error, missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
+    if ctat_genome_lib_path is None or not os.path.exists(ctat_genome_lib_path):
+        exit("Missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
+
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
+    if not os.path.exists(ctat_genome_lib_path):
+        exit("CTAT_GENOME_LIB at {} not found".format(ctat_genome_lib_path))
     gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
     ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
     ref_fasta = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
@@ -247,7 +218,8 @@ def main():
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
     ctat_mutation_lib_path = os.path.abspath(os.path.join(ctat_genome_lib_path, "ctat_mutation_lib"))
-
+    if not os.path.exists(ctat_mutation_lib_path):
+        exit("ctat_mutation_lib at {} not found".format(ctat_mutation_lib_path))
     db_snp_vcf = os.path.join(ctat_mutation_lib_path, "dbsnp.vcf.gz")
     db_snp_vcf_index = os.path.join(ctat_mutation_lib_path, "dbsnp.vcf.gz.tbi")
 
@@ -334,6 +306,11 @@ def main():
     input_json['include_read_var_pos_annotations'] = not no_include_read_var_pos_annotations
     if gatk_path is not None:
         input_json['gatk_path'] = gatk_path
+    try:
+        if subprocess.run([gatk_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).returncode != 0:
+            exit('GATK not found')
+    except:
+        exit('GATK not found')
 
     # if mark_duplicates_memory is not None:
     #     input_json['mark_duplicates_memory'] = mark_duplicates_memory
@@ -353,7 +330,11 @@ def main():
     input_json['scripts_path'] = scripts_dir
     wdl_dir = os.path.join(base_dir, 'WDL')
     cromwell_jar = cromwell if cromwell is not None else os.path.join(wdl_dir, 'cromwell-57.jar')
+    if not os.path.exists(cromwell_jar):
+        exit('Cromwell jar file not found. Please run download_cromwell.sh to download.')
     cromwell_conf = os.path.join(wdl_dir, 'local_provider_config.inc.conf')
+    if not os.path.exists(cromwell_conf):
+        exit('Cromwell configuration not found')
     input_json_with_prefix = {}
     for key in input_json:
         input_json_with_prefix['ctat_mutations.{}'.format(key)] = input_json[key]
