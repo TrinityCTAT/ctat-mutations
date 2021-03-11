@@ -32,6 +32,11 @@ library(gbm)
 
 data = read.table(input_matrix, header=T, row.names=1, stringsAsFactors = FALSE)
 
+# Remove GT_1/2 if it is not present in the features
+if (!("GT_1/2" %in% colnames(data))){
+    attributes = attributes[attributes != "GT_1/2"]
+}
+
 if (! all(attributes %in% colnames(data))) {
     missing_atts = attributes[ ! attributes %in% colnames(data) ]
     stop(paste("Error, missing attributes in data matrix:", missing_atts, sep=","))
