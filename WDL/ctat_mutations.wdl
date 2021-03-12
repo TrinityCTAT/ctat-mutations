@@ -1602,7 +1602,7 @@ task HaplotypeCaller {
     >>>
     runtime {
         docker: docker
-        memory: memory
+        memory: memory + "GB"
         disks: "local-disk " + ceil((size(input_bam, "GB") * 2) + 30) + " HDD"
         preemptible: preemptible
     }
