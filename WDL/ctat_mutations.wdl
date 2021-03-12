@@ -417,12 +417,16 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
 
+
+        String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
+
+        
         if(filter_variants) {
             call VariantFiltration {
                 input:
                     input_vcf = AnnotateVariants.vcf,
                     input_vcf_index = AnnotateVariants.vcf_index,
-                    base_name = sample_id,
+                    base_name = base_name,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
@@ -442,7 +446,7 @@ workflow ctat_mutations {
             call FilterCancerVariants {
                 input:
                     input_vcf = select_first([VariantFiltration.vcf, AnnotateVariants.vcf]),
-                    base_name = sample_id,
+                    base_name = base_name,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     ref_dict = ref_dict,
@@ -456,7 +460,7 @@ workflow ctat_mutations {
                 call CancerVariantReport {
                     input:
                         input_vcf = FilterCancerVariants.cancer_vcf,
-                        base_name = sample_id,
+                        base_name = base_name,
                         ref_fasta = ref_fasta,
                         ref_fasta_index = ref_fasta_index,
                         ref_dict = ref_dict,
@@ -1358,14 +1362,12 @@ task VariantFiltration {
         String docker
         Int preemptible
         Int cpu
-
     }
-    String output_name = "~{base_name}.filtered.vcf.gz"
+    
+    String output_name = if (boosting_method == "none") then "~{base_name}.filtered.vcf.gz" else "~{base_name}.vcf.gz"
     String boost_tmp = "~{boosting_method}_filtered.vcf"
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
-    String ctat_boost_output_indels = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_indels.vcf.gz"
-    String ctat_rvblr_output_snp = "~{boosting_method}_ctat_boosting_snps.vcf.gz"
-    String ctat_rvblr_output_indels = "~{boosting_method}_ctat_boosting_indels.vcf.gz"
+    String ctat_boost_output_indels = "~{boosting_method}_regressor_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
     command <<<
@@ -1374,50 +1376,7 @@ task VariantFiltration {
 
         boosting_method="~{boosting_method}"
 
-        # if [ "$boosting_method" == "RVBLR" ]; then
-        if [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" == "true" ]; then
-            # Run RVBLR on SNPs and INDELs seprately then combine the filtered results together
-
-            mkdir boost
-
-            # Split the input vcf into indels and snps
-            ~{scripts_path}/separate_snps_indels.py \
-            --vcf ~{input_vcf} \
-            --outdir boost
-
-            ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper_separate.py \
-            --input_vcf_snp boost/variants.HC_init.wAnnot.snps.vcf.gz \
-            --input_vcf_indel boost/variants.HC_init.wAnnot.indels.vcf.gz \
-            --attributes ~{sep=',' boosting_attributes} \
-            --work_dir boost \
-            --score_threshold ~{boosting_score_threshold}
-
-            ls boost/*.vcf | xargs -n1 bgzip -f
-
-            cp boost/~{ctat_rvblr_output_snp} .
-            cp boost/~{ctat_rvblr_output_indels} .
-
-            tabix ~{ctat_rvblr_output_snp}
-            tabix ~{ctat_rvblr_output_indels}
-
-            bcftools merge ~{ctat_rvblr_output_snp} ~{ctat_rvblr_output_indels} -Oz  -o ~{output_name} --force-samples
-
-        elif [ "$boosting_method" == "RVBLR" ] && [ "$seperate_snps_indels" != "true" ]; then
-            # Run RVBLR with SNPs and INDELs combined
-
-                mkdir boost
-
-                # Run indels and snps together
-                ~{scripts_path}/VariantBoosting/RVBoostLikeR/RVBoostLikeR_wrapper.py \
-                --input_vcf ~{input_vcf} \
-                --attributes ~{sep=',' boosting_attributes} \
-                --work_dir boost \
-                --score_threshold ~{boosting_score_threshold} \
-                --output_filename ~{base_name}.filtered.vcf
-
-                bgzip -c ~{base_name}.filtered.vcf > ~{output_name}
-
-        elif [ "$boosting_method" == "none" ]; then
+        if [ "$boosting_method" == "none" ]; then
 
             ~{gatk_path} --java-options "-Xmx2500m" \
             VariantFiltration \
@@ -1448,12 +1407,13 @@ task VariantFiltration {
             --vcf ~{input_vcf} \
             --outdir boost
 
+            # always using regressor for indels as per ctat mutations paper and evaluations
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
             --out boost \
             --model ~{boosting_method} \
-            --predictor ~{boosting_alg_type} \
+            --predictor regressor \
             --indels
 
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
