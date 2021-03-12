@@ -411,7 +411,15 @@ def main():
                 output_file,
             )
             or re.search(
+                "/call-VariantFiltration/execution/.*.boosting.*-(classifier|regressor).vcf.gz$",
+                output_file,
+            )
+            or re.search(
                 "call-FilterCancerVariants/execution/.*.HC_standard.cancer.tsv$",
+                output_file,
+            )
+            or re.search(
+                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor).cancer.tsv$",
                 output_file,
             )
             or re.search(
@@ -419,7 +427,15 @@ def main():
                 output_file,
             )
             or re.search(
+                "call-CancerVariantReport/execution/.*.boosting.*-(classifier|regressor).cancer.igvjs_viewer.html$",
+                output_file,
+            )
+            or re.search(
                 "call-FilterCancerVariants/execution/.*.HC_standard.cancer.vcf$",
+                output_file,
+            )
+            or re.search(
+                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor).cancer.vcf$",
                 output_file,
             )
             or re.search(
