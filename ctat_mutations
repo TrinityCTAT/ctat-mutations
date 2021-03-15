@@ -3,7 +3,6 @@
 
 
 import os
-import re
 import subprocess
 import tempfile
 
@@ -166,10 +165,8 @@ def main():
     parser.add_argument(
         "-O",
         "--outputdir",
-        type=str,
-        default=None,
         dest="outputdir",
-        help="output directory",
+        help="Output directory",
     )
 
     # parser.add_argument(
@@ -350,16 +347,22 @@ def main():
     #     input_json['star_memory'] = star_memory
 
     _, json_file = tempfile.mkstemp(suffix=".json")
+    _, meta_file = tempfile.mkstemp(suffix=".json")
     base_dir = os.path.dirname(os.path.realpath(__file__))
     scripts_dir = os.path.join(base_dir, "src")
     plugins_dir = os.path.join(base_dir, "plugins")
     input_json["plugins_path"] = plugins_dir
     input_json["scripts_path"] = scripts_dir
     wdl_dir = os.path.join(base_dir, "WDL")
-    cromwell_jar = (
-            cromwell if cromwell is not None else os.path.join(wdl_dir, "cromwell-57.jar")
-    )
-    if not os.path.exists(cromwell_jar):
+    cromwell_jar = None
+    if cromwell is None:
+        for f in os.listdir(wdl_dir):
+            if f.startswith('cromwell-') and f.endswith('.jar'):
+                cromwell_jar = os.path.join(wdl_dir, f)
+                break
+    else:
+        cromwell_jar = os.path.abspath(cromwell)
+    if cromwell_jar is None or not os.path.exists(cromwell_jar):
         exit(
             "Cromwell jar file not found. Please run download_cromwell.sh to download."
         )
@@ -367,10 +370,8 @@ def main():
     if not os.path.exists(cromwell_conf):
         exit("Cromwell configuration not found")
 
-    if output_directory is not None:
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
-        os.chdir(output_directory)
+    if output_directory is not None and not os.path.exists(output_directory):
+        os.makedirs(output_directory)
 
     input_json_with_prefix = {}
     for key in input_json:
@@ -385,34 +386,23 @@ def main():
             "run",
             "-i",
             json_file,
+            '-m',
+            meta_file,
             os.path.join(wdl_dir, "ctat_mutations.wdl"),
     ]
 
-    subprocess.run(cromwell_args)
+    subprocess.run(cromwell_args, cwd=output_directory)
     os.remove(json_file)
-
-    # capture final outputs of interest
-    output_files = (
-            subprocess.check_output("find ./cromwell-executions -type f", shell=True)
-                .decode()
-                .split("\n")
-    )
-
-    patterns = ["/execution/.*HC_standard.*(sortedByCoord.out|dedupped|bqsr .bam(.bai ?$",
-                "/call-AnnotateVariants/execution/.*.HC_standard.annotated",
-                "/call-VariantFiltration/execution/.*.HC_standard.filtered.vcf.gz$",
-                "/call-VariantFiltration/execution/.*.boosting.*-(classifier|regressor .vcf.gz$",
-                "call-FilterCancerVariants/execution/.*.HC_standard.cancer.tsv$",
-                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor .cancer.tsv$",
-                "call-CancerVariantReport/execution/.*.HC_standard.cancer.igvjs_viewer.html$",
-                "call-CancerVariantReport/execution/.*.boosting.*-(classifier|regressor .cancer.igvjs_viewer.html$",
-                "call-FilterCancerVariants/execution/.*.HC_standard.cancer.vcf$",
-                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor .cancer.vcf$",
-                "call-StarAlign/execution/example.HC_standard.star.SJ.out.tab$"]
-    for output_file in output_files:
-        for p in patterns:
-            if re.search(p, output_file):
-                subprocess.check_call("ln -sf {} .".format(output_file), shell=True)
+    with open(meta_file, 'rt', encoding='UTF-8') as f:
+        metadata = json.load(f)
+    os.remove(meta_file)
+    if 'outputs' in metadata:
+        outputs = metadata['outputs']
+        for key in outputs:
+            path = outputs[key]
+            if path is not None and os.path.exists(path):
+                name = os.path.basename(path)
+                os.symlink(path, name if output_directory is None else os.path.join(output_directory, name))
 
 
 if __name__ == "__main__":
