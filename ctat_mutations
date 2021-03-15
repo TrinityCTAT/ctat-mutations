@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-import re, os
+import os
+import re
 import subprocess
 import tempfile
 
@@ -31,10 +32,10 @@ VERSION = "__BLEEDING_EDGE__"
 def is_in_path(path):
     try:
         if (
-            subprocess.run(
-                ["which", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-            ).returncode
-            != 0
+                subprocess.run(
+                    ["which", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                ).returncode
+                != 0
         ):
             return False
     except:
@@ -88,16 +89,16 @@ def main():
         "--boosting_method",
         default="GBoost",
         choices=[
-            "none",
-            "AdaBoost",
-            "GBoost",
-            "LR",
-            "NGBoost",
-            "RF",
-            "SGBoost",
-            "SVM_RBF",
-            "SVML",
-            "XGBoost",
+                "none",
+                "AdaBoost",
+                "GBoost",
+                "LR",
+                "NGBoost",
+                "RF",
+                "SGBoost",
+                "SVM_RBF",
+                "SVML",
+                "XGBoost",
         ],
         help="Variant calling boosting method",
     )
@@ -356,7 +357,7 @@ def main():
     input_json["scripts_path"] = scripts_dir
     wdl_dir = os.path.join(base_dir, "WDL")
     cromwell_jar = (
-        cromwell if cromwell is not None else os.path.join(wdl_dir, "cromwell-57.jar")
+            cromwell if cromwell is not None else os.path.join(wdl_dir, "cromwell-57.jar")
     )
     if not os.path.exists(cromwell_jar):
         exit(
@@ -377,14 +378,14 @@ def main():
     with open(json_file, "wt") as out:
         out.write(json.dumps(input_json_with_prefix))
     cromwell_args = [
-        "java",
-        "-Dconfig.file={}".format(cromwell_conf),
-        "-jar",
-        cromwell_jar,
-        "run",
-        "-i",
-        json_file,
-        os.path.join(wdl_dir, "ctat_mutations.wdl"),
+            "java",
+            "-Dconfig.file={}".format(cromwell_conf),
+            "-jar",
+            cromwell_jar,
+            "run",
+            "-i",
+            json_file,
+            os.path.join(wdl_dir, "ctat_mutations.wdl"),
     ]
 
     subprocess.run(cromwell_args)
@@ -392,59 +393,26 @@ def main():
 
     # capture final outputs of interest
     output_files = (
-        subprocess.check_output("find ./cromwell-executions -type f", shell=True)
-        .decode()
-        .split("\n")
+            subprocess.check_output("find ./cromwell-executions -type f", shell=True)
+                .decode()
+                .split("\n")
     )
 
-    for output_file in output_files:
-        if (
-            re.search(
-                "/execution/.*HC_standard.*(sortedByCoord.out|dedupped|bqsr).bam(.bai)?$",
-                output_file,
-            )
-            or re.search(
-                "/call-AnnotateVariants/execution/.*.HC_standard.annotated", output_file
-            )
-            or re.search(
+    patterns = ["/execution/.*HC_standard.*(sortedByCoord.out|dedupped|bqsr .bam(.bai ?$",
+                "/call-AnnotateVariants/execution/.*.HC_standard.annotated",
                 "/call-VariantFiltration/execution/.*.HC_standard.filtered.vcf.gz$",
-                output_file,
-            )
-            or re.search(
-                "/call-VariantFiltration/execution/.*.boosting.*-(classifier|regressor).vcf.gz$",
-                output_file,
-            )
-            or re.search(
+                "/call-VariantFiltration/execution/.*.boosting.*-(classifier|regressor .vcf.gz$",
                 "call-FilterCancerVariants/execution/.*.HC_standard.cancer.tsv$",
-                output_file,
-            )
-            or re.search(
-                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor).cancer.tsv$",
-                output_file,
-            )
-            or re.search(
+                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor .cancer.tsv$",
                 "call-CancerVariantReport/execution/.*.HC_standard.cancer.igvjs_viewer.html$",
-                output_file,
-            )
-            or re.search(
-                "call-CancerVariantReport/execution/.*.boosting.*-(classifier|regressor).cancer.igvjs_viewer.html$",
-                output_file,
-            )
-            or re.search(
+                "call-CancerVariantReport/execution/.*.boosting.*-(classifier|regressor .cancer.igvjs_viewer.html$",
                 "call-FilterCancerVariants/execution/.*.HC_standard.cancer.vcf$",
-                output_file,
-            )
-            or re.search(
-                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor).cancer.vcf$",
-                output_file,
-            )
-            or re.search(
-                "call-StarAlign/execution/example.HC_standard.star.SJ.out.tab$",
-                output_file,
-            )
-        ):
-
-            subprocess.check_call("ln -sf {} .".format(output_file), shell=True)
+                "call-FilterCancerVariants/execution/.*.boosting.*-(classifier|regressor .cancer.vcf$",
+                "call-StarAlign/execution/example.HC_standard.star.SJ.out.tab$"]
+    for output_file in output_files:
+        for p in patterns:
+            if re.search(p, output_file):
+                subprocess.check_call("ln -sf {} .".format(output_file), shell=True)
 
 
 if __name__ == "__main__":
