@@ -400,7 +400,7 @@ def main():
         outputs = metadata['outputs']
         for key in outputs:
             path = outputs[key]
-            if path is not None and os.path.exists(path):
+            if path is not None and isinstance(path, str) and os.path.exists(path):
                 name = os.path.basename(path)
                 os.symlink(path, name if output_directory is None else os.path.join(output_directory, name))
 
