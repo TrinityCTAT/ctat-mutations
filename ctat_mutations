@@ -402,7 +402,10 @@ def main():
             path = outputs[key]
             if path is not None and isinstance(path, str) and os.path.exists(path):
                 name = os.path.basename(path)
-                os.symlink(path, name if output_directory is None else os.path.join(output_directory, name))
+                dst = name if output_directory is None else os.path.join(output_directory, name)
+                if os.path.exists(dst):
+                    os.remove(dst)
+                os.symlink(path, dst)
 
 
 if __name__ == "__main__":
