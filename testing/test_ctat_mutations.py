@@ -22,7 +22,7 @@ def test_boosting(boosting_method, boosting_alg_type, tmp_path):
     check_output(tmp_path)
 
 
-# test the full pipeline with fastq input and diff with known good output
+# test the full pipeline with fastq input
 def test_fastqs(tmp_path):
     tmp_path = str(tmp_path)
     check_call(
@@ -32,7 +32,7 @@ def test_fastqs(tmp_path):
     check_output(tmp_path)
 
 
-# test the full pipeline with single fastq input and diff with known good output
+# test the full pipeline with single fastq input
 def test_single_fastq(tmp_path):
     tmp_path = str(tmp_path)
     check_call(
