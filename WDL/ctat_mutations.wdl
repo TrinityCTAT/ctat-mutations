@@ -16,7 +16,7 @@ workflow ctat_mutations {
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File? gtf
+        File gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -420,7 +420,7 @@ workflow ctat_mutations {
 
         String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
 
-        
+
         if(filter_variants) {
             call VariantFiltration {
                 input:
@@ -1363,7 +1363,7 @@ task VariantFiltration {
         Int preemptible
         Int cpu
     }
-    
+
     String output_name = if (boosting_method == "none") then "~{base_name}.filtered.vcf.gz" else "~{base_name}.vcf.gz"
     String boost_tmp = "~{boosting_method}_filtered.vcf"
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
