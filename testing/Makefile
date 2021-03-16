@@ -5,14 +5,14 @@ all: HC_standard  HC_SE_Reads  BOOSTING_ALL
 ## HaplotypeCaller tests
 
 HC_standard:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard
 
 HC_standard_single_thread:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1 -O example.HC_standard.onethread
 
 ## Using single-end reads:
 HC_SE_Reads:
-	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE
+	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE
 
 
 ## Docker and Singularity
@@ -30,11 +30,11 @@ HC_standard_singularity:
 ## (be sure to use the corresponding hg19 or GRCh38 ctat genome lib!!! (or it'll crash)
 
 kickstart_vcf_hg19:
-	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.hg19.bam  --vcf __misc_data/variants.hg19.vcf --sample_id example.vcf_hg19
+	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.hg19.bam  --vcf __misc_data/variants.hg19.vcf --sample_id example.vcf_hg19 -O example.vcf_hg19
 
 
 kickstart_vcf_GRCh38:
-	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --vcf __misc_data/variants.GRCh38.vcf --sample_id example.vcf_GRCh38
+	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --vcf __misc_data/variants.GRCh38.vcf --sample_id example.vcf_GRCh38 -O example.vcf_GRCh38
 
 
 ####################
@@ -90,7 +90,7 @@ boosting_vcf_target = ctat_mutation_ext_testdata/SRR5665260.gatk_HC.hg.chr1.raw.
 # run default classifier alg type
 
 BOOSTING_PREP: ctat_mutation_ext_testdata
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --sample_id example.boosting 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --sample_id example.boosting  -O example.boosting
 
 
 ctat_mutation_ext_testdata:
@@ -99,31 +99,31 @@ ctat_mutation_ext_testdata:
 	gunzip ctat_mutation_ext_testdata/bmark_resource/giab_reference_calls.high_conf_regions.chr1.vcf.gz
 
 SGBoost_GRCh38: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SGBoost --sample_id example.boosting 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SGBoost --sample_id example.boosting -O example.boosting 
 
 AdaBoost_GRCh38: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method AdaBoost --sample_id example.boosting 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method AdaBoost --sample_id example.boosting -O example.boosting 
 
 RF_GRCh38: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting -O example.boosting 
 
 GBoost_GRCh38: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting -O example.boosting 
 
 
 ## run regressor
 
 SGBoost_GRCh38_regress: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SGBoost --sample_id example.boosting --boosting_alg_type regressor 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SGBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
 
 AdaBoost_GRCh38_regress: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method AdaBoost --sample_id example.boosting --boosting_alg_type regressor 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method AdaBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
 
 RF_GRCh38_regress: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting --boosting_alg_type regressor 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
 
 GBoost_GRCh38_regress: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting --boosting_alg_type regressor 
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
 
 
 
