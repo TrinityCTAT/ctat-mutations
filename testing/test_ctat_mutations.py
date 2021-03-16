@@ -11,18 +11,6 @@ def check_output(path):
     shutil.rmtree(path)
 
 
-def test_benchmarking(tmp_path):
-    tmp_path = str(tmp_path)
-    if not os.path.exists('../CTAT-benchmarking'):
-        raise ValueError(
-            'Please clone https://github.com/broadinstitute/CTAT-benchmarking.git to ' + os.path.abspath('..'))
-    check_call([os.path.abspath('../CTAT-benchmarking/CTAT-mutation-benchmarking/BENCHMARK_variant_calling.py'),
-                '--pred_vcf', os.path.abspath('testing/reads_output/test.vcf.gz'), '--truth_vcf',
-                os.path.abspath('testing/reads_output/test.filtered.vcf.gz'), '--pred_bam',
-                os.path.abspath('testing/reads_output/test.bqsr.bam'), '--output_dir', 'out'], cwd=tmp_path)
-    check_output(tmp_path)
-
-
 # test all pairwise combinations of boosting method and alg type to ensure they run successfully
 def test_boosting(boosting_method, boosting_alg_type, tmp_path):
     tmp_path = str(tmp_path)
