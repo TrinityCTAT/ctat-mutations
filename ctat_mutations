@@ -127,13 +127,9 @@ def main():
         action="store_true",
         help="Do not include variant position in read annotations (debugging/troubleshooting purposes only) Removes: VPR,VAF,VMMF,PctExtPos",
     )
+
     parser.add_argument(
-        "--read_var_pos_annotation_cpu",
-        type=int,
-        help="Number of CPUs to use for adding variant position in read annotation",
-    )
-    parser.add_argument(
-        "--star_cpu", type=int, help="Number of CPUs for STAR aligner",
+        "--cpu", type=int, help="Number of CPUs for multi-threaded steps (e.g. STAR, variant position annotation)",
     )
 
     parser.add_argument(
@@ -202,8 +198,8 @@ def main():
     cromwell = args.cromwell
     no_mark_duplicates = args.no_mark_duplicates
     extra_fasta = args.extra_fasta
-    read_var_pos_annotation_cpu = args.read_var_pos_annotation_cpu
-    star_cpu = args.star_cpu
+    cpu = args.cpu
+
     output_directory = args.outputdir
 
     # mark_duplicates_memory = args.mark_duplicates_memory
@@ -295,10 +291,10 @@ def main():
 
     if no_mark_duplicates:
         input_json["mark_duplicates"] = False
-    if read_var_pos_annotation_cpu is not None:
-        input_json["read_var_pos_annotation_cpu"] = read_var_pos_annotation_cpu
-    if star_cpu is not None:
-        input_json["star_cpu"] = star_cpu
+    if cpu is None:
+        cpu = max(1, os.cpu_count() - 1)
+    input_json["star_cpu"] = cpu
+    input_json["variant_filtration_cpu"] = cpu
     input_json["gtf"] = gtf
     input_json["ref_dict"] = ref_dict
     input_json["ref_fasta"] = ref_fasta

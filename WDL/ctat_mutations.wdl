@@ -83,7 +83,6 @@ workflow ctat_mutations {
         String scripts_path = "/usr/local/src/ctat-mutations/src"
 
         Boolean include_read_var_pos_annotations = true
-        Int? read_var_pos_annotation_cpu
         Float mark_duplicates_memory = 8
         Float split_n_cigar_reads_memory = 14
     }
@@ -154,7 +153,7 @@ workflow ctat_mutations {
         output_unmapped_reads:{help:"Whether to output unmapped reads from STAR"}
 
         variant_scatter_count:{help:"Number of parallel variant caller jobs"}
-
+        variant_filtration_cpu:{help:"Number of CPUs for variant filtration task"}
         gatk_path:{help:"Path to GATK"}
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
@@ -407,7 +406,6 @@ workflow ctat_mutations {
                 bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
                 bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                 include_read_var_pos_annotations=include_read_var_pos_annotations,
-                read_var_pos_annotation_cpu=read_var_pos_annotation_cpu,
                 repeat_mask_bed=repeat_mask_bed,
                 ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
                 scripts_path=scripts_path,
@@ -646,10 +644,10 @@ task AnnotateVariants {
         String? genome_version
         Boolean include_read_var_pos_annotations
 
-        Int? read_var_pos_annotation_cpu
         String docker
         Int preemptible
     }
+    Int cpu = 1
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
@@ -745,17 +743,11 @@ task AnnotateVariants {
         if [ "~{include_read_var_pos_annotations}" == "true" ]; then
             OUT="~{base_name}.pass_read.~{vcf_extension}"
 
-            THREADS="~{read_var_pos_annotation_cpu}"
-            if [ "$THREADS" == "" ]; then
-                THREADS=$(nproc)
-            fi
-
-
             ~{scripts_path}/annotate_PASS_reads.py \
             --vcf $VCF \
             --bam ~{bam} \
             --output_vcf ~{base_name}.pass_read.vcf \
-            --threads $THREADS
+            --threads ~{cpu}
 
             bgzip -c ~{base_name}.pass_read.vcf > $OUT
             tabix $OUT
@@ -899,7 +891,7 @@ task AnnotateVariants {
         docker: docker
         memory: "4G"
         preemptible: preemptible
-        cpu : 1
+        cpu : cpu
     }
 }
 
