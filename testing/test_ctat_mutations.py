@@ -5,7 +5,7 @@ from subprocess import check_call
 
 
 def check_output(path):
-    output_path = os.path.join(path, '**', 'call-VariantFiltration', '*', 'test.filtered.vcf.gz')
+    output_path = os.path.join(path, '**', 'call-VariantFiltration', '*', 'test.*.vcf.gz')
     filtered_vcfs = list(glob.iglob(output_path, recursive=True))
     assert len(filtered_vcfs) == 1, "{} VCFs found".format(len(filtered_vcfs))
     shutil.rmtree(path)
