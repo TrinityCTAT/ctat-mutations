@@ -292,7 +292,7 @@ def main():
     if no_mark_duplicates:
         input_json["mark_duplicates"] = False
     if cpu is None:
-        cpu = max(1, os.cpu_count() - 1)
+        cpu = min(16, os.cpu_count())
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
     input_json["gtf"] = gtf
