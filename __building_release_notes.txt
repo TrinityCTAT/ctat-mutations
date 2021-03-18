@@ -1,0 +1,52 @@
+For putting together the ctat mutations pipe release, we need to do the following:
+
+# GitHub
+
+## devel branch: 
+
+- update the version tag to the planned release version
+
+- update the CHANGELOG.txt to include updates and release notes reflected in this release.
+
+- commit to devel branch
+
+### under Docker/
+
+- update the VERSION.txt file to the latest version number.
+
+- update the Dockerfile so it pulls the specific commit ID corresponding to this release.
+
+- build and push the latest docker using the shell scripts in the Docker folder: ./build_docker.sh && ./push_docker.sh && push_docker.latest.sh
+
+- update the testing/Makefile ‘HC_standard_docker’ target so that it works with the current docker image - and verify it works with the current docker image.  
+
+- build a singularity image by running ./make_simg.sh, which will build the image ctat_mutations.v${VERSION}.simg
+
+- copy the singularity image to gs://trinityctatmutations/SINGULARITY/. 
+
+- on Broad’s internal servers, copy the simg file here: /seq/RNASEQ/public_ftp/CTAT_SINGULARITY/CTAT_MUTATIONS/.   and then it should automatically show up as available here: https://data.broadinstitute.org/Trinity/CTAT_SINGULARITY/CTAT_MUTATIONS/
+
+- update the GitHub wiki for Docker and Singularity usage to match the current version:  https://github.com/NCIP/ctat-mutations/wiki/ctat_mutations_docker_singularity 
+
+## master branch:
+
+- ‘git pull origin devel && git push' which should end up being a fast-forward commit to resync the master branch to the latest code.
+
+- make an official release https://github.com/NCIP/ctat-mutations/releases using the same release naming and versioning conventions used for the others.
+
+- add the CHANGELOG section for this release to the release notes here.
+
+## other GitHub wiki documentation updates:
+
+- be sure that the usage info https://github.com/NCIP/ctat-mutations/wiki  and https://github.com/NCIP/ctat-mutations/wiki/CTAT-mutations-installation  are current given any changes in the software for this release.
+
+# Terra:
+
+- test on Terra to make sure it runs and results are accurate.
+
+- deploy latest release on Terra and update any documentation
+
+# Google forum announcement:
+
+- make a release announcement on our Trinity CTAT google forum:   You can look at other release announcements posted there to see formatting and match the current announcement formatting - pretty basic.
+
