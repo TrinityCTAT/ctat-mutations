@@ -77,7 +77,7 @@ workflow ctat_mutations {
         Float haplotype_caller_memory = 6.5
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker = "trinityctat/ctat_mutations:2.6.0-alpha.1"
+        String docker = "trinityctat/ctat_mutations:3.0.0"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
