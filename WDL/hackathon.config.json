@@ -1,0 +1,1 @@
+{"ctat_mutations_2pt4.ctat_genome_lib_tar":"gs://trinityctatfusion/ctatgenomelib/GRCh38_gencode_v22_CTAT_lib_Apr032020.wMutLib.dx.tar","ctat_mutations_2pt4.right_fastq":"${}","ctat_mutations_2pt4.left_fastq":"${this.left_fq}","ctat_mutations_2pt4.threads":"${10}","ctat_mutations_2pt4.sample_name":"${this.sample_id}","ctat_mutations_2pt4.docker":"trinityctat/ctat_mutations:2.5.0"}
