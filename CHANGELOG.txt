@@ -1,3 +1,9 @@
+3.0.0
+-improved boosting performance
+-rewrote workflow logic using WDL
+-run 'make' in the base directory to install Cromwell workflow runner
+-moved RVBLR (RVBoost) to https://github.com/broadinstitute/RVBLR
+
 2.5.0
 -leverages Open-CRAVAT for annotations in place of REST-call to web app.
 -incorporates additional boosting methods: SGBoost, GBoost, AdaBoost, and RF
@@ -6,7 +12,6 @@
 -added clinvar annotations
 -igv-reports incorporates clinvar and FATHMM
 -cancer-related variants selected based on chasm & vest pvals, or FATHMM or clinvar pathogenic attributes.
-
 
 2.4.0
 -added support for using single-end rna-seq reads
