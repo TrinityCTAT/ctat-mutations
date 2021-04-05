@@ -21,6 +21,7 @@ RUN apt-get -qq update && apt-get -qq -y install --no-install-recommends \
     make \
     pbzip2 \
     perl \
+    pigz \
     unzip \
     wget \
     zlib1g \
