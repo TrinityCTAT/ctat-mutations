@@ -1079,7 +1079,7 @@ task StarAlign {
         File? fastq1
         File? fastq2
         Int cpu
-        String memory
+        Float memory
         String base_name
         String docker
         Int preemptible
@@ -1093,7 +1093,6 @@ task StarAlign {
 
     command <<<
         set -e
-        # monitor_script.sh &
 
         genomeDir="~{star_reference}"
         if [ "$genomeDir" == "" ]; then
