@@ -16,7 +16,7 @@ workflow ctat_mutations {
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File gtf
+        File? gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -220,15 +220,7 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-    #    if(vcf_input || (!mark_duplicates && !add_read_groups)) {
-    #        call CreateBamIndex {
-    #            input:
-    #                input_bam = select_first([StarAlign.bam, bam]),
-    #                memory = "3G",
-    #                docker = docker,
-    #                preemptible = preemptible
-    #        }
-    #    }
+
     if(!vcf_input) {
         call SplitNCigarReads {
             input:
@@ -357,7 +349,7 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        if(!vcf_input && variant_scatter_count == 0) {
+        if(!vcf_input && variant_scatter_count <= 1) {
             call HaplotypeCaller {
                 input:
                     input_bam = bam_for_variant_calls,
@@ -386,6 +378,7 @@ workflow ctat_mutations {
             }
         }
         File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
+
         call AnnotateVariants {
             input:
                 input_vcf = variant_vcf,
@@ -508,6 +501,7 @@ task FilterCancerVariants {
         String docker
         Int preemptible
     }
+
 
     command <<<
         set -e
