@@ -44,7 +44,7 @@ workflow ctat_mutations {
         File? star_reference
         String? star_reference_dir
 
-        Boolean filter_variants = true
+        Boolean annotate_and_filter_variants = true
         Boolean filter_cancer_variants = true
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
@@ -135,7 +135,7 @@ workflow ctat_mutations {
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
         mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
-        filter_variants:{help:"Whether to filter VCF file"}
+        annotate_and_filter_variants:{help:"Whether to filter VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
         #        recalibration_plot:{help:"Generate recalibration plot"}
         call_variants:{help:"Whether to call variants against the reference genome"}
@@ -379,40 +379,39 @@ workflow ctat_mutations {
         }
         File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
 
-        call AnnotateVariants {
-            input:
-                input_vcf = variant_vcf,
-                base_name = sample_id,
-                cravat_lib = cravat_lib,
-                cravat_lib_dir = cravat_lib_dir,
-                ref_fasta = ref_fasta,
-                ref_fasta_index = ref_fasta_index,
-                gtf = gtf,
-                cosmic_vcf=cosmic_vcf,
-                cosmic_vcf_index=cosmic_vcf_index,
-                db_snp_vcf=db_snp_vcf,
-                db_snp_vcf_index=db_snp_vcf_index,
-                gnomad_vcf=gnomad_vcf,
-                gnomad_vcf_index=gnomad_vcf_index,
-                rna_editing_vcf=rna_editing_vcf,
-                rna_editing_vcf_index=rna_editing_vcf_index,
-                bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
-                include_read_var_pos_annotations=include_read_var_pos_annotations,
-                repeat_mask_bed=repeat_mask_bed,
-                ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
-                scripts_path=scripts_path,
-                plugins_path=plugins_path,
-                genome_version=genome_version,
-                docker = docker,
-                preemptible = preemptible
-        }
+        if(annotate_and_filter_variants) {
+            call AnnotateVariants {
+                input:
+                    input_vcf = variant_vcf,
+                    base_name = sample_id,
+                    cravat_lib = cravat_lib,
+                    cravat_lib_dir = cravat_lib_dir,
+                    ref_fasta = ref_fasta,
+                    ref_fasta_index = ref_fasta_index,
+                    gtf = gtf,
+                    cosmic_vcf=cosmic_vcf,
+                    cosmic_vcf_index=cosmic_vcf_index,
+                    db_snp_vcf=db_snp_vcf,
+                    db_snp_vcf_index=db_snp_vcf_index,
+                    gnomad_vcf=gnomad_vcf,
+                    gnomad_vcf_index=gnomad_vcf_index,
+                    rna_editing_vcf=rna_editing_vcf,
+                    rna_editing_vcf_index=rna_editing_vcf_index,
+                    bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                    bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
+                    include_read_var_pos_annotations=include_read_var_pos_annotations,
+                    repeat_mask_bed=repeat_mask_bed,
+                    ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
+                    scripts_path=scripts_path,
+                    plugins_path=plugins_path,
+                    genome_version=genome_version,
+                    docker = docker,
+                    preemptible = preemptible
+            }
 
 
-        String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
+            String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
 
-
-        if(filter_variants) {
             call VariantFiltration {
                 input:
                     input_vcf = AnnotateVariants.vcf,
@@ -431,35 +430,35 @@ workflow ctat_mutations {
                     docker = docker,
                     preemptible = preemptible
             }
-        }
 
-        if(filter_cancer_variants) {
-            call FilterCancerVariants {
-                input:
-                    input_vcf = select_first([VariantFiltration.vcf, AnnotateVariants.vcf]),
-                    base_name = base_name,
-                    ref_fasta = ref_fasta,
-                    ref_fasta_index = ref_fasta_index,
-                    ref_dict = ref_dict,
-                    scripts_path=scripts_path,
-                    gatk_path = gatk_path,
-                    docker = docker,
-                    preemptible = preemptible
-            }
-
-            if(defined(ref_bed)) {
-                call CancerVariantReport {
+            if(filter_cancer_variants) {
+                call FilterCancerVariants {
                     input:
-                        input_vcf = FilterCancerVariants.cancer_vcf,
+                        input_vcf = select_first([VariantFiltration.vcf, AnnotateVariants.vcf]),
                         base_name = base_name,
                         ref_fasta = ref_fasta,
                         ref_fasta_index = ref_fasta_index,
                         ref_dict = ref_dict,
-                        ref_bed = select_first([ref_bed]),
-                        bam=bam_for_variant_calls,
-                        bai=bai_for_variant_calls,
+                        scripts_path=scripts_path,
+                        gatk_path = gatk_path,
                         docker = docker,
                         preemptible = preemptible
+                }
+
+                if(defined(ref_bed)) {
+                    call CancerVariantReport {
+                        input:
+                            input_vcf = FilterCancerVariants.cancer_vcf,
+                            base_name = base_name,
+                            ref_fasta = ref_fasta,
+                            ref_fasta_index = ref_fasta_index,
+                            ref_dict = ref_dict,
+                            ref_bed = select_first([ref_bed]),
+                            bam=bam_for_variant_calls,
+                            bai=bai_for_variant_calls,
+                            docker = docker,
+                            preemptible = preemptible
+                    }
                 }
             }
         }
@@ -473,6 +472,7 @@ workflow ctat_mutations {
         File? extra_vcf = HaplotypeCallerExtra.output_vcf
 
         File? haplotype_caller_vcf = variant_vcf
+
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
