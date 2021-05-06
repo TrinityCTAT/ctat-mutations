@@ -5,24 +5,24 @@ all: HC_standard  HC_SE_Reads  BOOSTING_ALL
 ## HaplotypeCaller tests
 
 HC_standard:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard --boosting_method none
 
 HC_standard_single_thread:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1 -O example.HC_standard.onethread
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1 -O example.HC_standard.onethread --boosting_method none
 
 ## Using single-end reads:
 HC_SE_Reads:
-	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE
+	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
 
 
 ## Docker and Singularity
 
 HC_standard_docker:
-	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none
 
 
 HC_standard_singularity:
-	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.vLATEST.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.singularity --genome_lib_dir /ctat_genome_lib_dir
+	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.vLATEST.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.singularity --genome_lib_dir /ctat_genome_lib_dir --boosting_method none
 
 
 ##########################################
@@ -30,11 +30,11 @@ HC_standard_singularity:
 ## (be sure to use the corresponding hg19 or GRCh38 ctat genome lib!!! (or it'll crash)
 
 kickstart_vcf_hg19:
-	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.hg19.bam  --vcf __misc_data/variants.hg19.vcf --sample_id example.vcf_hg19 -O example.vcf_hg19
+	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.hg19.bam  --vcf __misc_data/variants.hg19.vcf --sample_id example.vcf_hg19 -O example.vcf_hg19 --boosting_method none
 
 
 kickstart_vcf_GRCh38:
-	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --vcf __misc_data/variants.GRCh38.vcf --sample_id example.vcf_GRCh38 -O example.vcf_GRCh38
+	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --vcf __misc_data/variants.GRCh38.vcf --sample_id example.vcf_GRCh38 -O example.vcf_GRCh38 --boosting_method none
 
 
 ####################
