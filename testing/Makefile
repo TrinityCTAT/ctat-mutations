@@ -36,6 +36,9 @@ kickstart_vcf_hg19:
 kickstart_vcf_GRCh38:
 	../ctat_mutations --bam __misc_data/Aligned.sortedByCoord.out.GRCh38.bam  --vcf __misc_data/variants.GRCh38.vcf --sample_id example.vcf_GRCh38 -O example.vcf_GRCh38 --boosting_method none
 
+kickstart_bam_GRCh38_bqsrgiven:
+	../ctat_mutations --bam __misc_data/example.vcf_GRCh38.bqsr.bam --variant_ready_bam --HC_xtra_args "-A LikelihoodRankSumTest -A ClippingRankSumTest"  --sample_id example.vcf_GRCh38 -O example.bam_GRCh38_bqsrgiven --boosting_method none
+
 
 ####################
 ## igv_reports test:

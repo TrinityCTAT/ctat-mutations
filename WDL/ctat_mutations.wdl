@@ -46,6 +46,7 @@ workflow ctat_mutations {
 
         Boolean annotate_and_filter_variants = true
         Boolean filter_cancer_variants = true
+		Boolean variant_ready_bam = false
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
         Boolean add_read_groups = true
@@ -71,9 +72,10 @@ workflow ctat_mutations {
         Int star_cpu = 12
         Float star_memory = 43
         Boolean output_unmapped_reads = false
-
-        String haplotype_caller_args = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
-        String haplotype_caller_args_for_extra_reads = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true"
+		
+		String haplotype_caller_xtra_args = ""
+        String haplotype_caller_args = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true " + haplotype_caller_xtra_args
+        String haplotype_caller_args_for_extra_reads = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true " + haplotype_caller_xtra_args
         Float haplotype_caller_memory = 6.5
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
@@ -181,7 +183,7 @@ workflow ctat_mutations {
         }
     }
 
-    if(!vcf_input && add_read_groups) {
+    if(!vcf_input && !variant_ready_bam && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
                 input_bam = select_first([StarAlign.bam, bam]),
@@ -194,7 +196,7 @@ workflow ctat_mutations {
         }
     }
 
-    if(!vcf_input && mark_duplicates) {
+    if(!vcf_input && !variant_ready_bam && mark_duplicates) {
         call MarkDuplicates {
             input:
                 input_bam = select_first([AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
@@ -205,7 +207,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
-    if(!vcf_input && defined(extra_fasta) && merge_extra_fasta) {
+    if(!vcf_input && !variant_ready_bam && defined(extra_fasta) && merge_extra_fasta) {
         call MergeFastas {
             input:
                 name = "combined",
@@ -220,8 +222,8 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-
-    if(!vcf_input) {
+	
+    if( (!vcf_input) && (!variant_ready_bam) ) {
         call SplitNCigarReads {
             input:
                 input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
@@ -271,7 +273,7 @@ workflow ctat_mutations {
         }
     }
 
-    if(!vcf_input && defined(extra_fasta)) {
+    if(!vcf_input && !variant_ready_bam && defined(extra_fasta)) {
         call CreateFastaIndex {
             input:
                 input_fasta = extra_fasta,
@@ -308,6 +310,7 @@ workflow ctat_mutations {
             }
         }
     }
+	
     File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
     File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
     if(call_variants) {
