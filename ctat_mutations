@@ -72,6 +72,19 @@ def main():
     )
 
     parser.add_argument(
+        "--HC_xtra_args",
+        help="extra arguments to provide to GATK HaplotypeCaller",
+        default=None,
+        type=str
+    )
+
+    parser.add_argument(
+        "--variant_ready_bam",
+        action="store_true",
+        help="Skip initial read processing involving setting read groups, duplicate marking, splitNcigar, and base recalibration... go immediately on to calling variants",
+    )
+    
+    parser.add_argument(
         "--no_bqsr",
         action="store_true",
         help="Skip base quality score recalibration of bam files before variant calling.",
@@ -180,6 +193,7 @@ def main():
     bam = args.bam
     vcf = args.vcf
     ctat_genome_lib_path = args.genome_lib_dir
+    variant_ready_bam = args.variant_ready_bam
     no_bqsr = args.no_bqsr
     sequencing_platform = args.sequencing_platform
     boosting_method = args.boosting_method
@@ -195,6 +209,8 @@ def main():
     no_mark_duplicates = args.no_mark_duplicates
     extra_fasta = args.extra_fasta
     cpu = args.cpu
+    hc_xtra_args = args.HC_xtra_args
+    
 
     output_directory = args.outputdir
 
@@ -289,6 +305,10 @@ def main():
         input_json["mark_duplicates"] = False
     if cpu is None:
         cpu = min(16, os.cpu_count())
+
+    if hc_xtra_args is not None:
+        input_json["haplotype_caller_xtra_args"] = hc_xtra_args
+    
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
     input_json["gtf"] = gtf
@@ -308,9 +328,14 @@ def main():
     input_json["ref_bed"] = ref_bed
     if not no_cravat and cravat_lib_directory is not None:
         input_json["cravat_lib_dir"] = cravat_lib_directory
+
     input_json["star_reference_dir"] = star_reference
     input_json["filter_cancer_variants"] = True
     input_json["apply_bqsr"] = not no_bqsr
+    
+    if variant_ready_bam:
+        input_json["variant_ready_bam"] = True
+        
     input_json["boosting_alg_type"] = boosting_alg_type
     input_json["boosting_method"] = boosting_method
     input_json["boosting_attributes"] = boosting_attributes.split(",")
