@@ -60,8 +60,8 @@ if not os.path.exists(ref_dict):
     ref_fa = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     cmd = [gatk,
            "CreateSequenceDictionary",
-           "-R", ref_fa,
-           "-O", ref_dict,
+           "R=", ref_fa,
+           "O=", ref_dict,
            "VALIDATION_STRINGENCY=LENIENT"]
     subprocess.check_call(cmd)
 
