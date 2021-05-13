@@ -98,10 +98,10 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
 
 ## NCIP CTAT mutations
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.0.0
+ENV CTAT_MUTATIONS_TAG=4e7d9cbde8dc04bd223738130a7b95e0de53c415
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
-    git checkout tags/${CTAT_MUTATIONS_TAG}
+    git checkout ${CTAT_MUTATIONS_TAG}
 
 RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
 RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
