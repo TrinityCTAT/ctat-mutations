@@ -3,6 +3,8 @@ version 1.0
 workflow ctat_mutations {
     input {
         String sample_id
+
+		# different entry points based on inputs
         File? left
         File? right
         File? bam
@@ -12,37 +14,37 @@ workflow ctat_mutations {
         File? extra_fasta
         Boolean merge_extra_fasta = true
 
-        # resources
+        # resources - all resources derive from the ctat genome lib.
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File? gtf
+        File gtf
 
-        File? db_snp_vcf
-        File? db_snp_vcf_index
+        File db_snp_vcf
+        File db_snp_vcf_index
 
-        File? gnomad_vcf
-        File? gnomad_vcf_index
+        File gnomad_vcf
+        File gnomad_vcf_index
 
-        File? rna_editing_vcf
-        File? rna_editing_vcf_index
+        File rna_editing_vcf
+        File rna_editing_vcf_index
 
-        File? repeat_mask_bed
+        File repeat_mask_bed
 
-        File? ref_splice_adj_regions_bed
+        File ref_splice_adj_regions_bed
 
-        File? cosmic_vcf
-        File? cosmic_vcf_index
+        File cosmic_vcf
+        File cosmic_vcf_index
 
-        File? ref_bed
+        File ref_bed
 
-        File? cravat_lib
-        String? cravat_lib_dir
+        File cravat_lib
+        String cravat_lib_dir
 
-        String? genome_version
+        String genome_version
 
-        File? star_reference
-        String? star_reference_dir
+        File star_reference
+        String star_reference_dir
 
         Boolean annotate_and_filter_variants = true
         Boolean filter_cancer_variants = true
