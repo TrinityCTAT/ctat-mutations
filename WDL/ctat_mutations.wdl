@@ -38,13 +38,13 @@ workflow ctat_mutations {
 
         File ref_bed
 
-        File cravat_lib
-        String cravat_lib_dir
+        File? cravat_lib
+        String? cravat_lib_dir
 
         String genome_version
 
-        File star_reference
-        String star_reference_dir
+        File? star_reference
+        String? star_reference_dir
 
         Boolean annotate_and_filter_variants = true
         Boolean filter_cancer_variants = true
