@@ -32,7 +32,7 @@ def main():
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
     parser.add_argument('--reference', required=True, help="Reference Genome.")
     parser.add_argument("--temp_dir", default="/tmp", help="tmp directory")
-
+    parser.add_argument("--threads", default=1, type=int, required=False, help="number of threads to use by pblat")
 
     args = parser.parse_args()
 
@@ -42,7 +42,7 @@ def main():
     out_file = args.output_vcf
     reference = args.reference
     temp_dir = args.temp_dir
-
+    threads = args.threads
 
 
     logger.info("\n################################\n Annotating VCF: Calculating ED \n################################\n")
@@ -94,10 +94,10 @@ def main():
     # Path to the psl file
     psl_output = os.path.join(temp_dir, "blat_output.psl")
 
-    cmd = "pblat {} {} -threads=4 -noHead -minScore=70 -minIdentity=90 {}".format(reference, faidx_output, psl_output)
+    cmd = "pblat {} {} -threads={} -noHead -minScore=70 -minIdentity=90 {}".format(reference, faidx_output, threads, psl_output)
     print(cmd)
     subprocess.Popen(cmd, stdin=subprocess.PIPE, encoding='utf8', shell=True).communicate(fsa)
-
+    
     # Process the psl output
     logger.info("Processing Output")
     header = ["match", "mis-match", "rep. match", "N's", "Q gap count", "Q gap bases", "T gap count", "T gap bases", "strand", "Q name", "Q size", "Q start", "Q end", "T name", "T size", "T start", "T end", "block count", "blockSizes", "qStarts", "tStarts"]

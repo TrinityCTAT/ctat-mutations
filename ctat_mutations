@@ -311,6 +311,7 @@ def main():
     
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
+    input_json["variant_annotation_cpu"] = cpu
     input_json["gtf"] = gtf
     input_json["ref_dict"] = ref_dict
     input_json["ref_fasta"] = ref_fasta

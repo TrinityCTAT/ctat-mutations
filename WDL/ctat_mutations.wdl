@@ -38,13 +38,13 @@ workflow ctat_mutations {
 
         File ref_bed
 
-        File cravat_lib
-        String cravat_lib_dir
+        File? cravat_lib
+        String? cravat_lib_dir
 
         String genome_version
 
-        File star_reference
-        String star_reference_dir
+        File? star_reference
+        String? star_reference_dir
 
         Boolean annotate_and_filter_variants = true
         Boolean filter_cancer_variants = true
@@ -55,6 +55,9 @@ workflow ctat_mutations {
         Boolean call_variants = true
 
         Int variant_filtration_cpu = 1
+		Int annotate_variants_cpu = 5
+
+
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
@@ -411,7 +414,8 @@ workflow ctat_mutations {
                     plugins_path=plugins_path,
                     genome_version=genome_version,
                     docker = docker,
-                    preemptible = preemptible
+                    preemptible = preemptible,
+	                cpu = annotate_variants_cpu
             }
 
 
@@ -645,8 +649,9 @@ task AnnotateVariants {
 
         String docker
         Int preemptible
+		Int cpu
     }
-    Int cpu = 1
+    
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
@@ -820,7 +825,8 @@ task AnnotateVariants {
             --input_vcf $VCF \
             --output_vcf ~{base_name}.ED.vcf \
             --reference ~{ref_fasta} \
-            --temp_dir $TMPDIR
+            --temp_dir $TMPDIR \
+			--threads ~{cpu}
 
             bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
