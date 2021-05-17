@@ -55,7 +55,7 @@ workflow ctat_mutations {
         Boolean call_variants = true
 
         Int variant_filtration_cpu = 1
-		Int annotate_variants_cpu = 5
+		Int variant_annotation_cpu = 5
 
 
         # boosting
@@ -161,6 +161,8 @@ workflow ctat_mutations {
 
         variant_scatter_count:{help:"Number of parallel variant caller jobs"}
         variant_filtration_cpu:{help:"Number of CPUs for variant filtration task"}
+        variant_annotation_cpu:{help:"Number of CPUs for variant annotation task"}
+
         gatk_path:{help:"Path to GATK"}
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
@@ -415,7 +417,7 @@ workflow ctat_mutations {
                     genome_version=genome_version,
                     docker = docker,
                     preemptible = preemptible,
-	                cpu = annotate_variants_cpu
+	                cpu = variant_annotation_cpu
             }
 
 
@@ -649,7 +651,7 @@ task AnnotateVariants {
 
         String docker
         Int preemptible
-		Int cpu
+        Int cpu
     }
     
     String vcf_extension = "vcf.gz"
@@ -826,7 +828,7 @@ task AnnotateVariants {
             --output_vcf ~{base_name}.ED.vcf \
             --reference ~{ref_fasta} \
             --temp_dir $TMPDIR \
-			--threads ~{cpu}
+            --threads ~{cpu}
 
             bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
