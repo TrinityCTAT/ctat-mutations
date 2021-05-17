@@ -3,6 +3,8 @@ version 1.0
 workflow ctat_mutations {
     input {
         String sample_id
+
+		# different entry points based on inputs
         File? left
         File? right
         File? bam
@@ -12,11 +14,11 @@ workflow ctat_mutations {
         File? extra_fasta
         Boolean merge_extra_fasta = true
 
-        # resources
+        # resources - all resources derive from the ctat genome lib.
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File? gtf
+        File gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -39,7 +41,7 @@ workflow ctat_mutations {
         File? cravat_lib
         String? cravat_lib_dir
 
-        String? genome_version
+        String genome_version
 
         File? star_reference
         String? star_reference_dir
@@ -53,6 +55,9 @@ workflow ctat_mutations {
         Boolean call_variants = true
 
         Int variant_filtration_cpu = 1
+		Int variant_annotation_cpu = 5
+
+
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
@@ -156,6 +161,8 @@ workflow ctat_mutations {
 
         variant_scatter_count:{help:"Number of parallel variant caller jobs"}
         variant_filtration_cpu:{help:"Number of CPUs for variant filtration task"}
+        variant_annotation_cpu:{help:"Number of CPUs for variant annotation task"}
+
         gatk_path:{help:"Path to GATK"}
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
@@ -409,7 +416,8 @@ workflow ctat_mutations {
                     plugins_path=plugins_path,
                     genome_version=genome_version,
                     docker = docker,
-                    preemptible = preemptible
+                    preemptible = preemptible,
+	                cpu = variant_annotation_cpu
             }
 
 
@@ -643,8 +651,9 @@ task AnnotateVariants {
 
         String docker
         Int preemptible
+        Int cpu
     }
-    Int cpu = 1
+    
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
@@ -818,7 +827,8 @@ task AnnotateVariants {
             --input_vcf $VCF \
             --output_vcf ~{base_name}.ED.vcf \
             --reference ~{ref_fasta} \
-            --temp_dir $TMPDIR
+            --temp_dir $TMPDIR \
+            --threads ~{cpu}
 
             bgzip -c ~{base_name}.ED.vcf > $OUT
             tabix $OUT
