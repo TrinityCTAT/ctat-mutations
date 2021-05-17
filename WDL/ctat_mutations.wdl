@@ -72,7 +72,7 @@ workflow ctat_mutations {
         Int star_cpu = 12
         Float star_memory = 43
         Boolean output_unmapped_reads = false
-		
+
 		String haplotype_caller_xtra_args = ""
         String haplotype_caller_args = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true " + haplotype_caller_xtra_args
         String haplotype_caller_args_for_extra_reads = "-dont-use-soft-clipped-bases --stand-call-conf 20 --recover-dangling-heads true " + haplotype_caller_xtra_args
@@ -222,7 +222,7 @@ workflow ctat_mutations {
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
-	
+
     if( (!vcf_input) && (!variant_ready_bam) ) {
         call SplitNCigarReads {
             input:
@@ -310,7 +310,7 @@ workflow ctat_mutations {
             }
         }
     }
-	
+
     File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
     File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
     if(call_variants) {
@@ -852,11 +852,13 @@ task AnnotateVariants {
 
             if [ -f "$cravat_lib_dir" ] ; then
                 mkdir cravat_lib_dir
-                if [[ $cravat_lib_dir = *.bz2 ]] ; then
-                    pbzip2 -dc ~{cravat_lib_dir} | tar x -C cravat_lib_dir --strip-components 1
-                else
-                    tar xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+                compress="pigz"
+
+                if [[ $cravat_lib_dir == *.bz2 ]] ; then
+                    compress="pbzip2"
                 fi
+
+                tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
                 cravat_lib_dir="cravat_lib_dir"
             fi
 
@@ -1098,11 +1100,12 @@ task StarAlign {
 
         if [ -f "${genomeDir}" ] ; then
             mkdir genome_dir
-            if [[ $genomeDir = *.bz2 ]] ; then
-                pbzip2 -dc ~{star_reference} | tar x -C genome_dir --strip-components 1
-            else
-                tar xf ~{star_reference} -C genome_dir --strip-components 1
+            compress="pigz"
+
+            if [[ $genomeDir == *.bz2 ]] ; then
+                compress="pbzip2"
             fi
+            tar -I $compress -xf $genomeDir -C genome_dir --strip-components 1
             genomeDir="genome_dir"
         fi
 
