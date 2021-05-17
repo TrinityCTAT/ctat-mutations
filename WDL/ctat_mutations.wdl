@@ -20,23 +20,23 @@ workflow ctat_mutations {
         File ref_fasta_index
         File gtf
 
-        File db_snp_vcf
-        File db_snp_vcf_index
+        File? db_snp_vcf
+        File? db_snp_vcf_index
 
-        File gnomad_vcf
-        File gnomad_vcf_index
+        File? gnomad_vcf
+        File? gnomad_vcf_index
 
-        File rna_editing_vcf
-        File rna_editing_vcf_index
+        File? rna_editing_vcf
+        File? rna_editing_vcf_index
 
-        File repeat_mask_bed
+        File? repeat_mask_bed
 
-        File ref_splice_adj_regions_bed
+        File? ref_splice_adj_regions_bed
 
-        File cosmic_vcf
-        File cosmic_vcf_index
+        File? cosmic_vcf
+        File? cosmic_vcf_index
 
-        File ref_bed
+        File? ref_bed
 
         File? cravat_lib
         String? cravat_lib_dir
