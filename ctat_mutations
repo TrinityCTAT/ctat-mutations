@@ -15,6 +15,14 @@ if sys.version_info[0] < 3:
 import argparse
 import json
 
+import logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s : %(levelname)s : %(message)s',
+                    datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
+
+
+
 """
    _____ _______    _______            __  __ _    _ _______    _______ _____ ____  _   _ 
   / ____|__   __|/\|__   __|          |  \/  | |  | |__   __|/\|__   __|_   _/ __ \| \ | |
@@ -183,6 +191,7 @@ def main():
         "-O",
         "--outputdir",
         dest="outputdir",
+        required=True,
         help="Output directory",
     )
 
@@ -407,8 +416,13 @@ def main():
     if not os.path.exists(cromwell_conf):
         exit("Cromwell configuration not found")
 
-    if output_directory is not None and not os.path.exists(output_directory):
+    
+    if not os.path.exists(output_directory):
         os.makedirs(output_directory)
+
+    tmpdir = os.path.join(output_directory, "__tmpdir")
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
 
     input_json_with_prefix = {}
     for key in input_json:
@@ -417,6 +431,7 @@ def main():
         out.write(json.dumps(input_json_with_prefix))
     cromwell_args = [
             "java",
+            "-Djava.io.tmpdir={}".format(tmpdir),
             "-Dconfig.file={}".format(cromwell_conf),
             "-jar",
             cromwell_jar,
@@ -427,7 +442,8 @@ def main():
             meta_file,
             os.path.join(wdl_dir, "ctat_mutations.wdl"),
     ]
-
+    
+    logger.info("CMD: " + " ".join(cromwell_args))
     subprocess.run(cromwell_args, cwd=output_directory)
     os.remove(json_file)
     with open(meta_file, 'rt', encoding='UTF-8') as f:

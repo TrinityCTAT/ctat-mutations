@@ -686,7 +686,7 @@ task AnnotateVariants {
 
         ~{scripts_path}/groom_vcf.py ~{base_name}.norm.vcf ~{base_name}.norm.groom.vcf
 
-        bcftools sort ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
+        bcftools sort -T . ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
         bgzip -c ~{base_name}.norm.groom.sorted.vcf > $OUT
         tabix $OUT
         VCF=$OUT
@@ -897,7 +897,7 @@ task AnnotateVariants {
             ~{scripts_path}/groom_vcf.py \
             ~{base_name}.cravat.tmp.vcf ~{base_name}.cravat.groom.vcf
 
-            bcftools sort ~{base_name}.cravat.groom.vcf > ~{base_name}.cravat.vcf
+            bcftools sort -T . ~{base_name}.cravat.groom.vcf > ~{base_name}.cravat.vcf
             bgzip -c ~{base_name}.cravat.vcf > $OUT
             tabix $OUT
             VCF=$OUT
