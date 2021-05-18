@@ -173,6 +173,15 @@ SVML_GRCh38_regress: BOOSTING_PREP
 
 
 
+# Boosting-only
+boost_vcf_only: ctat_mutation_ext_testdata
+	../ctat_mutations --vcf ctat_mutation_ext_testdata/SRR5665260.gatk_HC.hg.chr1.annotated.vcf.gz \
+                      --filter_ready_vcf \
+                      --sample_id example.boosting \
+                      --boosting_method SGBoost --boosting_alg_type classifier -O example.boost_vcf_only \
+                      --no_filter_cancer_variants
+
+
 
 
 ## benchmark eval

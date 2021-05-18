@@ -91,6 +91,13 @@ def main():
     )
 
     parser.add_argument(
+        "--filter_ready_vcf",
+        action="store_true",
+        help="a fully annotated vcf is provided, so move directly on to filtering/boosting"
+        )
+    
+
+    parser.add_argument(
         "--sequencing_platform",
         default="ILLUMINA",
         help="Sequencing platform used to generate the sample",
@@ -155,6 +162,11 @@ def main():
     )
 
     parser.add_argument(
+        "--no_filter_cancer_variants", action="store_true", help="no filtering of cancer variants to generate separate cancer.* outputs",
+        default= False
+    )
+
+    parser.add_argument(
         "--no_mark_duplicates", action="store_true", help="Do not mark duplicates"
     )
 
@@ -194,6 +206,7 @@ def main():
     vcf = args.vcf
     ctat_genome_lib_path = args.genome_lib_dir
     variant_ready_bam = args.variant_ready_bam
+    filter_ready_vcf = args.filter_ready_vcf
     no_bqsr = args.no_bqsr
     sequencing_platform = args.sequencing_platform
     boosting_method = args.boosting_method
@@ -203,6 +216,7 @@ def main():
     boosting_attributes = args.boosting_attributes
     no_include_read_var_pos_annotations = args.no_include_read_var_pos_annotations
     no_cravat = args.no_cravat
+    no_filter_cancer_variants = args.no_filter_cancer_variants
     sample_id = args.sample_id
     gatk_path = args.gatk
     cromwell = args.cromwell
@@ -217,8 +231,8 @@ def main():
     # mark_duplicates_memory = args.mark_duplicates_memory
     # star_memory = args.star_memory
     # split_n_cigar_reads_memory = args.split_n_cigar_reads_memory
-    if left is None and bam is None:
-        exit("Either FASTQ files or a previously aligned bam file must be provided.")
+    if left is None and bam is None and not (vcf is not None and filter_ready_vcf):
+        exit("Either FASTQ files or a previously aligned bam or annotated vcf file must be provided.")
 
     if ctat_genome_lib_path is None or not os.path.exists(ctat_genome_lib_path):
         exit("Missing path to CTAT_GENOME_LIB in $CTAT_GENOME_LIB.")
@@ -231,6 +245,9 @@ def main():
         bam = os.path.abspath(bam)
     if vcf is not None:
         vcf = os.path.abspath(vcf)
+        vcf_index = vcf +  ".tbi"
+        if not os.path.exists(vcf_index):
+            exit("provided vcf must be indexed")
 
     ctat_genome_lib_path = os.path.abspath(ctat_genome_lib_path)
     if not os.path.exists(ctat_genome_lib_path):
@@ -298,6 +315,8 @@ def main():
             raise ValueError("No bam index found")
     if vcf is not None:
         input_json["vcf"] = vcf
+        input_json["vcf_index"] = vcf_index
+        
     if extra_fasta is not None:
         input_json["extra_fasta"] = extra_fasta
 
@@ -331,12 +350,12 @@ def main():
         input_json["cravat_lib_dir"] = cravat_lib_directory
 
     input_json["star_reference_dir"] = star_reference
-    input_json["filter_cancer_variants"] = True
+    input_json["filter_cancer_variants"] = not no_filter_cancer_variants
     input_json["apply_bqsr"] = not no_bqsr
     
-    if variant_ready_bam:
-        input_json["variant_ready_bam"] = True
-        
+    input_json["variant_ready_bam"] = variant_ready_bam
+    input_json["filter_ready_vcf"] = filter_ready_vcf
+    
     input_json["boosting_alg_type"] = boosting_alg_type
     input_json["boosting_method"] = boosting_method
     input_json["boosting_attributes"] = boosting_attributes.split(",")

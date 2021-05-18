@@ -10,6 +10,7 @@ workflow ctat_mutations {
         File? bam
         File? bai
         File? vcf
+        File? vcf_index
 
         File? extra_fasta
         Boolean merge_extra_fasta = true
@@ -46,14 +47,17 @@ workflow ctat_mutations {
         File? star_reference
         String? star_reference_dir
 
-        Boolean annotate_and_filter_variants = true
+        Boolean annotate_variants = true
+        Boolean filter_variants = true
         Boolean filter_cancer_variants = true
-		Boolean variant_ready_bam = false
+		
+        Boolean variant_ready_bam = false
+        Boolean filter_ready_vcf = false
+
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
         Boolean add_read_groups = true
-        Boolean call_variants = true
-
+        
         Int variant_filtration_cpu = 1
 		Int variant_annotation_cpu = 5
 
@@ -142,10 +146,10 @@ workflow ctat_mutations {
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
         mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
-        annotate_and_filter_variants:{help:"Whether to filter VCF file"}
+        annotate_variants:{help:"Whether to annotate the vcf file (needed for boosting)"}
+        filter_variants:{help:"Whether to filter VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
         #        recalibration_plot:{help:"Generate recalibration plot"}
-        call_variants:{help:"Whether to call variants against the reference genome"}
 
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
@@ -318,10 +322,13 @@ workflow ctat_mutations {
         }
     }
 
-    File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
-    File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
-    if(call_variants) {
-        if(!vcf_input && variant_scatter_count > 1) {
+
+    if(!vcf_input) {
+        
+        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
+        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
+       
+         if(variant_scatter_count > 1) {
             call SplitIntervals {
                 input:
                     ref_fasta = ref_fasta,
@@ -359,7 +366,7 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        if(!vcf_input && variant_scatter_count <= 1) {
+        if(variant_scatter_count <= 1) {
             call HaplotypeCaller {
                 input:
                     input_bam = bam_for_variant_calls,
@@ -387,10 +394,13 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
+     }
 
-        if(annotate_and_filter_variants) {
-            call AnnotateVariants {
+     File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
+     File variant_vcf_index = select_first([MergePrimaryAndExtraVCFs.output_vcf_index, MergeVCFs.output_vcf_index, HaplotypeCaller.output_vcf_index, vcf_index])
+
+     if(annotate_variants && !filter_ready_vcf) {
+        call AnnotateVariants {
                 input:
                     input_vcf = variant_vcf,
                     base_name = sample_id,
@@ -420,13 +430,16 @@ workflow ctat_mutations {
 	                cpu = variant_annotation_cpu
             }
 
+      }
+
+      if (filter_variants) {
 
             String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
 
             call VariantFiltration {
                 input:
-                    input_vcf = AnnotateVariants.vcf,
-                    input_vcf_index = AnnotateVariants.vcf_index,
+                    input_vcf = select_first([AnnotateVariants.vcf, variant_vcf]),
+                    input_vcf_index = select_first([AnnotateVariants.vcf_index, variant_vcf_index]),
                     base_name = base_name,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
@@ -465,15 +478,15 @@ workflow ctat_mutations {
                             ref_fasta_index = ref_fasta_index,
                             ref_dict = ref_dict,
                             ref_bed = select_first([ref_bed]),
-                            bam=bam_for_variant_calls,
-                            bai=bai_for_variant_calls,
+                            bam=select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                            bai=select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                             docker = docker,
                             preemptible = preemptible
                     }
                 }
             }
-        }
     }
+    
 
     output {
         File? extra_bam = SplitReads.extra_bam

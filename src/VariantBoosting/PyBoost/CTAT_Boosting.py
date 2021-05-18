@@ -714,7 +714,8 @@ def main():
     parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier", required=False, default = 'classifier')
     parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
     parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
-    parser.add_argument("--all",  action='store_true', default=False, help="Extract only snps")
+    parser.add_argument("--all",  action='store_true', default=False, help="Extract both snps and indels")
+    parser.add_argument("--write_feature_data_matrix", type=str, default=None, help="write feature data matrix used to filename")
 
     # Argument parser 
     args = parser.parse_args()
@@ -751,6 +752,11 @@ def main():
         logger.info("No variants present. Skipping boosting on this data.")
         return None
 
+    if args.write_feature_data_matrix is not None:
+        logger.info("-writing feature data matrix to: {}".format(args.write_feature_data_matrix))
+        data.to_csv(args.write_feature_data_matrix, sep="\t")
+
+
     print('Features used for modeling: ', features)
 
     ## Boosting
@@ -758,6 +764,7 @@ def main():
         logger.info("Classification ... ")
     else:
         logger.info("Regression ... ")
+
     logger.info("Running Boosting ... ")
     boost_obj = CTAT_Boosting()
     boost_obj = CTAT_Boosting.data_matrix(boost_obj, data, args)
