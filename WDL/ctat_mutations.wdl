@@ -64,7 +64,7 @@ workflow ctat_mutations {
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
+        String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
         Boolean seperate_snps_indels = true
 
         # variant attributes on which to perform boosting
@@ -154,7 +154,7 @@ workflow ctat_mutations {
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]}
+        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"Variant attributes on which to perform boosting"}
