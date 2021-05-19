@@ -113,11 +113,10 @@ def main():
 
     parser.add_argument(
         "--boosting_method",
-        default="GBoost",
+        default="XGBoost",
         choices=[
                 "none",
                 "AdaBoost",
-                "GBoost",
                 "LR",
                 "NGBoost",
                 "RF",
