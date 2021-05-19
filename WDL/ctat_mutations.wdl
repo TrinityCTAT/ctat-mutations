@@ -18,7 +18,7 @@ workflow ctat_mutations {
         File ref_dict
         File ref_fasta
         File ref_fasta_index
-        File gtf
+        File? gtf
 
         File? db_snp_vcf
         File? db_snp_vcf_index
@@ -41,7 +41,7 @@ workflow ctat_mutations {
         File? cravat_lib
         String? cravat_lib_dir
 
-        String genome_version
+        String? genome_version
 
         File? star_reference
         String? star_reference_dir
@@ -653,7 +653,7 @@ task AnnotateVariants {
         Int preemptible
         Int cpu
     }
-    
+
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
