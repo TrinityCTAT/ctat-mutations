@@ -4,11 +4,30 @@ workflow annotate_variants_wf {
     
     input {
         File input_vcf
-        File? bam
-        File? bai
+        File input_vcf_index
+        String base_name
 
-        File? db_snp_vcf
-        File? db_snp_vcf_index
+        File ref_fasta
+        File ref_fasta_index
+
+        File? bam
+        File? bam_index
+
+        # annotation options
+        Boolean incl_snpEff = true
+        Boolean incl_dbsnp = true
+        Boolean incl_gnomad = true
+        Boolean incl_rna_editing = true
+        Boolean include_read_var_pos_annotations = true
+        Boolean incl_repeats = true
+        Boolean incl_homopolymers = true
+        Boolean incl_splice_dist = true
+        Boolean incl_blat_ED = true
+        Boolean incl_cosmic = true
+        Boolean incl_cravat = true
+
+        File? dbsnp_vcf
+        File? dbsnp_vcf_index
 
         File? gnomad_vcf
         File? gnomad_vcf_index
@@ -20,21 +39,19 @@ workflow annotate_variants_wf {
         File? cosmic_vcf_index
 
         File? ref_splice_adj_regions_bed
-        String base_name
+        
         File? cravat_lib_tar_gz
         String? cravat_lib_dir
         File? repeat_mask_bed
 
-        File ref_fasta
-        File ref_fasta_index
+
         File? gtf
-
-        String plugins_path
-        String scripts_path
         String? genome_version
-        Boolean include_read_var_pos_annotations = true
 
-        String docker
+        String docker = "trinityctat/ctat_mutations:latest"
+        String plugins_path = "/usr/local/src/ctat-mutations/plugins"
+        String scripts_path = "/usr/local/src/ctat-mutations/src"
+
         Int preemptible
         Int cpu
     }
@@ -54,14 +71,11 @@ workflow annotate_variants_wf {
         # resources
         ref_fasta:{help:"Path to the reference genome to use in the analysis pipeline."}
         ref_fasta_index:{help:"Index for ref_fasta"}
-        ref_dict:{help:"Sequence dictionary for ref_fasta"}
         gtf:{help:"Annotations GTF."}
 
-        extra_fasta:{help:"Extra genome to use in alignment and variant calling."}
-        merge_extra_fasta:{help:"Whether to merge extra genome fasta to use in variant calling. Set to false when extra fasta is already included in primary fasta, but you want to process the reads from extra_fasta differently."}
 
-        db_snp_vcf:{help:"dbSNP VCF file for the reference genome."}
-        db_snp_vcf_index:{help:"dbSNP vcf index"}
+        dbsnp_vcf:{help:"dbSNP VCF file for the reference genome."}
+        dbsnp_vcf_index:{help:"dbSNP vcf index"}
 
         gnomad_vcf:{help:"gnomad vcf file w/ allele frequencies"}
         gnomad_vcf_index:{help:"gnomad VCF index"}
@@ -76,98 +90,220 @@ workflow annotate_variants_wf {
 
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
 
-        ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
-        cravat_lib:{help:"CRAVAT resource archive"}
-        cravat_lib_dir:{help:"CRAVAT resource directory (for non-Terra use)"}
-
-        star_reference:{help:"STAR index archive"}
-        star_reference_dir:{help:"STAR directory (for non-Terra use)"}
+        cravat_lib_tar_gz:{help:"CRAVAT resource archive"}
+        cravat_lib_dir:{help:"CRAVAT resource directory (for non-Terra / local use where ctat genome lib is installed already)"}
 
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
-        add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
-        mark_duplicates : {help:"Whether to mark duplicates"}
-        filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
-        annotate_variants:{help:"Whether to annotate the vcf file (needed for boosting)"}
-        filter_variants:{help:"Whether to filter VCF file"}
-        apply_bqsr:{help:"Whether to apply base quality score recalibration"}
-        #        recalibration_plot:{help:"Generate recalibration plot"}
-
-        sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]}
-        boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
-        boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
-        boosting_attributes:{help:"Variant attributes on which to perform boosting"}
-
-        star_cpu:{help:"STAR aligner number of CPUs"}
-        star_memory:{help:"STAR aligner memory"}
-        output_unmapped_reads:{help:"Whether to output unmapped reads from STAR"}
-
-        variant_scatter_count:{help:"Number of parallel variant caller jobs"}
-        variant_filtration_cpu:{help:"Number of CPUs for variant filtration task"}
-        variant_annotation_cpu:{help:"Number of CPUs for variant annotation task"}
-
-        gatk_path:{help:"Path to GATK"}
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
 
         docker:{help:"Docker or singularity image"}
     }
 
-    call AnnotateVariants {
+
+    # leftnorm and split multiallelics
+    call left_norm_vcf {
+        input:
+            input_vcf = input_vcf,
+            input_vcf_index = input_vcf_index,
+            base_name = base_name,
+            ref_fasta = ref_fasta,
+            ref_fasta_index = ref_fasta_index,
+            scripts_path = scripts_path,
+            docker = docker,
+            preemptible = preemptible
+    }
+
+
+    if (incl_snpEff) {
+
+        call snpEff {
             input:
-                    input_vcf = variant_vcf,
-                    base_name = sample_id,
-                    cravat_lib = cravat_lib,
-                    cravat_lib_dir = cravat_lib_dir,
-                    ref_fasta = ref_fasta,
-                    ref_fasta_index = ref_fasta_index,
-                    gtf = gtf,
-                    cosmic_vcf=cosmic_vcf,
-                    cosmic_vcf_index=cosmic_vcf_index,
-                    db_snp_vcf=db_snp_vcf,
-                    db_snp_vcf_index=db_snp_vcf_index,
-                    gnomad_vcf=gnomad_vcf,
-                    gnomad_vcf_index=gnomad_vcf_index,
-                    rna_editing_vcf=rna_editing_vcf,
-                    rna_editing_vcf_index=rna_editing_vcf_index,
-                    bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                    bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
-                    include_read_var_pos_annotations=include_read_var_pos_annotations,
-                    repeat_mask_bed=repeat_mask_bed,
-                    ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
-                    scripts_path=scripts_path,
-                    plugins_path=plugins_path,
-                    genome_version=genome_version,
-                    docker = docker,
-                    preemptible = preemptible,
-	                cpu = variant_annotation_cpu
+                input_vcf = left_norm_vcf.vcf,
+                input_vcf_index = left_norm_vcf.vcf_index,
+                base_name = base_name,
+                scripts_path = scripts_path,
+                plugins_path = plugins_path,
+                genome_version = select_first([genome_version]),
+                docker = docker,
+                preemptible = preemptible,
+                cpu = cpu
+        }
+    }
+
+
+    if (incl_dbsnp) {
+
+        call annotate_dbsnp {
+            input:
+                input_vcf =  select_first([snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                dbsnp_vcf = select_first([dbsnp_vcf]),
+                dbsnp_vcf_index = select_first([dbsnp_vcf_index]),
+                base_name = base_name,
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
+
+    if (incl_gnomad) {
+
+        call annotate_gnomad {
+            input:
+                input_vcf = select_first([annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                gnomad_vcf = select_first([gnomad_vcf]),
+                gnomad_vcf_index = select_first([gnomad_vcf_index]),
+                base_name = base_name,
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
+                
+
+    if (incl_rna_editing) {
+
+        call annotate_RNA_editing {
+            input:
+                input_vcf = select_first([annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                rna_editing_vcf = select_first([rna_editing_vcf]),
+                rna_editing_vcf_index = select_first([rna_editing_vcf_index]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
+
+    if (include_read_var_pos_annotations) {
+        
+        call annotate_PASS_reads {
+            input:
+                input_vcf = select_first([annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                bam = select_first([bam]),
+                bam_index = select_first([bam_index]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible,
+                cpu = cpu
+        }
+    }
+
+
+    if (incl_repeats) {
+    
+        call annotate_repeats {
+            input:
+                input_vcf = select_first([annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                repeat_mask_bed = select_first([repeat_mask_bed]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible,
+                cpu = cpu
        }
+    }
 
-   }
-   
+
+    if (incl_homopolymers) {
+
+        call annotate_homopolymers_n_entropy {
+            input:
+                input_vcf = select_first([annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]), 
+                input_vcf_index = select_first([annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                ref_fasta = ref_fasta,
+                ref_fasta_index = ref_fasta_index,
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+          }
+    }
+                
+    if (incl_splice_dist) {
+        call annotate_splice_distance {
+            input:
+                input_vcf = select_first([annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                ref_splice_adj_regions_bed = select_first([ref_splice_adj_regions_bed]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+         }
+    }
+
+
+    if (incl_blat_ED) {
+        call annotate_blat_ED {
+            input:
+                input_vcf = select_first([annotate_splice_distance.vcf, annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_splice_distance.vcf_index,  annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                ref_fasta = ref_fasta,
+                ref_fasta_index = ref_fasta_index,
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible,
+                cpu = cpu
+        }
+
+    }
+
+
+    if (incl_cosmic) {
+        call annotate_cosmic_variants {
+            input:
+                input_vcf = select_first([annotate_blat_ED.vcf, annotate_splice_distance.vcf, annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_blat_ED.vcf_index, annotate_splice_distance.vcf_index,  annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]), 
+                cosmic_vcf = select_first([cosmic_vcf]),
+                cosmic_vcf_index = select_first([cosmic_vcf_index]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+        }
+
+    }
+
+    if (incl_cravat) {
+         
+        call open_cravat {
+            input:
+                input_vcf = select_first([annotate_cosmic_variants.vcf, annotate_blat_ED.vcf, annotate_splice_distance.vcf, annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+                input_vcf_index = select_first([annotate_cosmic_variants.vcf_index, annotate_blat_ED.vcf_index, annotate_splice_distance.vcf_index,  annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+                cravat_lib_tar_gz = cravat_lib_tar_gz,
+                cravat_lib_dir = cravat_lib_dir,
+                genome_version = select_first([genome_version]),
+                base_name = base_name,
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+        }
+    }
+
+
+    call rename_vcf {
+        input:
+            input_vcf = select_first([open_cravat.vcf, annotate_cosmic_variants.vcf, annotate_blat_ED.vcf, annotate_splice_distance.vcf, annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
+            input_vcf_index = select_first([open_cravat.vcf_index, annotate_cosmic_variants.vcf_index, annotate_blat_ED.vcf_index, annotate_splice_distance.vcf_index,  annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
+            base_name = base_name,
+
+    }
+
+
    output {
-        File? extra_bam = SplitReads.extra_bam
-        File? extra_bam_index = SplitReads.extra_bai
-        Int? extra_bam_number_of_reads = SplitReads.extra_bam_number_of_reads
-
-        File? extra_vcf = HaplotypeCallerExtra.output_vcf
-
-        File? haplotype_caller_vcf = variant_vcf
-
-        File? annotated_vcf = AnnotateVariants.vcf
-        File? filtered_vcf = VariantFiltration.vcf
-        File? aligned_bam = StarAlign.bam
-        File? output_log_final =  StarAlign.output_log_final
-        File? output_SJ =  StarAlign.output_SJ
-        Array[File]? unmapped_reads = StarAlign.unmapped_reads
-        File? recalibrated_bam = ApplyBQSR.bam
-        File? recalibrated_bam_index = ApplyBQSR.bam_index
-        File? cancer_igv_report = CancerVariantReport.cancer_igv_report
-        File? cancer_variants_tsv = FilterCancerVariants.cancer_variants_tsv
-        File? cancer_vcf = FilterCancerVariants.cancer_vcf
+    
+        File vcf = rename_vcf.vcf
+        File vcf_index = rename_vcf.vcf_index
+    
     }
 }
 
@@ -223,7 +359,7 @@ task left_norm_vcf {
 }
 
 
-task snpEFF {
+task snpEff {
 
     input {
         File input_vcf
@@ -249,7 +385,7 @@ task snpEFF {
         bgzip -cd ~{input_vcf} | \
             java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
             -nostats -noLof -no-downstream -no-upstream -noLog \
-            ~{genome_version} -t ~{CPU} > ~{base_name}.snpeff.tmp.vcf
+            ~{genome_version} -t ~{cpu} > ~{base_name}.snpeff.tmp.vcf
 
         ~{scripts_path}/update_snpeff_annotations.py \
             ~{base_name}.snpeff.tmp.vcf \
@@ -259,7 +395,7 @@ task snpEFF {
         tabix ~{base_name}.snpeff.vcf.gz
            
 
-    <<<
+    >>>
 
     output {
         File vcf = "~{base_name}.snpeff.vcf.gz"
@@ -282,13 +418,13 @@ task annotate_dbsnp {
     input {
         File input_vcf
         File input_vcf_index
-        File db_snp_vcf
-        File db_snp_vcf_index
+        File dbsnp_vcf
+        File dbsnp_vcf_index
         String base_name
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 50)
     }
 
@@ -297,7 +433,7 @@ task annotate_dbsnp {
 
         bcftools annotate \
             --output-type z \
-            --annotations ~{db_snp_vcf} \
+            --annotations ~{dbsnp_vcf} \
             --columns "INFO/OM,INFO/PM,INFO/SAO,INFO/RS" \
             --output ~{base_name}.dbsnp.vcf.gz \
             ~{input_vcf}
@@ -332,7 +468,7 @@ task annotate_gnomad {
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 50)
     }
 
@@ -378,7 +514,7 @@ task annotate_RNA_editing {
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 50)
     }
 
@@ -516,7 +652,7 @@ task annotate_repeats {
 }
 
 
-task annotate_homopolymers_n_repeats {
+task annotate_homopolymers_n_entropy {
 
     input {
         File input_vcf
@@ -530,7 +666,7 @@ task annotate_homopolymers_n_repeats {
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 50)
     }
 
@@ -579,7 +715,7 @@ task annotate_splice_distance {
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 20)
 
     }
@@ -686,7 +822,7 @@ task annotate_cosmic_variants {
 
         String docker
         Int preemptible
-        Int cpu
+        Int cpu = 1
         Int disk = ceil((size(input_vcf, "GB") * 3) + 20)
 
     }
@@ -734,14 +870,15 @@ task open_cravat {
         # must specify cravat_lib_dir or cravat_lib_tar_gz
         File? cravat_lib_tar_gz #providing the tar.gz file with the cravat resources
         String? cravat_lib_dir  #path to existing cravat lib dir in the ctat genome lib
+        String genome_version
 
         String base_name
         String scripts_path
 
         String docker
         Int preemptible
-        Int cpu
-        Int disk = ceil((size(input_vcf, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
+        Int cpu = 1
+        Int disk = ceil((size(input_vcf, "GB") * 3) + 50 + if(defined(cravat_lib_tar_gz))then 100 else 0)
         
 
     }
@@ -814,7 +951,12 @@ task rename_vcf {
     input {
         File input_vcf
         File input_vcf_index
-        String basename
+        String base_name
+
+        String docker        
+        Int preemptible
+        Int cpu = 1
+        Int disk = ceil((size(input_vcf, "GB") * 2)) 
     }
 
 
@@ -822,8 +964,8 @@ task rename_vcf {
 
         set -ex
 
-        mv ~{input_vcf} ~{basename}.vcf.gz
-        mv ~{input_vcf} ~{basename}.vcf.gz.tbi
+        mv ~{input_vcf} ~{base_name}.vcf.gz
+        mv ~{input_vcf} ~{base_name}.vcf.gz.tbi
 
      >>>
 
