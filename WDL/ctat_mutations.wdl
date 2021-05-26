@@ -4,7 +4,7 @@ workflow ctat_mutations {
     input {
         String sample_id
 
-		# different entry points based on inputs
+        # different entry points based on inputs
         File? left
         File? right
         File? bam
@@ -59,7 +59,7 @@ workflow ctat_mutations {
         Boolean add_read_groups = true
         
         Int variant_filtration_cpu = 1
-		Int variant_annotation_cpu = 5
+        Int variant_annotation_cpu = 5
 
 
         # boosting
@@ -1392,8 +1392,12 @@ task VariantFiltration {
     String ctat_boost_output_indels = "~{boosting_method}_regressor_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
+    String indel_alg_type = if (boosting_method == "LR") then "classifier" else "regressor"
+
+
     command <<<
-        set -e
+        set -ex
+
         # monitor_script.sh &
 
         boosting_method="~{boosting_method}"
@@ -1429,15 +1433,6 @@ task VariantFiltration {
             --vcf ~{input_vcf} \
             --outdir boost
 
-            # always using regressor for indels as per ctat mutations paper and evaluations
-            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
-            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
-            --features ~{sep=',' boosting_attributes} \
-            --out boost \
-            --model ~{boosting_method} \
-            --predictor regressor \
-            --indels
-
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.snps.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
@@ -1446,18 +1441,22 @@ task VariantFiltration {
             --predictor ~{boosting_alg_type} \
             --snps
 
+            # always using regressor for indels as per ctat mutations paper and evaluations
+            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
+            --features ~{sep=',' boosting_attributes} \
+            --out boost \
+            --model ~{boosting_method} \
+            --predictor ~{indel_alg_type} \
+            --indels
+
+
             ls boost/*.vcf | xargs -n1 bgzip -f
 
-            if [[ -f "boost/~{ctat_boost_output_snp}" && -f "boost/~{ctat_boost_output_indels}" ]]; then
-                tabix boost/~{ctat_boost_output_snp}
-                tabix boost/~{ctat_boost_output_indels}
-                bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
-            elif [[ -f "boost/~{ctat_boost_output_snp}" ]]; then
-                mv boost/~{ctat_boost_output_snp} ~{output_name}
-            elif [[ -f "boost/~{ctat_boost_output_indels}" ]]; then
-                mv boost/~{ctat_boost_output_indels} ~{output_name}
-            fi
-
+            tabix boost/~{ctat_boost_output_snp}
+            tabix boost/~{ctat_boost_output_indels}
+            bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
+            
         fi
     >>>
 
