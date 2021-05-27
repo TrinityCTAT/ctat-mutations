@@ -81,7 +81,9 @@ def main():
     logger.info("Running samtools faidx")
     cmd = "samtools faidx {} --region-file {} > {}".format(reference, positions_file, faidx_output)
     print(cmd)
-    fsa = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8', shell=True).communicate()[0]
+    subprocess.check_call(cmd, shell=True)
+    
+    #fsa = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8', shell=True).communicate()[0]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Run BLAT
@@ -96,7 +98,8 @@ def main():
 
     cmd = "pblat {} {} -threads={} -noHead -minScore=70 -minIdentity=90 {}".format(reference, faidx_output, threads, psl_output)
     print(cmd)
-    subprocess.Popen(cmd, stdin=subprocess.PIPE, encoding='utf8', shell=True).communicate(fsa)
+    #subprocess.Popen(cmd, stdin=subprocess.PIPE, encoding='utf8', shell=True).communicate(fsa)
+    subprocess.check_call(cmd, shell=True)
     
     # Process the psl output
     logger.info("Processing Output")
