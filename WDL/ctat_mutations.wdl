@@ -915,7 +915,7 @@ task AnnotateVariants {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "40G"
         preemptible: preemptible
         cpu : cpu
     }

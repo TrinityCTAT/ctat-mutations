@@ -97,16 +97,26 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
     git checkout ${IGV_REPORTS_CO} && \
     pip install -e .
 
+
+#RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
+#RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+#RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+
+
+
+
 ## NCIP CTAT mutations
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.0.0
+ENV CTAT_MUTATIONS_TAG=v3.1.0-dev
+ENV CTAT_MUTATIONS_COMMIT=f01e881e928c39f370729b6a99ecca0f9622ba4b
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
-    git checkout tags/${CTAT_MUTATIONS_TAG}
+    git checkout $CTAT_MUTATIONS_COMMIT && \
+    make
+    
+#git checkout tags/${CTAT_MUTATIONS_TAG}
 
-RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
-RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
-RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
@@ -114,3 +124,4 @@ RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip w
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
 
 ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
+
