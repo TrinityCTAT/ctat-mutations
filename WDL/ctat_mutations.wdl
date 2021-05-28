@@ -4,12 +4,13 @@ workflow ctat_mutations {
     input {
         String sample_id
 
-		# different entry points based on inputs
+        # different entry points based on inputs
         File? left
         File? right
         File? bam
         File? bai
         File? vcf
+        File? vcf_index
 
         File? extra_fasta
         Boolean merge_extra_fasta = true
@@ -46,21 +47,24 @@ workflow ctat_mutations {
         File? star_reference
         String? star_reference_dir
 
-        Boolean annotate_and_filter_variants = true
+        Boolean annotate_variants = true
+        Boolean filter_variants = true
         Boolean filter_cancer_variants = true
-		Boolean variant_ready_bam = false
+		
+        Boolean variant_ready_bam = false
+        Boolean filter_ready_vcf = false
+
         Boolean apply_bqsr = true
         Boolean mark_duplicates = true
         Boolean add_read_groups = true
-        Boolean call_variants = true
-
+        
         Int variant_filtration_cpu = 1
-		Int variant_annotation_cpu = 5
+        Int variant_annotation_cpu = 5
 
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "GBoost" #  ["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]
+        String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
         Boolean seperate_snps_indels = true
 
         # variant attributes on which to perform boosting
@@ -142,15 +146,15 @@ workflow ctat_mutations {
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
         mark_duplicates : {help:"Whether to mark duplicates"}
         filter_cancer_variants:{help:"Whether to generate cancer VCF file"}
-        annotate_and_filter_variants:{help:"Whether to filter VCF file"}
+        annotate_variants:{help:"Whether to annotate the vcf file (needed for boosting)"}
+        filter_variants:{help:"Whether to filter VCF file"}
         apply_bqsr:{help:"Whether to apply base quality score recalibration"}
         #        recalibration_plot:{help:"Generate recalibration plot"}
-        call_variants:{help:"Whether to call variants against the reference genome"}
 
         sequencing_platform:{help:"The sequencing platform used to generate the sample"}
         include_read_var_pos_annotations :{help: "Add vcf annotation that requires variant to be at least 6 bases from ends of reads."}
 
-        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "GBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML", "XGBoost"]}
+        boosting_method:{help:"Variant calling boosting method", choices:["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]}
         boosting_alg_type:{help:"Boosting algorithm type: classifier or regressor", choices:["classifier", "regressor"]}
         boosting_score_threshold:{help:"Minimum score threshold for boosted variant selection"}
         boosting_attributes:{help:"Variant attributes on which to perform boosting"}
@@ -318,10 +322,13 @@ workflow ctat_mutations {
         }
     }
 
-    File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
-    File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
-    if(call_variants) {
-        if(!vcf_input && variant_scatter_count > 1) {
+
+    if(!vcf_input) {
+        
+        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
+        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
+       
+         if(variant_scatter_count > 1) {
             call SplitIntervals {
                 input:
                     ref_fasta = ref_fasta,
@@ -359,7 +366,7 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        if(!vcf_input && variant_scatter_count <= 1) {
+        if(variant_scatter_count <= 1) {
             call HaplotypeCaller {
                 input:
                     input_bam = bam_for_variant_calls,
@@ -387,10 +394,13 @@ workflow ctat_mutations {
                     preemptible = preemptible
             }
         }
-        File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
+     }
 
-        if(annotate_and_filter_variants) {
-            call AnnotateVariants {
+     File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
+     File variant_vcf_index = select_first([MergePrimaryAndExtraVCFs.output_vcf_index, MergeVCFs.output_vcf_index, HaplotypeCaller.output_vcf_index, vcf_index])
+
+     if(annotate_variants && !filter_ready_vcf) {
+        call AnnotateVariants {
                 input:
                     input_vcf = variant_vcf,
                     base_name = sample_id,
@@ -420,13 +430,16 @@ workflow ctat_mutations {
 	                cpu = variant_annotation_cpu
             }
 
+      }
+
+      if (filter_variants) {
 
             String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
 
             call VariantFiltration {
                 input:
-                    input_vcf = AnnotateVariants.vcf,
-                    input_vcf_index = AnnotateVariants.vcf_index,
+                    input_vcf = select_first([AnnotateVariants.vcf, variant_vcf]),
+                    input_vcf_index = select_first([AnnotateVariants.vcf_index, variant_vcf_index]),
                     base_name = base_name,
                     ref_dict = ref_dict,
                     ref_fasta = ref_fasta,
@@ -465,15 +478,15 @@ workflow ctat_mutations {
                             ref_fasta_index = ref_fasta_index,
                             ref_dict = ref_dict,
                             ref_bed = select_first([ref_bed]),
-                            bam=bam_for_variant_calls,
-                            bai=bai_for_variant_calls,
+                            bam=select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                            bai=select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                             docker = docker,
                             preemptible = preemptible
                     }
                 }
             }
-        }
     }
+    
 
     output {
         File? extra_bam = SplitReads.extra_bam
@@ -673,7 +686,7 @@ task AnnotateVariants {
 
         ~{scripts_path}/groom_vcf.py ~{base_name}.norm.vcf ~{base_name}.norm.groom.vcf
 
-        bcftools sort ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
+        bcftools sort -T . ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
         bgzip -c ~{base_name}.norm.groom.sorted.vcf > $OUT
         tabix $OUT
         VCF=$OUT
@@ -884,7 +897,7 @@ task AnnotateVariants {
             ~{scripts_path}/groom_vcf.py \
             ~{base_name}.cravat.tmp.vcf ~{base_name}.cravat.groom.vcf
 
-            bcftools sort ~{base_name}.cravat.groom.vcf > ~{base_name}.cravat.vcf
+            bcftools sort -T . ~{base_name}.cravat.groom.vcf > ~{base_name}.cravat.vcf
             bgzip -c ~{base_name}.cravat.vcf > $OUT
             tabix $OUT
             VCF=$OUT
@@ -902,7 +915,7 @@ task AnnotateVariants {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "40G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -1379,8 +1392,12 @@ task VariantFiltration {
     String ctat_boost_output_indels = "~{boosting_method}_regressor_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
+    String indel_alg_type = if (boosting_method == "LR") then "classifier" else "regressor"
+
+
     command <<<
-        set -e
+        set -ex
+
         # monitor_script.sh &
 
         boosting_method="~{boosting_method}"
@@ -1416,15 +1433,6 @@ task VariantFiltration {
             --vcf ~{input_vcf} \
             --outdir boost
 
-            # always using regressor for indels as per ctat mutations paper and evaluations
-            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
-            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
-            --features ~{sep=',' boosting_attributes} \
-            --out boost \
-            --model ~{boosting_method} \
-            --predictor regressor \
-            --indels
-
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.snps.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
@@ -1433,18 +1441,22 @@ task VariantFiltration {
             --predictor ~{boosting_alg_type} \
             --snps
 
+            # always using regressor for indels as per ctat mutations paper and evaluations
+            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
+            --features ~{sep=',' boosting_attributes} \
+            --out boost \
+            --model ~{boosting_method} \
+            --predictor ~{indel_alg_type} \
+            --indels
+
+
             ls boost/*.vcf | xargs -n1 bgzip -f
 
-            if [[ -f "boost/~{ctat_boost_output_snp}" && -f "boost/~{ctat_boost_output_indels}" ]]; then
-                tabix boost/~{ctat_boost_output_snp}
-                tabix boost/~{ctat_boost_output_indels}
-                bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
-            elif [[ -f "boost/~{ctat_boost_output_snp}" ]]; then
-                mv boost/~{ctat_boost_output_snp} ~{output_name}
-            elif [[ -f "boost/~{ctat_boost_output_indels}" ]]; then
-                mv boost/~{ctat_boost_output_indels} ~{output_name}
-            fi
-
+            tabix boost/~{ctat_boost_output_snp}
+            tabix boost/~{ctat_boost_output_indels}
+            bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
+            
         fi
     >>>
 

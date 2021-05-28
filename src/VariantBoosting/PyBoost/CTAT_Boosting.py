@@ -622,7 +622,7 @@ def feature_importance(boost_obj, args):
     model = args.model
     path = args.out
     
-    if model.lower() == 'gboost':
+    if model.lower() == 'xgboost':
         import xgboost as xgb
         xgb.plot_importance(boost_obj.model, color='green') 
         plt.rcParams['figure.figsize'] = [10, 10] 
@@ -704,17 +704,21 @@ def main():
     # Mandatory arguments 
     parser.add_argument('--vcf', required = True, help="Input vcf.")
     parser.add_argument("--out", required=True, help="output directory")
-    parser.add_argument("--model",  help="Specify Boosting model - RF, AdaBoost, SGBoost, GradBoost, SVM, NGBoost", default = 'GBoost')
+    parser.add_argument("--model",  choices = ["AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"],
+                        help="Specify Boosting model",
+                        default = 'XGBoost')
     parser.add_argument("--features", 
                         required = False, 
                         type     = str,
                         help     = "Features for Boosting (RS required) [comma separated without space]",
                         #default = "DP, Entropy, FS,BaseQRankSum,Homopolymer,  MLEAF, MQ, MQRankSum,QD, RNAEDIT, RPT, ReadPosRankSum, SOR,SPLICEADJ,RS, TMMR, TDM, MMF, VAF") ## Old features
                         default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2" )
-    parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier", required=False, default = 'classifier')
+    parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier",
+                        choices = ['classifier', 'regressor'], default = 'classifier')
     parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
     parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
-    parser.add_argument("--all",  action='store_true', default=False, help="Extract only snps")
+    parser.add_argument("--all",  action='store_true', default=False, help="Extract both snps and indels")
+    parser.add_argument("--write_feature_data_matrix", type=str, default=None, help="write feature data matrix used to filename")
 
     # Argument parser 
     args = parser.parse_args()
@@ -751,6 +755,11 @@ def main():
         logger.info("No variants present. Skipping boosting on this data.")
         return None
 
+    if args.write_feature_data_matrix is not None:
+        logger.info("-writing feature data matrix to: {}".format(args.write_feature_data_matrix))
+        data.to_csv(args.write_feature_data_matrix, sep="\t")
+
+
     print('Features used for modeling: ', features)
 
     ## Boosting
@@ -758,6 +767,7 @@ def main():
         logger.info("Classification ... ")
     else:
         logger.info("Regression ... ")
+
     logger.info("Running Boosting ... ")
     boost_obj = CTAT_Boosting()
     boost_obj = CTAT_Boosting.data_matrix(boost_obj, data, args)
@@ -774,7 +784,7 @@ def main():
         boost_obj = CTAT_Boosting.RF(boost_obj, args)
     elif args.model.lower() == 'adaboost':
         boost_obj = CTAT_Boosting.AdaBoost(boost_obj, args)
-    elif args.model.lower() == 'gboost':
+    elif args.model.lower() == 'xgboost':
         boost_obj = CTAT_Boosting.XGBoost(boost_obj, args)
     elif args.model.lower() == 'svml':
         boost_obj = CTAT_Boosting.SVML(boost_obj, args)
@@ -783,7 +793,7 @@ def main():
     elif args.model.lower() == 'lr':
         boost_obj = CTAT_Boosting.LR(boost_obj, args)
     else:
-        print("Boosting model not recognized. Please use one of AdaBoost, SGBoost, RF, GBoost, SVML, SVM_RBF, LR")
+        print("Boosting model not recognized. Please use one of AdaBoost, SGBoost, RF, XGBoost, SVML, SVM_RBF, LR")
         exit(1)
     
     logger.info("Plotting Feature Imporance")

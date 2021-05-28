@@ -84,7 +84,23 @@ annotate_PASS_reads:
 ## Variant Boosting (using classifier default --predictor setting instead of regressor)
 
 
-BOOSTING_ALL : BOOSTING_PREP SGBoost_GRCh38 AdaBoost_GRCh38 RF_GRCh38 GBoost_GRCh38  SGBoost_GRCh38_regress AdaBoost_GRCh38_regress RF_GRCh38_regress GBoost_GRCh38_regress
+BOOSTING_ALL : BOOSTING_PREP \
+SGBoost_GRCh38 \
+AdaBoost_GRCh38 \
+RF_GRCh38 \
+XGBoost_GRCh38 \
+LR_GRCh38 \
+NGBoost_GRCh38 \
+SVM_RBF_GRCh38 \
+SVML_GRCh38 \
+SGBoost_GRCh38_regress \
+AdaBoost_GRCh38_regress \
+RF_GRCh38_regress \
+XGBoost_GRCh38_regress \
+LR_GRCh38_regress \
+NGBoost_GRCh38_regress \
+SVM_RBF_GRCh38_regress \
+SVML_GRCh38_regress
 
 
 boosting_bam_target = ctat_mutation_ext_testdata/SRR5665260.gatk_HC.hg.chr1.dedupped.bam
@@ -110,8 +126,22 @@ AdaBoost_GRCh38: BOOSTING_PREP
 RF_GRCh38: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting -O example.boosting 
 
-GBoost_GRCh38: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting -O example.boosting 
+XGBoost_GRCh38: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method XGBoost --sample_id example.boosting -O example.boosting 
+
+LR_GRCh38: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method LR --sample_id example.boosting -O example.boosting 
+
+NGBoost_GRCh38: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method NGBoost --sample_id example.boosting -O example.boosting 
+
+SVM_RBF_GRCh38: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SVM_RBF --sample_id example.boosting -O example.boosting 
+
+
+SVML_GRCh38: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SVML --sample_id example.boosting -O example.boosting 
+
 
 
 ## run regressor
@@ -125,8 +155,32 @@ AdaBoost_GRCh38_regress: BOOSTING_PREP
 RF_GRCh38_regress: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method RF --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
 
-GBoost_GRCh38_regress: BOOSTING_PREP
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method GBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
+XGBoost_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method XGBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
+
+LR_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method LR --sample_id example.boosting --boosting_alg_type regressor  -O example.boosting 
+
+NGBoost_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method NGBoost --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
+
+SVM_RBF_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SVM_RBF --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
+
+
+SVML_GRCh38_regress: BOOSTING_PREP
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method SVML --sample_id example.boosting --boosting_alg_type regressor -O example.boosting 
+
+
+
+# Boosting-only
+boost_vcf_only: ctat_mutation_ext_testdata
+	../ctat_mutations --vcf ctat_mutation_ext_testdata/SRR5665260.gatk_HC.hg.chr1.annotated.vcf.gz \
+                      --filter_ready_vcf \
+                      --sample_id example.boosting \
+                      --boosting_method SGBoost --boosting_alg_type classifier -O example.boost_vcf_only \
+                      --no_filter_cancer_variants
+
 
 
 
@@ -139,11 +193,11 @@ Benchmark: BOOSTING_ALL CTAT-benchmarking
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.SGBoost.classifier.vcf.gz \
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.AdaBoost.classifier.vcf.gz \
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.RF.classifier.vcf.gz \
-                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.GBoost.classifier.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.XGBoost.classifier.vcf.gz \
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.SGBoost.regressor.vcf.gz \
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.AdaBoost.regressor.vcf.gz \
                     example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.RF.regressor.vcf.gz \
-                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.GBoost.regressor.vcf.gz \
+                    example.boosting/SRR5665260.gatk_HC.hg.chr1.raw.vcf.gz.wAnnot.vcf.gz.XGBoost.regressor.vcf.gz \
         --truth_vcf ctat_mutation_ext_testdata/bmark_resource/giab_reference_calls.high_conf_regions.chr1.vcf \
         --pred_bam ${boosting_bam_target} \
         --restrict_regions ctat_mutation_ext_testdata/bmark_resource/grch38.high_conf_regions.chr1.bed \
