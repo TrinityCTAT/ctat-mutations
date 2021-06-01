@@ -1114,7 +1114,7 @@ task StarAlign {
     Boolean is_gzip = sub(select_first([fastq1]), "^.+\\.(gz)$", "GZ") == "GZ"
 
     command <<<
-        set -e
+        set -ex
 
         genomeDir="~{star_reference}"
         if [ "$genomeDir" == "" ]; then
@@ -1123,12 +1123,13 @@ task StarAlign {
 
         if [ -f "${genomeDir}" ] ; then
             mkdir genome_dir
-            compress="pigz"
+            #compress="pigz"
 
-            if [[ $genomeDir == *.bz2 ]] ; then
-                compress="pbzip2"
-            fi
-            tar -I $compress -xf $genomeDir -C genome_dir --strip-components 1
+            #if [[ $genomeDir == *.bz2 ]] ; then
+            #    compress="pbzip2"
+            #fi
+            #tar -I $compress -xf $genomeDir -C genome_dir --strip-components 1
+            tar  -xf $genomeDir -C genome_dir --strip-components 1
             genomeDir="genome_dir"
         fi
 
