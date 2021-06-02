@@ -670,7 +670,7 @@ task AnnotateVariants {
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
-        set -e
+        set -ex
         # monitor_script.sh &
 
 
@@ -684,6 +684,7 @@ task AnnotateVariants {
         -o ~{base_name}.norm.vcf \
         $VCF
 
+      
         ~{scripts_path}/groom_vcf.py ~{base_name}.norm.vcf ~{base_name}.norm.groom.vcf
 
         bcftools sort -T . ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
@@ -875,13 +876,14 @@ task AnnotateVariants {
 
             if [ -f "$cravat_lib_dir" ] ; then
                 mkdir cravat_lib_dir
-                compress="pigz"
+                #compress="pigz"
+                #
+                #if [[ $cravat_lib_dir == *.bz2 ]] ; then
+                #    compress="pbzip2"
+                #fi
 
-                if [[ $cravat_lib_dir == *.bz2 ]] ; then
-                    compress="pbzip2"
-                fi
-
-                tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+               #tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+               tar -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
                 cravat_lib_dir="cravat_lib_dir"
             fi
 
