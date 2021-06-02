@@ -22,6 +22,6 @@
     "ctat_mutations.rna_editing_vcf": "gs://fc-29886bf3-57cd-471c-b99e-a40c7b3388a0/GRCh37_gencode_v19_CTAT_lib_Apr032020/RNAediting.library.vcf.gz",
     "ctat_mutations.rna_editing_vcf_index": "gs://fc-29886bf3-57cd-471c-b99e-a40c7b3388a0/GRCh37_gencode_v19_CTAT_lib_Apr032020/RNAediting.library.vcf.gz.csi",
     "ctat_mutations.sample_id": "this.sample_id",
-    "ctat_mutations.star_reference": "gs://fc-29886bf3-57cd-471c-b99e-a40c7b3388a0/GRCh37_gencode_v19_CTAT_lib_Apr032020/STAR.tgz"
+    "ctat_mutations.star_reference": "gs://fc-29886bf3-57cd-471c-b99e-a40c7b3388a0/GRCh37_gencode_v19_CTAT_lib_Apr032020/STAR.tar"
 
 }
