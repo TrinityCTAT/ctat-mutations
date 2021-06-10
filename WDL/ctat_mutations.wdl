@@ -1394,7 +1394,7 @@ task VariantFiltration {
     String output_name = if (boosting_method == "none") then "~{base_name}.filtered.vcf.gz" else "~{base_name}.vcf.gz"
     String boost_tmp = "~{boosting_method}_filtered.vcf"
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
-    String ctat_boost_output_indels = "~{indel_alg_type}_regressor_ctat_boosting_indels.vcf.gz" # always regressor type for indels
+    String ctat_boost_output_indels = "~{boosting_method}_~{indel_alg_type}_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
 
