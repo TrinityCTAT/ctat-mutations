@@ -1441,7 +1441,7 @@ task VariantFiltration {
             --predictor ~{boosting_alg_type} \
             --snps
 
-            # always using regressor for indels as per ctat mutations paper and evaluations
+            # always using regressor for indels as per ctat mutations paper and evaluations (unless LR method - uses classifier)
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
