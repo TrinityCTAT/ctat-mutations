@@ -798,7 +798,7 @@ task annotate_blat_ED {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "40G"
         preemptible: preemptible
         cpu : cpu
     }
