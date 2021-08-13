@@ -1,0 +1,14 @@
+
+# public workspace:
+https://app.terra.bio/#workspaces/ctat-firecloud/ctat-mutations
+
+
+# using alto for terra reconfigurations:
+
+alto add_method -n bjhtest ctat_mutations.wdl 
+import "https://api.firecloud.org/ga4gh/v1/tools/bjhtest:ctat_mutations/versions/1/plain-WDL/descriptor"
+
+alto run -m bjhtest/ctat_mutations -w ctat-firecloud/ctat_mutations_test -i ctat_mutations.terra_inputs.json
+https://app.terra.bio/#workspaces/ctat-firecloud/ctat_mutations_test/job_history/ef09479f-6995-4ea0-9243-64390d7175a6
+
+

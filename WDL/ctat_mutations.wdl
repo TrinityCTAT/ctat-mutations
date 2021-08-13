@@ -670,7 +670,7 @@ task AnnotateVariants {
     String vcf_extension = "vcf.gz"
     Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
     command <<<
-        set -e
+        set -ex
         # monitor_script.sh &
 
 
@@ -684,6 +684,7 @@ task AnnotateVariants {
         -o ~{base_name}.norm.vcf \
         $VCF
 
+      
         ~{scripts_path}/groom_vcf.py ~{base_name}.norm.vcf ~{base_name}.norm.groom.vcf
 
         bcftools sort -T . ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
@@ -875,13 +876,14 @@ task AnnotateVariants {
 
             if [ -f "$cravat_lib_dir" ] ; then
                 mkdir cravat_lib_dir
-                compress="pigz"
+                #compress="pigz"
+                #
+                #if [[ $cravat_lib_dir == *.bz2 ]] ; then
+                #    compress="pbzip2"
+                #fi
 
-                if [[ $cravat_lib_dir == *.bz2 ]] ; then
-                    compress="pbzip2"
-                fi
-
-                tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+               #tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+               tar -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
                 cravat_lib_dir="cravat_lib_dir"
             fi
 
@@ -1114,7 +1116,7 @@ task StarAlign {
     Boolean is_gzip = sub(select_first([fastq1]), "^.+\\.(gz)$", "GZ") == "GZ"
 
     command <<<
-        set -e
+        set -ex
 
         genomeDir="~{star_reference}"
         if [ "$genomeDir" == "" ]; then
@@ -1123,12 +1125,13 @@ task StarAlign {
 
         if [ -f "${genomeDir}" ] ; then
             mkdir genome_dir
-            compress="pigz"
+            #compress="pigz"
 
-            if [[ $genomeDir == *.bz2 ]] ; then
-                compress="pbzip2"
-            fi
-            tar -I $compress -xf $genomeDir -C genome_dir --strip-components 1
+            #if [[ $genomeDir == *.bz2 ]] ; then
+            #    compress="pbzip2"
+            #fi
+            #tar -I $compress -xf $genomeDir -C genome_dir --strip-components 1
+            tar  -xf $genomeDir -C genome_dir --strip-components 1
             genomeDir="genome_dir"
         fi
 
@@ -1386,13 +1389,14 @@ task VariantFiltration {
         Int cpu
     }
 
+
+    String indel_alg_type = if (boosting_method == "LR") then "classifier" else "regressor"
     String output_name = if (boosting_method == "none") then "~{base_name}.filtered.vcf.gz" else "~{base_name}.vcf.gz"
     String boost_tmp = "~{boosting_method}_filtered.vcf"
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
-    String ctat_boost_output_indels = "~{boosting_method}_regressor_ctat_boosting_indels.vcf.gz" # always regressor type for indels
+    String ctat_boost_output_indels = "~{boosting_method}_~{indel_alg_type}_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
 
-    String indel_alg_type = if (boosting_method == "LR") then "classifier" else "regressor"
 
 
     command <<<
@@ -1441,7 +1445,7 @@ task VariantFiltration {
             --predictor ~{boosting_alg_type} \
             --snps
 
-            # always using regressor for indels as per ctat mutations paper and evaluations
+            # always using regressor for indels as per ctat mutations paper and evaluations (unless LR method - uses classifier)
             ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
