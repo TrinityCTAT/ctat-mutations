@@ -114,9 +114,6 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
     make
     
-#git checkout tags/${CTAT_MUTATIONS_TAG}
-
-
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \

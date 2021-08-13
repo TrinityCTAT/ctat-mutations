@@ -1,8 +1,14 @@
+
+* note: 3.0.1 - bugfix, new syntax for CreateSequenceDictionary with gatk 4.1.9.0 in mut lib prep step
+    docker and singularity images provided.
+
+
 3.0.0
 - improved boosting performance
 - rewrote workflow logic using WDL
 - run 'make' in the base directory to install Cromwell workflow runner
 - moved RVBLR (RVBoost) to https://github.com/broadinstitute/RVBLR
+
 
 2.5.0
 - leverages Open-CRAVAT for annotations in place of REST-call to web app.
