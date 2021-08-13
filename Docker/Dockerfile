@@ -108,7 +108,7 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
 ## NCIP CTAT mutations
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_TAG=v3.1.0-dev
-ENV CTAT_MUTATIONS_COMMIT=f01e881e928c39f370729b6a99ecca0f9622ba4b
+ENV CTAT_MUTATIONS_COMMIT=97f048b67f1ce238c4a463389e50990f29d25ebb
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
