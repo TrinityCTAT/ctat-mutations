@@ -1,12 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-__author__ = "Vrushali Fangal"
-__copyright__ = "Copyright 2014"
-__license__ = "MIT"
-__maintainer__ = "Vrushali Fangal"
-__email__ = "vrushali@broadinstitute.org"
-__status__ = "Development"
 
 """
 
@@ -95,113 +88,83 @@ def preprocess(df_vcf, args):
         dict_info['ALT'] = df_row['ALT']
         dict_info['QUAL'] = df_row['QUAL']
         dict_info['LEN'] = np.abs( len(df_row['REF']) - len(df_row['ALT']))
-        dict_info['GT'] = df_row[-1].split(':')[0]
+        #dict_info['GT'] = df_row[-1].split(':')[0]
         lst.append(dict_info)
     
     
     DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
-    if 'GT' in DF.columns:
-        DF = pd.get_dummies(DF, columns=['GT'], prefix='GT')
 
-    ## Replace INDEL values
-    DF['AF'] = DF['AF'].replace('0.5,0.5', '0.5')
-    DF['MLEAF'] = DF['MLEAF'].replace('0.5,0.5', '0.5')
-    DF['AC'] = DF['AC'].replace('1,1', '1')
-    
     features = args.features.replace(' ','').split(",")
-
-    # conditions to remove the feature if not present 
-    if args.snps:
-        if 'GT_1/2' in features:
-            features.remove('GT_1/2')
-    if 'GT_1/2' not in DF.columns:
-        if 'GT_1/2' in features:
-            features.remove('GT_1/2')
-            logger.info("Removing GT_1/2 feature because no GT_1/2 is present.")
-
+    
     # RS is an absolute requirement
     if 'RS' not in features:
-        features.append('RS')
-    if 'RS' not in DF.columns:
-        logger.info("Adding RS feature.")
-        DF['RS'] = np.nan
-
-    # If running on INDELS, there mostlikely wont be any RNAEDIT
-    ## Remove the RNAEDIT if it doesnt exist 
-    if args.indels:
-        if 'RNAEDIT' not in DF.columns:
-            if 'RNAEDIT' in features:
-                features.remove('RNAEDIT')
-                logger.info("Removing RNAEDIT feature because no RNA editing present.")
-
-    # If the following features are not found in the columns, remove them 
-    ## Remove the Homopolymer if it doesnt exist 
-    if 'Homopolymer' not in DF.columns:
-        if 'Homopolymer' in features:
-            features.remove('Homopolymer')
-            logger.info("Removing Homopolymer feature because no Homopolymer is present.")
-    ## Remove the SAO if it doesnt exist 
-    if 'SAO' not in DF.columns:
-        if 'SAO' in features:
-            features.remove('SAO')
-            logger.info("Removing SAO feature because no SAO is present.")
-    ## Remove the SPLICEADJ if it doesnt exist 
-    if 'SPLICEADJ' not in DF.columns:
-        if 'SPLICEADJ' in features:
-            features.remove('SPLICEADJ')
-            logger.info("Removing SPLICEADJ feature because no SPLICEADJ is present.")
+        raise RuntimeError("Error, RS is a required feature")
+        
+    # cannot use RNAEDIT as a feature - its only annotated for targeted removal.
+    if 'RNAEDIT' in features:
+        raise RuntimeError("cannot use RNAEDIT as a feature - its only annotated for targeted removal")
 
 
-    df_subset = DF[features]
-    
+    # remove features if not found as columns
+    for feature in features:
+        if feature not in DF.columns:
+            features.remove(feature)
+            logger.info("Removing feature {} because it is not available in vcf".format(feature))
+
+        
     ## Replace NA with zero - RPT, RNAEDIT, RS
-    if 'RNAEDIT' in df_subset.columns:
-        df_subset['RNAEDIT'] = df_subset['RNAEDIT'].fillna(0)
-        df_subset['RNAEDIT'][df_subset['RNAEDIT'] != 0] = 1
-    if 'RPT' in df_subset.columns:
-        df_subset['RPT'] = df_subset['RPT'].fillna(0)
-        df_subset['RPT'][df_subset['RPT'] != 0] = 1
-    if 'RS' in df_subset.columns:
-        df_subset['RS'] = df_subset['RS'].fillna(0)
-        df_subset['RS'][df_subset['RS'] != 0] = 1
+    if 'RNAEDIT' in DF.columns:
+        DF['RNAEDIT'] = DF['RNAEDIT'].fillna(0)
+        DF['RNAEDIT'][DF['RNAEDIT'] != 0] = 1
+    if 'RPT' in DF.columns:
+        DF['RPT'] = DF['RPT'].fillna(0)
+        DF['RPT'][DF['RPT'] != 0] = 1
+    if 'RS' in DF.columns:
+        DF['RS'] = DF['RS'].fillna(0)
+        DF['RS'][DF['RS'] != 0] = 1
 
-    if 'SNP' in df_subset.columns:
-        df_subset = df_subset.replace({'A:G':12, 'T:C':1, 'G:C':2, 'C:A':3, 
+    if 'SNP' in DF.columns:
+        DF = DF.replace({'A:G':12, 'T:C':1, 'G:C':2, 'C:A':3, 
             'G:A':4, 'C:T':5, 'T:G':6, 'C:G':7, 'G:T':8, 'A:T':9, 'A:C':10, 'T:A':11})
-        df_subset['SNP'] = df_subset['SNP'].fillna(0)
-        df_subset.loc[~df_subset["SNP"].isin(range(12)), "SNP"] = "-1"
+        DF['SNP'] = DF['SNP'].fillna(0)
+        DF.loc[~DF["SNP"].isin(range(12)), "SNP"] = "-1"
 
-    if 'REF' in df_subset.columns  :
-        df_subset = df_subset.replace({'A':4, 'T':1, 'G':2, 'C':3})
-        df_subset['REF'] = df_subset['REF'].fillna(0)
-        df_subset.loc[~df_subset["REF"].isin(range(3)), "REF"] = "-1"
+    if 'REF' in DF.columns  :
+        DF = DF.replace({'A':4, 'T':1, 'G':2, 'C':3})
+        DF['REF'] = DF['REF'].fillna(0)
+        DF.loc[~DF["REF"].isin(range(3)), "REF"] = "-1"
  
-    if 'ALT' in df_subset.columns  :
-        df_subset = df_subset.replace({'A':4, 'T':1, 'G':2, 'C':3})
-        df_subset['ALT'] = df_subset['ALT'].fillna(0)
-        df_subset.loc[~df_subset["ALT"].isin(range(3)), "ALT"] = "-1"
+    if 'ALT' in DF.columns  :
+        DF = DF.replace({'A':4, 'T':1, 'G':2, 'C':3})
+        DF['ALT'] = DF['ALT'].fillna(0)
+        DF.loc[~DF["ALT"].isin(range(3)), "ALT"] = "-1"
     
     if args.predictor.lower() == 'regressor': 
         ## SPLICEADJ
-        if 'SPLICEADJ' in df_subset.columns:
-            df_subset['SPLICEADJ'] = df_subset['SPLICEADJ'].fillna(-1)
+        if 'SPLICEADJ' in DF.columns:
+            DF['SPLICEADJ'] = DF['SPLICEADJ'].fillna(-1)
 
         ## Homopolymer
-        if 'Homopolymer' in df_subset.columns:
-            df_subset['Homopolymer'] = df_subset['Homopolymer'].fillna(0)
+        if 'Homopolymer' in DF.columns:
+            DF['Homopolymer'] = DF['Homopolymer'].fillna(0)
 
         ## Replace NA with median values in remaining columns
-        na_cols = df_subset.columns[df_subset.isna().any()].tolist() 
+        na_cols = DF.columns[DF.isna().any()].tolist() 
           
-        df_subset = df_subset.astype(float) ## Convert to float
-        df_subset[na_cols] = df_subset[na_cols].fillna(df_subset[na_cols].median())
-
+        DF = DF.astype(float) ## Convert to float
+        DF[na_cols] = DF[na_cols].fillna(DF[na_cols].median())
+    
     ## Remove RNAediting sites
-    if 'RNAEDIT' in df_subset.columns:
+    if 'RNAEDIT' in DF.columns:
         logger.info("Removing RNAediting sites ...")
-        df_subset = df_subset[df_subset['RNAEDIT']==0]
-        logger.info("Number of variants after removing RNAediting sites: %d", df_subset.shape[0])
+        DF = DF[DF['RNAEDIT']==0]
+        logger.info("Number of variants after removing RNAediting sites: %d", DF.shape[0])
 
+
+
+    # select only features of interest.
+    df_subset = DF[features]
+    
     ## Replace NA with 0 in remaining columns
     df_subset = df_subset.fillna(0)
     df_subset = df_subset.astype(float) ## Convert to float
@@ -672,7 +635,7 @@ def filter_variants(boost_obj, args):
         fitted_value_scores = ecdf_func(fitted_values)
         
         min_qscore = 0.05
-        real_snps_idx = [i>min_qscore for i in fitted_value_scores]
+        real_snps_idx = [i >= min_qscore for i in fitted_value_scores]
         real_snps = boost_obj.X_data.loc[real_snps_idx].index
     
     ## Plot ECDF
@@ -733,7 +696,7 @@ def main():
     elif args.snps:
         msg = "Running boosting on SNPS"
     else:
-        msg = "Running boosting on INDELS and SNPS"
+        msg = "Running boosting on combined INDELS and SNPS"
     logger.info(msg)
     
 
@@ -796,17 +759,18 @@ def main():
         print("Boosting model not recognized. Please use one of AdaBoost, SGBoost, RF, XGBoost, SVML, SVM_RBF, LR")
         exit(1)
     
-    logger.info("Plotting Feature Imporance")
+    logger.info("Plotting Feature Importance")
     feature_importance(boost_obj, args)
     
     ## Filter SNPs and save output
     real_snps = filter_variants(boost_obj, args)
+    print("Real snps: {}".format(real_snps))
 
     ## Extract vcf header
     if re.search("\.gz$", args.vcf):
         vcf_lines = gzip.open(args.vcf, 'rt', encoding='utf-8').readlines()
     else:
-        vcf_lines = open(args.vcf, 'r', encoding='utf-8').readlines()
+        vcf_lines = open(args.vcf, 'rt', encoding='utf-8').readlines()
 
     vcf_header = [line for line in vcf_lines if line.startswith('#')]
 
@@ -816,6 +780,16 @@ def main():
     df_bm = df_bm.iloc[:, :-1]
     logger.info("Number of variants after Boosting: %d", len(df_bm))
 
+
+    print(data.head())
+    if args.write_feature_data_matrix is not None:
+        outfile = args.write_feature_data_matrix + ".with_boosted_indicated"
+        logger.info("-writing feature data matrix to: {}".format(outfile))       
+        data['chr:pos'] = data.index
+        data['boosted'] = data['chr:pos'].isin(real_snps)
+        data.to_csv(outfile, sep="\t")
+    
+    
     logger.info("Writing Output")
     if args.snps:
         file_name = args.model+'_'+args.predictor+'_ctat_boosting_snps.vcf'
@@ -825,7 +799,7 @@ def main():
         file_name = args.model+'_'+args.predictor+'_ctat_boosting.vcf'
 
     out_file = os.path.join(args.out, file_name)
-    with open(out_file,'w') as csv_file:
+    with open(out_file,'wt', encoding='utf-8') as csv_file:
         for item in vcf_header:  
             csv_file.write(item)
     df_bm.to_csv(out_file, sep='\t', index=False, mode = "a", header=None, quoting=csv.QUOTE_NONE)
