@@ -144,10 +144,10 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default="AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2",
+        default="AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF",
         help="Variant attributes on which to perform boosting",
     )
-
+	
     parser.add_argument(
         "--no_include_read_var_pos_annotations",
         action="store_true",

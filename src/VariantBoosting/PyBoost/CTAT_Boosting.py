@@ -91,10 +91,20 @@ def preprocess(df_vcf, args):
         #dict_info['GT'] = df_row[-1].split(':')[0]
         lst.append(dict_info)
     
-    
-    DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
 
     features = args.features.replace(' ','').split(",")
+    
+    
+    DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
+    DF_colnames = DF.columns
+    for DF_colname in DF_colnames:
+        if DF_colname not in ['IND', 'RS'] and DF_colname not in features:
+            DF.drop([DF_colname], axis=1, inplace=True)
+
+    if args.write_feature_data_matrix is not None:
+        DF.to_csv(args.write_feature_data_matrix + ".init", sep="\t")
+    
+    
     
     # RS is an absolute requirement
     if 'RS' not in features:
@@ -163,7 +173,23 @@ def preprocess(df_vcf, args):
 
 
     # select only features of interest.
-    df_subset = DF[features]
+    df_subset = DF[features].copy()
+
+    # remove those columns with no diversity
+    colnames_to_remove = list()
+    for df_colname in df_subset.columns:
+        logger.info(f"-examining {df_colname}")
+        nuniq = df_subset[df_colname].nunique()
+        logger.info(f"\t-{df_colname} has {nuniq} uniq entries")
+        if nuniq == 1:
+            logger.info(f"-pruning feature column {df_colname} as theres no complexity")
+            colnames_to_remove.append(df_colname)
+
+    
+
+    if len(colnames_to_remove) > 0:
+        df_subset.drop(colnames_to_remove, axis=1, inplace=True)
+
     
     ## Replace NA with 0 in remaining columns
     df_subset = df_subset.fillna(0)

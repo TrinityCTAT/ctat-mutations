@@ -69,7 +69,7 @@ workflow ctat_mutations {
 
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
-        ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","SPLICEADJ","TCR","TDM","VAF","VMMF","GT_1/2"]
+        ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","SPLICEADJ","TCR","TDM","VAF","VMMF"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
