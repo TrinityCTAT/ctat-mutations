@@ -47,7 +47,7 @@ if sys.version_info[0] != 3:
     print("This script requires Python 3")
     exit(1)
 
-SEED = 42
+SEED = 12345 #42
 
 def preprocess(df_vcf, args):
 
@@ -210,9 +210,9 @@ class CTAT_Boosting:
         ## Form data matrix
         cols = list(data.columns)
         cols.remove('RS')
-        self.X_data = data[cols]
-        self.y_data = data['RS']
-        self.data = data
+        self.X_data = data[cols].copy()
+        self.y_data = data['RS'].copy()
+        self.data = data.copy()
  
         ## Training data
         if args.predictor.lower() == 'classifier': 
@@ -580,25 +580,49 @@ class CTAT_Boosting:
             logger.info(msg)
             print(msg)
             exit(0) 
+
+
+        print("X_train_columns: {}".format(self.X_train.columns))
+        print("X_data.columuns: {}".format(self.X_data.columns))
+        
         
         from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler()
-        X_train = pd.DataFrame(scaler.fit_transform(self.X_train), columns = self.X_train.columns)
-        X_data = pd.DataFrame(scaler.fit_transform(self.X_data), columns = self.X_data.columns)
+        scaled_X_train = pd.DataFrame(scaler.fit_transform(self.X_train), columns = self.X_train.columns)
+        scaled_X_data = pd.DataFrame(scaler.fit_transform(self.X_data), columns = self.X_data.columns)
       
         ## instantiate the model 
         logreg = LogisticRegression(penalty = 'l2',
-        C = 100, 
-        solver = 'liblinear',
-        class_weight = 'balanced', 
-        random_state=SEED)
-
+                                    C = 100, 
+                                    solver = 'liblinear',
+                                    class_weight = 'balanced', 
+                                    random_state=SEED)
+        
         # fit the model with data
-        logreg.fit(X_train,self.y_train)
-        y_pred=logreg.predict(X_data)
+        logreg.fit(scaled_X_train,self.y_train)
 
         ## Predict the labels 
-        self.y_pred = logreg.predict(X_data)
+        self.y_pred=logreg.predict(scaled_X_data)
+
+
+        localdebug = False
+        if localdebug:
+            self.X_train.to_csv("tmp.X_train")
+            with open("tmp.y_train", "wt") as ofh:
+                ofh.write("\n".join([str(x) for x in self.y_train]))
+            scaled_X_train.to_csv("tmp.scaled_X_train")
+            self.X_data.to_csv("tmp.X_data")
+            with open("tmp.y_pred", "wt") as ofh:
+                ofh.write("\n".join([str(x) for x in self.y_pred]))
+            scaled_X_data.to_csv("tmp.scaled_X_data")
+            with open("tmp.y_data", "wt") as ofh:
+                ofh.write("\n".join([str(x) for x in self.y_data]))
+        
+        
+        from sklearn.metrics import confusion_matrix
+        c = confusion_matrix(self.y_data, self.y_pred, labels=[1,0])
+        logger.info("Confusion matrix: {}".format(c))
+        
         self.data['boosting_score'] = self.y_pred
         self.model = logreg       
         
@@ -708,10 +732,14 @@ def main():
     parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
     parser.add_argument("--all",  action='store_true', default=False, help="Extract both snps and indels")
     parser.add_argument("--write_feature_data_matrix", type=str, default=None, help="write feature data matrix used to filename")
+    parser.add_argument("--seed", type=int, default=12345, help="seed value for randomizations")
 
     # Argument parser 
     args = parser.parse_args()
 
+    global SEED
+    SEED = args.seed
+    
     ## Check if the output folder exists
     if not os.path.exists(args.out):
             os.makedirs(args.out)
