@@ -455,7 +455,7 @@ def main():
             if path is not None and isinstance(path, str) and os.path.exists(path):
                 name = os.path.basename(path)
                 dst = name if output_directory is None else os.path.join(output_directory, name)
-                if os.path.exists(dst):
+                if os.path.lexists(dst):
                     os.remove(dst)
                 os.symlink(path, dst)
 
