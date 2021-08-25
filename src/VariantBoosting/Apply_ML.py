@@ -49,66 +49,20 @@ if sys.version_info[0] != 3:
 
 SEED = 12345 #42
 
-def preprocess(df_vcf, args):
-
-    # Variable to hold the desired variant type 
-    if args.indels:
-        variant = "Indels"
-    elif args.snps:
-        variant = "SNPs"
-    else:
-        variant = "Variants"
-
-    info_vcf = df_vcf['INFO']
-    num_rows = df_vcf['INFO'].shape[0]
-
-    logger.info("Number of variants before Boosting: %d", num_rows)
-
-    DF = pd.DataFrame()
-
-    # Check # 
-    ## check if there are enough variants to analyze. 
-    ## if not, throw an error and exit 
-    if num_rows == 1: 
-        msg = "There are too few variants to analyze. \n Please review your data, or run the analysis without separation of SNPs and Indels."
-        logger.error(msg)
-        exit()
-    if num_rows == 0: 
-        return DF
-
-    info_df = df_vcf['INFO'].str.split(';')
-    lst = []
-
-    for j in range(num_rows):
-        df_row = df_vcf.loc[j]
-        lst_info = info_df[j]
-        dict_info = {i.split('=')[0]:i.split('=')[1] if '=' in i else {i.split('=')[0]:1} for i in lst_info}
-        dict_info['IND'] = df_row['CHROM']+':'+str(df_row['POS'])
-        dict_info['REF'] = df_row['REF']
-        dict_info['ALT'] = df_row['ALT']
-        dict_info['QUAL'] = df_row['QUAL']
-        dict_info['LEN'] = np.abs( len(df_row['REF']) - len(df_row['ALT']))
-        #dict_info['GT'] = df_row[-1].split(':')[0]
-        lst.append(dict_info)
-    
+def preprocess(DF, args):
 
     features = args.features.replace(' ','').split(",")
     
-    
-    DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
     DF_colnames = DF.columns
     for DF_colname in DF_colnames:
-        if DF_colname not in ['IND', 'RS'] and DF_colname not in features:
+        if DF_colname not in ['IND', 'RS', 'RNAEDIT'] and DF_colname not in features:
+            logger.info("-dropping feature matrix column: {}".format(DF_colname))
             DF.drop([DF_colname], axis=1, inplace=True)
 
-    if args.write_feature_data_matrix is not None:
-        DF.to_csv(args.write_feature_data_matrix + ".init", sep="\t")
-    
-    
     
     # RS is an absolute requirement
-    if 'RS' not in features:
-        raise RuntimeError("Error, RS is a required feature")
+    if 'RS' not in DF_colnames:
+        raise RuntimeError("Error, RS is a required feature matrix column")
         
     # cannot use RNAEDIT as a feature - its only annotated for targeted removal.
     if 'RNAEDIT' in features:
@@ -118,52 +72,8 @@ def preprocess(df_vcf, args):
     # remove features if not found as columns
     for feature in features:
         if feature not in DF.columns:
-            features.remove(feature)
-            logger.info("Removing feature {} because it is not available in vcf".format(feature))
+            raise RuntimeError("feature {} is not available in the feature matrix".format(feature))
 
-        
-    ## Replace NA with zero - RPT, RNAEDIT, RS
-    if 'RNAEDIT' in DF.columns:
-        DF['RNAEDIT'] = DF['RNAEDIT'].fillna(0)
-        DF['RNAEDIT'][DF['RNAEDIT'] != 0] = 1
-    if 'RPT' in DF.columns:
-        DF['RPT'] = DF['RPT'].fillna(0)
-        DF['RPT'][DF['RPT'] != 0] = 1
-    if 'RS' in DF.columns:
-        DF['RS'] = DF['RS'].fillna(0)
-        DF['RS'][DF['RS'] != 0] = 1
-
-    if 'SNP' in DF.columns:
-        DF = DF.replace({'A:G':12, 'T:C':1, 'G:C':2, 'C:A':3, 
-            'G:A':4, 'C:T':5, 'T:G':6, 'C:G':7, 'G:T':8, 'A:T':9, 'A:C':10, 'T:A':11})
-        DF['SNP'] = DF['SNP'].fillna(0)
-        DF.loc[~DF["SNP"].isin(range(12)), "SNP"] = "-1"
-
-    if 'REF' in DF.columns  :
-        DF = DF.replace({'A':4, 'T':1, 'G':2, 'C':3})
-        DF['REF'] = DF['REF'].fillna(0)
-        DF.loc[~DF["REF"].isin(range(3)), "REF"] = "-1"
- 
-    if 'ALT' in DF.columns  :
-        DF = DF.replace({'A':4, 'T':1, 'G':2, 'C':3})
-        DF['ALT'] = DF['ALT'].fillna(0)
-        DF.loc[~DF["ALT"].isin(range(3)), "ALT"] = "-1"
-    
-    if args.predictor.lower() == 'regressor': 
-        ## SPLICEADJ
-        if 'SPLICEADJ' in DF.columns:
-            DF['SPLICEADJ'] = DF['SPLICEADJ'].fillna(-1)
-
-        ## Homopolymer
-        if 'Homopolymer' in DF.columns:
-            DF['Homopolymer'] = DF['Homopolymer'].fillna(0)
-
-        ## Replace NA with median values in remaining columns
-        na_cols = DF.columns[DF.isna().any()].tolist() 
-          
-        DF = DF.astype(float) ## Convert to float
-        DF[na_cols] = DF[na_cols].fillna(DF[na_cols].median())
-    
     ## Remove RNAediting sites
     if 'RNAEDIT' in DF.columns:
         logger.info("Removing RNAediting sites ...")
@@ -190,11 +100,10 @@ def preprocess(df_vcf, args):
     if len(colnames_to_remove) > 0:
         df_subset.drop(colnames_to_remove, axis=1, inplace=True)
 
-    
     ## Replace NA with 0 in remaining columns
     df_subset = df_subset.fillna(0)
     df_subset = df_subset.astype(float) ## Convert to float
-    
+   
     return df_subset
 
 
@@ -633,7 +542,7 @@ def feature_importance(boost_obj, args):
     plt.figure(figsize=[10,10])
 
     model = args.model
-    path = args.out
+    path = "."
     
     if model.lower() == 'xgboost':
         import xgboost as xgb
@@ -656,18 +565,19 @@ def feature_importance(boost_obj, args):
 
     plt.title('Feature Importance')
     if args.snps:
-            name = 'feature_importance_' +args.predictor +'_snps.pdf'
+            name = 'feature_importance_' +args.predictor + "." + args.model + '_snps.pdf'
     elif args.indels:
-            name = 'feature_importance_' +args.predictor +'_indels.pdf'
+            name = 'feature_importance_' +args.predictor + "." + args.model + '_indels.pdf'
     elif args.all:
-            name = 'feature_importance_' +args.predictor +'.pdf'
+            name = 'feature_importance_' +args.predictor + "." + args.model + '.pdf'
+
     plt.savefig(os.path.join(path,name), bbox_inches='tight')
 
 
 def filter_variants(boost_obj, args):
     
     logger.info("Filtering Variants")
-    path = args.out
+    path = "."
 
     if args.predictor.lower() == 'classifier':
         df1 = pd.DataFrame()
@@ -715,8 +625,8 @@ def main():
         description = "Performs Boosting on GATK detected SNPs \n")
     
     # Mandatory arguments 
-    parser.add_argument('--vcf', required = True, help="Input vcf.")
-    parser.add_argument("--out", required=True, help="output directory")
+    parser.add_argument('--feature_matrix', required = True, help="Input vcf feature matrix.")
+    parser.add_argument("--output", required=True, help="output matrix")
     parser.add_argument("--model",  choices = ["AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"],
                         help="Specify Boosting model",
                         default = 'XGBoost')
@@ -724,59 +634,35 @@ def main():
                         required = False, 
                         type     = str,
                         help     = "Features for Boosting (RS required) [comma separated without space]",
-                        #default = "DP, Entropy, FS,BaseQRankSum,Homopolymer,  MLEAF, MQ, MQRankSum,QD, RNAEDIT, RPT, ReadPosRankSum, SOR,SPLICEADJ,RS, TMMR, TDM, MMF, VAF") ## Old features
-                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF,GT_1/2" )
+                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF" )
     parser.add_argument("--predictor",  help="Specify prediction method - Regressor or Classifier",
                         choices = ['classifier', 'regressor'], default = 'classifier')
-    parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
-    parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
-    parser.add_argument("--all",  action='store_true', default=False, help="Extract both snps and indels")
-    parser.add_argument("--write_feature_data_matrix", type=str, default=None, help="write feature data matrix used to filename")
     parser.add_argument("--seed", type=int, default=12345, help="seed value for randomizations")
-
+    parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
+    parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
+    
     # Argument parser 
     args = parser.parse_args()
 
     global SEED
     SEED = args.seed
     
-    ## Check if the output folder exists
-    if not os.path.exists(args.out):
-            os.makedirs(args.out)
 
-    # imform on what is being ran 
-    if args.indels:
-        msg = "Running boosting on INDELS"
-    elif args.snps:
-        msg = "Running boosting on SNPS"
-    else:
-        msg = "Running boosting on combined INDELS and SNPS"
-    logger.info(msg)
     
-
-    ## Load vcf
-    logger.info("Loading input VCF ... ")
-    vcf = pd.read_csv(args.vcf,
-        sep='\t', low_memory=False, 
-        comment='#', header =None,
-        names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SNP_DETAILS"])
+    DF = pd.read_csv(args.feature_matrix, sep='\t', low_memory=False, comment='#')
     
     features = args.features.replace(' ','').split(",")
     
     ## Preprocess data
     logger.info("Preprocess Data ... ")
-    data = preprocess(vcf, args)
+    data = preprocess(DF, args)
 
     # If there is no data, dont continue to boosting 
     if data.empty:
         logger.info("No variants present. Skipping boosting on this data.")
         return None
 
-    if args.write_feature_data_matrix is not None:
-        logger.info("-writing feature data matrix to: {}".format(args.write_feature_data_matrix))
-        data.to_csv(args.write_feature_data_matrix, sep="\t")
-
-
+    
     print('Features used for modeling: ', features)
 
     ## Boosting
@@ -818,45 +704,21 @@ def main():
     
     ## Filter SNPs and save output
     real_snps = filter_variants(boost_obj, args)
-    print("Real snps: {}".format(real_snps))
-
-    ## Extract vcf header
-    if re.search("\.gz$", args.vcf):
-        vcf_lines = gzip.open(args.vcf, 'rt', encoding='utf-8').readlines()
-    else:
-        vcf_lines = open(args.vcf, 'rt', encoding='utf-8').readlines()
-
-    vcf_header = [line for line in vcf_lines if line.startswith('#')]
-
+    print("Predicted true variants: {}".format(real_snps))
+    
     ## Write final output file
-    vcf['chr:pos'] = vcf['CHROM']+':'+ vcf['POS'].astype(str)
-    df_bm = vcf[vcf['chr:pos'].isin(real_snps)]
-    df_bm = df_bm.iloc[:, :-1]
-    logger.info("Number of variants after Boosting: %d", len(df_bm))
-
-
+    
     print(data.head())
-    if args.write_feature_data_matrix is not None:
-        outfile = args.write_feature_data_matrix + ".with_boosted_indicated"
-        logger.info("-writing feature data matrix to: {}".format(outfile))       
-        data['chr:pos'] = data.index
-        data['boosted'] = data['chr:pos'].isin(real_snps)
-        data.to_csv(outfile, sep="\t")
     
+    outfile = args.output
     
-    logger.info("Writing Output")
-    if args.snps:
-        file_name = args.model+'_'+args.predictor+'_ctat_boosting_snps.vcf'
-    elif args.indels:
-        file_name = args.model+'_'+args.predictor+'_ctat_boosting_indels.vcf'
-    elif args.all:
-        file_name = args.model+'_'+args.predictor+'_ctat_boosting.vcf'
+    logger.info("-writing feature data matrix to: {}".format(outfile))       
+    data['chr:pos'] = data.index
+    data['boosted'] = data['chr:pos'].isin(real_snps)
+    data.to_csv(outfile, sep="\t")
+    
+    sys.exit(0)
 
-    out_file = os.path.join(args.out, file_name)
-    with open(out_file,'wt', encoding='utf-8') as csv_file:
-        for item in vcf_header:  
-            csv_file.write(item)
-    df_bm.to_csv(out_file, sep='\t', index=False, mode = "a", header=None, quoting=csv.QUOTE_NONE)
     
 
 if __name__ == "__main__":

@@ -76,9 +76,13 @@ def preprocess(df_vcf, args):
         #dict_info['GT'] = df_row[-1].split(':')[0]
         lst.append(dict_info)
     
-
-    features = args.features.replace(' ','').split(",")
     
+    features = args.features.replace(' ','').split(",")
+
+    # cannot use RNAEDIT as a feature - its only annotated for targeted removal.
+    if 'RNAEDIT' not in features:
+        features.append('RNAEDIT')
+
     
     DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
     DF_colnames = DF.columns
@@ -89,16 +93,18 @@ def preprocess(df_vcf, args):
     #if args.write_feature_data_matrix is not None:
     #    DF.to_csv(args.write_feature_data_matrix + ".init", sep="\t")
     
+    if args.snps:
+        logger.info("-restricting to snps")
+        DF = DF[DF['LEN'] == 0]
+    elif args.indels:
+        logger.info("-restricting to indels")
+        DF = DF[DF['LEN'] > 0]
     
-    
+    logger.info("-number of variants now: {}".format(DF.shape[0]))
+        
     # RS is an absolute requirement
     if 'RS' not in features:
         raise RuntimeError("Error, RS is a required feature")
-        
-    # cannot use RNAEDIT as a feature - its only annotated for targeted removal.
-    if 'RNAEDIT' in features:
-        raise RuntimeError("cannot use RNAEDIT as a feature - its only annotated for targeted removal")
-
 
     # remove feature from list of features if not found as columns
     for feature in features:
@@ -142,6 +148,9 @@ def preprocess(df_vcf, args):
     if 'Homopolymer' in DF.columns:
         DF['Homopolymer'] = DF['Homopolymer'].fillna(0)
 
+
+
+        
     
     if args.replace_NA_w_median:
 
@@ -154,37 +163,7 @@ def preprocess(df_vcf, args):
         DF[na_cols] = DF[na_cols].fillna(DF[na_cols].median())
 
     
-    ## Remove RNAediting sites
-    if 'RNAEDIT' in DF.columns:
-        logger.info("Removing RNAediting sites ...")
-        DF = DF[DF['RNAEDIT']==0]
-        logger.info("Number of variants after removing RNAediting sites: %d", DF.shape[0])
-
-
-
-    # select only features of interest.
-    df_subset = DF[features].copy()
-
-    # remove those columns with no diversity
-    colnames_to_remove = list()
-    for df_colname in df_subset.columns:
-        logger.info(f"-examining {df_colname}")
-        nuniq = df_subset[df_colname].nunique()
-        logger.info(f"\t-{df_colname} has {nuniq} uniq entries")
-        if nuniq == 1:
-            logger.info(f"-pruning feature column {df_colname} as theres no complexity")
-            colnames_to_remove.append(df_colname)
-    
-
-    if len(colnames_to_remove) > 0:
-        df_subset.drop(colnames_to_remove, axis=1, inplace=True)
-
-    
-    ## Replace NA with 0 in remaining columns
-    df_subset = df_subset.fillna(0)
-    df_subset = df_subset.astype(float) ## Convert to float
-    
-    return df_subset
+    return DF
 
 
 def main():
@@ -200,11 +179,13 @@ def main():
                         required = False, 
                         type     = str,
                         help     = "Features for Boosting (RS required) [comma separated without space]",
-                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF")
-    parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
-    parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
+                        default  = "AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF")
 
-    parser.add_argument("--replace_NA_w_median", action='store_true', default=False, help="replace NA value with median numerical value for that attribute (needed for regressors)")
+    parser.add_argument("--snps",  action='store_true', default=False, help="Extract only snps")
+    parser.add_argument("--indels",  action='store_true', default=False, help="Extract only indels")
+    
+    parser.add_argument("--replace_NA_w_median", action='store_true', default=False,
+                        help="replace NA value with median numerical value for that attribute (needed for regressors)")
     
     
     # Argument parser 
