@@ -1,3 +1,9 @@
 [submodule "ctat-mutations.wiki"]
 	path = ctat-mutations.wiki
 	url = https://github.com/NCIP/ctat-mutations.wiki.git
+[submodule "plugins/RVBLR"]
+	path = plugins/RVBLR
+	url = git@github.com:broadinstitute/RVBLR.git
+[submodule "plugins/SNPiR-Python"]
+	path = plugins/SNPiR-Python
+	url = git@github.com:broadinstitute/SNPiR-Python.git
