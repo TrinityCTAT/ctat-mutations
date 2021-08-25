@@ -1437,7 +1437,7 @@ task VariantFiltration {
             --vcf ~{input_vcf} \
             --outdir boost
 
-            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            ~{scripts_path}/VariantBoosting/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.snps.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
             --out boost \
@@ -1446,7 +1446,7 @@ task VariantFiltration {
             --snps
 
             # always using regressor for indels as per ctat mutations paper and evaluations (unless LR method - uses classifier)
-            ~{scripts_path}/VariantBoosting/PyBoost/CTAT_Boosting.py \
+            ~{scripts_path}/VariantBoosting/CTAT_Boosting.py \
             --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
             --features ~{sep=',' boosting_attributes} \
             --out boost \
