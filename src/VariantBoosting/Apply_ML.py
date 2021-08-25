@@ -51,11 +51,13 @@ SEED = 12345 #42
 
 def preprocess(DF, args):
 
+    DF.set_index('IND', inplace=True)
+    
     features = args.features.replace(' ','').split(",")
     
     DF_colnames = DF.columns
     for DF_colname in DF_colnames:
-        if DF_colname not in ['IND', 'RS', 'RNAEDIT'] and DF_colname not in features:
+        if DF_colname not in ['RS', 'RNAEDIT'] and DF_colname not in features:
             logger.info("-dropping feature matrix column: {}".format(DF_colname))
             DF.drop([DF_colname], axis=1, inplace=True)
 
@@ -657,6 +659,8 @@ def main():
     logger.info("Preprocess Data ... ")
     data = preprocess(DF, args)
 
+    print(data.head())
+    
     # If there is no data, dont continue to boosting 
     if data.empty:
         logger.info("No variants present. Skipping boosting on this data.")
@@ -713,8 +717,10 @@ def main():
     outfile = args.output
     
     logger.info("-writing feature data matrix to: {}".format(outfile))       
+    
     data['chr:pos'] = data.index
     data['boosted'] = data['chr:pos'].isin(real_snps)
+    data.reset_index(inplace=True)
     data.to_csv(outfile, sep="\t")
     
     sys.exit(0)
