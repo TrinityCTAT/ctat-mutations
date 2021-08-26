@@ -1396,8 +1396,7 @@ task VariantFiltration {
     String ctat_boost_output_snp = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting_snps.vcf.gz"
     String ctat_boost_output_indels = "~{boosting_method}_~{indel_alg_type}_ctat_boosting_indels.vcf.gz" # always regressor type for indels
     String ctat_boost_output = "~{boosting_method}_~{boosting_alg_type}_ctat_boosting.vcf"
-
-
+    String median_replace_NA = if (boosting_method == "regressor") then "--replace_NA_w_median" else ""
 
     command <<<
         set -ex
@@ -1431,35 +1430,56 @@ task VariantFiltration {
             -O ~{output_name}
 
         else
-            mkdir boost
 
-            ~{scripts_path}/separate_snps_indels.py \
-            --vcf ~{input_vcf} \
-            --outdir boost
+            ##############
+            ## snps first:
+            ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
+                --vcf ~{input_vcf} \
+                --features ~{sep=',' boosting_attributes} \
+                --snps \
+                ~{median_replace_NA} \
+                --output ~{boosting_method}.snps.feature_matrix
+      
 
-            ~{scripts_path}/VariantBoosting/CTAT_Boosting.py \
-            --vcf boost/variants.HC_init.wAnnot.snps.vcf.gz \
-            --features ~{sep=',' boosting_attributes} \
-            --out boost \
-            --model ~{boosting_method} \
-            --predictor ~{boosting_alg_type} \
-            --snps
-
-            # always using regressor for indels as per ctat mutations paper and evaluations (unless LR method - uses classifier)
-            ~{scripts_path}/VariantBoosting/CTAT_Boosting.py \
-            --vcf boost/variants.HC_init.wAnnot.indels.vcf.gz \
-            --features ~{sep=',' boosting_attributes} \
-            --out boost \
-            --model ~{boosting_method} \
-            --predictor ~{indel_alg_type} \
-            --indels
+            ~{scripts_path}/VariantBoosting/Apply_ML.py \
+                --feature_matrix ~{boosting_method}.snps.feature_matrix \
+                --snps \
+                --features ~{sep=',' boosting_attributes} \
+                --predictor ~{boosting_alg_type} \
+                --model ~{boosting_method} \
+                --output ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds
 
 
-            ls boost/*.vcf | xargs -n1 bgzip -f
 
-            tabix boost/~{ctat_boost_output_snp}
-            tabix boost/~{ctat_boost_output_indels}
-            bcftools merge boost/~{ctat_boost_output_snp} boost/~{ctat_boost_output_indels} -Oz -o ~{output_name} --force-samples
+            ##############
+            ## indels next
+            ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
+                --vcf ~{input_vcf} \
+                --features ~{sep=',' boosting_attributes} \
+                --indels \
+                ~{median_replace_NA} \
+                --output ~{boosting_method}.indels.feature_matrix
+      
+
+            ~{scripts_path}/VariantBoosting/Apply_ML.py \
+                --feature_matrix ~{boosting_method}.indels.feature_matrix \
+                --indels \
+                --features ~{sep=',' boosting_attributes} \
+                --predictor ~{boosting_alg_type} \
+                --model ~{boosting_method} \
+                --output ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds
+
+
+             #########
+             ## combine predictions into single output vcf
+      
+             ~{scripts_path}/extract_boosted_vcf.py \
+                 --vcf_in ~{input_vcf} \
+                 --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds\
+                 --vcf_out ~{boosting_method}.~{boosting_alg_type}.vcf
+
+             bgzip -c ~{boosting_method}.~{boosting_alg_type} > ~{output_name}
+      
             
         fi
     >>>
