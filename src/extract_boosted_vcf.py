@@ -45,13 +45,13 @@ def main():
     # output vcf
 
     if re.search(".gz$", vcf_input_file):
-        fh = gzip.open(vcf_input_file, 'rt')
+        fh = gzip.open(vcf_input_file, 'rt', encoding='utf-8')
     else:
-        fh = open(vcf_file, "rt")
+        fh = open(vcf_file, "rt", encoding='utf-8')
 
     num_reported_variants = 0
         
-    with open(vcf_output_file, 'wt') as ofh:
+    with open(vcf_output_file, 'wt', encoding='utf-8') as ofh:
         for line in fh:
             if line[0] == "#":
                 ofh.write(line)
