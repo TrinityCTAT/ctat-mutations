@@ -1478,7 +1478,7 @@ task VariantFiltration {
                  --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds\
                  --vcf_out ~{boosting_method}.~{boosting_alg_type}.vcf
 
-             bgzip -c ~{boosting_method}.~{boosting_alg_type} > ~{output_name}
+             bgzip -c ~{boosting_method}.~{boosting_alg_type}.vcf > ~{output_name}
       
             
         fi
