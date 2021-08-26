@@ -19,26 +19,29 @@ def main():
                                      description = "extracts boosted variants subset from vcf")
 
     parser.add_argument("--vcf_in", required = True, help="Input vcf.")
-    parser.add_argument("--boosted_variants_matrix", required=True, help="matrix indicating boosted variants. Requires columns: 'chr:pos' and 'boosted'")
+    parser.add_argument("--boosted_variants_matrix", required=True,
+                        help="matrix indicating boosted variants. Requires columns: 'chr:pos' and 'boosted'",
+                        nargs='+')
     parser.add_argument("--vcf_out", required=True, help="Output vcf.")
     
     args = parser.parse_args()
 
     vcf_input_file = args.vcf_in
-    boosted_matrix = args.boosted_variants_matrix
+    boosted_matrices = args.boosted_variants_matrix # can provide one for the indels and one for the snps, and we combine them.
     vcf_output_file = args.vcf_out
     
     # get list of boosted variants
     logger.info("-parsing list of boosted variants from: {}".format(vcf_input_file))
     boosted_variants = set()
-    with open(boosted_matrix) as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
-        for row in reader:
-            if row['boosted'] == 'True':
-                boosted_variants.add(row['chr:pos'])
+    for boosted_matrix in boosted_matrices:
+        with open(boosted_matrix) as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            for row in reader:
+                if row['boosted'] == 'True':
+                    boosted_variants.add(row['chr:pos'])
 
     logger.info("-identified {} boosted variants".format(len(boosted_variants)))
-                
+    
     # output vcf
 
     if re.search(".gz$", vcf_input_file):
