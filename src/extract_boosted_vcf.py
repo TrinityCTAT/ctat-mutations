@@ -37,7 +37,7 @@ def main():
         with open(boosted_matrix) as fh:
             reader = csv.DictReader(fh, delimiter="\t")
             for row in reader:
-                if row['boosted'] == 'True':
+                if row['boosted'].lower() == 'true':
                     boosted_variants.add(row['chr:pos'])
 
     logger.info("-identified {} boosted variants".format(len(boosted_variants)))

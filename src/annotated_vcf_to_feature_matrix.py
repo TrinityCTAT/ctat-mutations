@@ -83,6 +83,9 @@ def preprocess(df_vcf, args):
     if 'RNAEDIT' not in features:
         features.append('RNAEDIT')
 
+    # RS is an absolute requirement
+    if 'RS' not in features:
+        features.append('RNAEDIT')
     
     DF = pd.DataFrame.from_dict(lst, orient='columns').set_index('IND')
     DF_colnames = DF.columns
@@ -102,9 +105,6 @@ def preprocess(df_vcf, args):
     
     logger.info("-number of variants now: {}".format(DF.shape[0]))
         
-    # RS is an absolute requirement
-    if 'RS' not in features:
-        raise RuntimeError("Error, RS is a required feature")
 
     # remove feature from list of features if not found as columns
     for feature in features:
