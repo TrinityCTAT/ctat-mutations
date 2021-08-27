@@ -38,28 +38,31 @@ main: {
             
             my $gene_obj_ref = $gene_obj_indexer->{$gene_id} or die "Error, no gene obj for $gene_id";
             
-            my @intron_coordinates = $gene_obj_ref->get_intron_coordinates();
-
-            foreach my $coordset (@intron_coordinates) {
-                my ($intron_lend, $intron_rend) = sort {$a<=>$b} @$coordset;
-
-                my $intron_span_left = join(":", $asmbl_id, "L", $intron_lend, $intron_lend + $exon_splice_dist -1);
-
-                my $intron_span_right = join(":", $asmbl_id, "R", $intron_rend - $exon_splice_dist + 1, $intron_rend);
-
-                $exon_splice_regions{$intron_span_left} = { name => $intron_span_left,
-                                                            asmbl_id => $asmbl_id,
-                                                            lend => $intron_lend,
-                                                            rend => $intron_lend + $exon_splice_dist -1,
-                };
-
-                $exon_splice_regions{$intron_span_right} = { name => $intron_span_right,
-                                                             asmbl_id => $asmbl_id,
-                                                             lend => $intron_rend - $exon_splice_dist + 1,
-                                                             rend => $intron_rend,
-                };
-            }
             
+            foreach my $gene_obj ($gene_obj_ref, $gene_obj_ref->get_additional_isoforms()) {
+
+                my @intron_coordinates = $gene_obj_ref->get_intron_coordinates();
+                
+                foreach my $coordset (@intron_coordinates) {
+                    my ($intron_lend, $intron_rend) = sort {$a<=>$b} @$coordset;
+                    
+                    my $intron_span_left = join(":", $asmbl_id, "L", $intron_lend, $intron_lend + $exon_splice_dist -1);
+                    
+                    my $intron_span_right = join(":", $asmbl_id, "R", $intron_rend - $exon_splice_dist + 1, $intron_rend);
+                    
+                    $exon_splice_regions{$intron_span_left} = { name => $intron_span_left,
+                                                                asmbl_id => $asmbl_id,
+                                                                lend => $intron_lend,
+                                                                rend => $intron_lend + $exon_splice_dist -1,
+                    };
+                    
+                    $exon_splice_regions{$intron_span_right} = { name => $intron_span_right,
+                                                                 asmbl_id => $asmbl_id,
+                                                                 lend => $intron_rend - $exon_splice_dist + 1,
+                                                                 rend => $intron_rend,
+                    };
+                }
+            }
         }
     }
     
