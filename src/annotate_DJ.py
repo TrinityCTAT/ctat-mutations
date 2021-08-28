@@ -27,7 +27,7 @@ def main():
         description = "Adds exon splice distance annotations to vcf file (report up to len 10 distance away from splice).\n")
 
     parser.add_argument('--input_vcf', required=True, help="input vcf file")
-    parser.add_argument('--gtf', required=True, help='Path to CTAT Mutations library annotations file.')
+    parser.add_argument('--splice_bed', required=True, help='Path to CTAT Mutations library splice adj bed file.')
     parser.add_argument('--output_vcf', required=True, help="output vcf file including annotation for distance to splice neighbor")
     parser.add_argument("--temp_dir", default="/tmp", help="tmp directory")
 
@@ -38,7 +38,7 @@ def main():
         if not os.path.exists(input_vcf[:len(input_vcf) - 3]):
             subprocess.run(['gunzip', input_vcf])
         input_vcf = input_vcf[:len(input_vcf) - 3]
-    gtf = args.gtf
+    splice_bed = args.splice_bed
     out_file = args.output_vcf
     temp_dir = args.temp_dir
 
@@ -69,30 +69,11 @@ def main():
                              sep='\t', low_memory=False, comment='#', header =None,
                              names=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "ENCODING"])
 
-    #~~~~~~~~~~~~~~
-    # Get Exons file ready
-    #~~~~~~~~~~~~~~
-    # Load and process annotation file
-    # Get the path to the reference annotation file ref_annot.gtf
-    if os.path.exists(gtf) == False:
-        exit("File doesnt exist:{}".format(gtf))
-    # Open the file
-    ref_annot = pd.read_csv(gtf,
-                            sep='\t', low_memory=False, comment='#', header =None)
-    # Subset the data to get only exons
-    ref_annot = ref_annot[ref_annot[2] == "exon"]
-    # Sort by locations and subset the data to get "chr   start   end"
-    ref_annot = ref_annot.sort_values(by=[0,3,4])
-    ref_annot = ref_annot.iloc[:,[0,3,4]]
-    # create temp bed file to pass to bedtools
-    temp_ref_annot = os.path.join(temp_dir, "temp.ref_annot.bed")
-    ref_annot.to_csv(temp_ref_annot, header=False, index = False, sep = "\t")
-
 
     # Run BEDTools closeestBed
     logger.info("Running closestBed")
-    cmd = "bedtools closest -header -t first -a {} -b {}".format(temp_sorted_vcf, temp_ref_annot)
-    # logger.info("CMD: {}".format(cmd))
+    cmd = "bedtools closest -header -t first -a {} -b {}".format(temp_sorted_vcf, splice_bed)
+    logger.info("CMD: {}".format(cmd))
     distance_output = subprocess.check_output(cmd, shell=True).decode()
 
 
@@ -110,10 +91,25 @@ def main():
 
         # find the distances
         logger.info("Generating Distances")
+        
+        def compute_distance(row):
+            var_pos = row[1]
+            splice_adj_lend = row[11]
+            splice_adj_rend = row[12]
+            splice_adj_token = row[13]
+            
+            splice_direction = splice_adj_token.split(":")[1]
+            if splice_direction == "L":
+                return(abs(int(var_pos) - (int(splice_adj_lend)-1)))
+            elif splice_direction == "R":
+                return(abs(int(var_pos) - (int(splice_adj_rend)+1)))
+            else:
+                raise RuntimeError("not recognizing {} as splice adj L or R from {}".format(splice_direction, splice_adj_token))
+
+            
+
         test = pd.DataFrame()
-        test["ldist"] = abs(pd.to_numeric(vcf[1]) - pd.to_numeric(vcf[11]))
-        test["rdist"] = abs(pd.to_numeric(vcf[12]) - pd.to_numeric(vcf[1]))
-        distances = test.min(axis=1)
+        distances = vcf.apply(compute_distance, axis=1)
         distances_string = ";DJ=" + distances.astype(str)
         input_vcf_df["INFO"] = vcf[7] + distances_string
 
