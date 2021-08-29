@@ -824,7 +824,7 @@ task AnnotateVariants {
 
             ~{scripts_path}/annotate_DJ.py \
             --input_vcf $VCF \
-            --gtf ~{gtf} \
+            --splice_bed ~{ref_splice_adj_regions_bed} \
             --temp_dir $TMPDIR \
             --output_vcf ~{base_name}.DJ.vcf
 
