@@ -1003,7 +1003,7 @@ task rename_vcf {
         echo "####### Final step: Renaming Vcf ########"
       
         mv ~{input_vcf} ~{base_name}.vcf.gz
-        mv ~{input_vcf} ~{base_name}.vcf.gz.tbi
+        mv ~{input_vcf}.tbi ~{base_name}.vcf.gz.tbi
 
      >>>
 
