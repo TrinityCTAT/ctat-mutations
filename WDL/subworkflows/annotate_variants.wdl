@@ -725,10 +725,10 @@ task annotate_splice_distance {
 
         set -ex
 
-        ~{scripts_path}/annotate_exon_splice_proximity.py \
+        ~{scripts_path}/annotate_DJ.py \
             --input_vcf ~{input_vcf} \
-            --bed ~{ref_splice_adj_regions_bed} \
-            --tmpdir $TMPDIR \
+            --splice_bed ~{ref_splice_adj_regions_bed} \
+            --temp_dir $TMPDIR \
             --output_vcf ~{base_name}.splice_distance.vcf
 
         bgzip -c ~{base_name}.splice_distance.vcf > ~{base_name}.splice_distance.vcf.gz
