@@ -42,10 +42,9 @@ workflow annotate_variants_wf {
         
         File? cravat_lib_tar_gz
         String? cravat_lib_dir
+
         File? repeat_mask_bed
 
-
-        File? gtf
         String? genome_version
 
         String docker = "trinityctat/ctat_mutations:latest"
@@ -386,8 +385,8 @@ task snpEff {
 
         bgzip -cd ~{input_vcf} | \
             java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
-            -nostats -noLof -no-downstream -no-upstream -noLog \
-            ~{genome_version} -t ~{cpu} > ~{base_name}.snpeff.tmp.vcf
+            -nostats -noLof -no-downstream -no-upstream -noLog -t ~{cpu} \
+            ~{genome_version} > ~{base_name}.snpeff.tmp.vcf
 
         ~{scripts_path}/update_snpeff_annotations.py \
             ~{base_name}.snpeff.tmp.vcf \

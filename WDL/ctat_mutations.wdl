@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://github.com/NCIP/ctat-mutations/raw/db50710bf3343c460fd6489e0131793b0db8a078/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "https://github.com/NCIP/ctat-mutations/raw/1c7598346b0810a91ceb2b20d68197a5dcae32a0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
@@ -41,7 +41,7 @@ workflow ctat_mutations {
 
         File? ref_bed
 
-        File? cravat_lib
+        File? cravat_lib_tar_gz
         String? cravat_lib_dir
 
         String? genome_version
@@ -153,7 +153,7 @@ workflow ctat_mutations {
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
 
         ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
-        cravat_lib:{help:"CRAVAT resource archive"}
+        cravat_lib_tar_gz:{help:"CRAVAT resource archive"}
         cravat_lib_dir:{help:"CRAVAT resource directory (for non-Terra use)"}
 
         star_reference:{help:"STAR index archive"}
@@ -420,23 +420,23 @@ workflow ctat_mutations {
      if(annotate_variants && !filter_ready_vcf) {
         call VariantAnnotation.annotate_variants_wf as AnnotateVariants {
                 input:
-                    input_vcf = variant_vcf,
+          input_vcf = variant_vcf,
+          input_vcf_index = variant_vcf_index,
                     base_name = sample_id,
-                    cravat_lib = cravat_lib,
+                    cravat_lib_tar_gz = cravat_lib_tar_gz,
                     cravat_lib_dir = cravat_lib_dir,
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
-                    gtf = gtf,
                     cosmic_vcf=cosmic_vcf,
                     cosmic_vcf_index=cosmic_vcf_index,
-                    db_snp_vcf=db_snp_vcf,
-                    db_snp_vcf_index=db_snp_vcf_index,
+                    dbsnp_vcf=db_snp_vcf,
+                    dbsnp_vcf_index=db_snp_vcf_index,
                     gnomad_vcf=gnomad_vcf,
                     gnomad_vcf_index=gnomad_vcf_index,
                     rna_editing_vcf=rna_editing_vcf,
                     rna_editing_vcf_index=rna_editing_vcf_index,
                     bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                    bai = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
+                    bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                     include_read_var_pos_annotations=include_read_var_pos_annotations,
                     repeat_mask_bed=repeat_mask_bed,
                     ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
