@@ -97,21 +97,25 @@ def main():
             splice_adj_lend = row[11]
             splice_adj_rend = row[12]
             splice_adj_token = row[13]
+
+            if splice_adj_token == ".":
+                return ""
             
             splice_direction = splice_adj_token.split(":")[1]
             if splice_direction == "L":
-                return(abs(int(var_pos) - (int(splice_adj_lend)-1)))
+                DJ = abs(int(var_pos) - (int(splice_adj_lend)-1))
+                distance_string = ";DJ=" + str(DJ)
+                return distance_string
             elif splice_direction == "R":
-                return(abs(int(var_pos) - (int(splice_adj_rend)+1)))
+                DJ = abs(int(var_pos) - (int(splice_adj_rend)+1))
+                distance_string = ";DJ=" + str(DJ)
+                return distance_string
             else:
                 raise RuntimeError("not recognizing {} as splice adj L or R from {}".format(splice_direction, splice_adj_token))
 
             
-
-        test = pd.DataFrame()
         distances = vcf.apply(compute_distance, axis=1)
-        distances_string = ";DJ=" + distances.astype(str)
-        input_vcf_df["INFO"] = vcf[7] + distances_string
+        input_vcf_df["INFO"] = vcf[7] + distances
 
     # Remove the output file if it exist
     if os.path.exists(out_file):
