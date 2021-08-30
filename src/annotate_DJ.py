@@ -35,9 +35,13 @@ def main():
 
     input_vcf = args.input_vcf
     if input_vcf.endswith('.gz'):
-        if not os.path.exists(input_vcf[:len(input_vcf) - 3]):
-            subprocess.run(['gunzip', input_vcf])
-        input_vcf = input_vcf[:len(input_vcf) - 3]
+        uncompressed_vcf = input_vcf[:len(input_vcf) - 3]
+        if not os.path.exists(uncompressed_vcf):
+            cmd = "gunzip -c {} > {}".format(input_vcf, uncompressed_vcf)
+            logger.info("CMD: {}".format(cmd))
+            subprocess.check_call(cmd, shell=True)
+        input_vcf = uncompressed_vcf
+        
     splice_bed = args.splice_bed
     out_file = args.output_vcf
     temp_dir = args.temp_dir
@@ -57,7 +61,7 @@ def main():
     ## have to do this for bedtools closest
     logger.info("Sorting VCF")
     cmd = "grep '^#' {} > {} && grep -v '^#' {} | LC_ALL=C sort -t $'\t' -k1,1 -k2,2n >> {}".format(input_vcf, temp_sorted_vcf, input_vcf, temp_sorted_vcf)
-    # logger.info("CMD: {}".format(cmd))
+    logger.info("CMD: {}".format(cmd))
     subprocess.run(cmd, shell=True, executable='/bin/bash')
 
     #~~~~~~~~~~~~~~
