@@ -969,7 +969,7 @@ task open_cravat {
 
     output {
         File vcf = "~{base_name}.cravat.vcf.gz"
-        File vcf_index = "~{base_name}.cravat.gz.tbi"
+        File vcf_index = "~{base_name}.cravat.vcf.gz.tbi"
     }
 
     runtime {
