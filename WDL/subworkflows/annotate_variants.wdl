@@ -923,11 +923,12 @@ task open_cravat {
         set -ex
 
         echo "########### Annotate CRAVAT #############"
-        
+
+        cravat_lib_dir="~{cravat_lib_dir}"
         # cravat
         if [ "$cravat_lib_dir" == "" ]; then
             
-            if [ "$cravat_lib_tar_gz" == "" ]; then
+            if [ "~{cravat_lib_tar_gz}" == "" ]; then
                  echo "Error, must specify cravat_lib_tar_gz or cravat_lib path"
                  exit 1
             fi
@@ -941,11 +942,11 @@ task open_cravat {
                 compress="pbzip2"
             fi
 
-            tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
+            tar -I $compress -xf ~{cravat_lib_dir} -C cravat_lib_dir --strip-components 1
             cravat_lib_dir="cravat_lib_dir"
 
         fi
-
+        
         export TMPDIR=/tmp # https://github.com/broadinstitute/cromwell/issues/3647
 
         ~{scripts_path}/annotate_with_cravat.py \
