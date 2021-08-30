@@ -629,7 +629,7 @@ task annotate_repeats {
         ~{scripts_path}/annotate_repeats.py \
             --input_vcf ~{input_vcf} \
             --repeats_bed ~{repeat_mask_bed} \
-            --output_vcf ~{base_name}.repeat.vcf
+            --output_vcf ~{base_name}.annot_repeats.vcf
 
             bgzip -c ~{base_name}.annot_repeats.vcf > ~{base_name}.annot_repeats.vcf.gz
 
