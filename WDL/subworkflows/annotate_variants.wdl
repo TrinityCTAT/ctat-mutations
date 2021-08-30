@@ -295,6 +295,8 @@ workflow annotate_variants_wf {
             input_vcf = select_first([open_cravat.vcf, annotate_cosmic_variants.vcf, annotate_blat_ED.vcf, annotate_splice_distance.vcf, annotate_homopolymers_n_entropy.vcf, annotate_repeats.vcf, annotate_PASS_reads.vcf, annotate_RNA_editing.vcf, annotate_gnomad.vcf, annotate_dbsnp.vcf, snpEff.vcf, left_norm_vcf.vcf]),
             input_vcf_index = select_first([open_cravat.vcf_index, annotate_cosmic_variants.vcf_index, annotate_blat_ED.vcf_index, annotate_splice_distance.vcf_index,  annotate_homopolymers_n_entropy.vcf_index, annotate_repeats.vcf_index, annotate_PASS_reads.vcf_index, annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
             base_name = base_name,
+            docker=docker,
+            preemptible=preemptible
 
     }
 
