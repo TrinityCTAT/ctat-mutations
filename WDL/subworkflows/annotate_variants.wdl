@@ -385,7 +385,7 @@ task snpEff {
 
         bgzip -cd ~{input_vcf} | \
             java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
-            -nostats -noLof -no-downstream -no-upstream -noLog -t ~{cpu} \
+            -nostats -noLof -no-downstream -no-upstream -noLog -t \
             ~{genome_version} > ~{base_name}.snpeff.tmp.vcf
 
         ~{scripts_path}/update_snpeff_annotations.py \
