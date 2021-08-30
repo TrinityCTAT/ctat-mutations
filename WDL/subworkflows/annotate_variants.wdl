@@ -833,12 +833,18 @@ task annotate_cosmic_variants {
         set -ex
 
         bcftools annotate \
-            --output-type z \
             --annotations ~{cosmic_vcf} \
             --columns "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC" \
-            --output ~{base_name}.annot_cosmic.vcf.gz \
+            --output ~{base_name}.annot_cosmic.tmp.vcf \
             ~{input_vcf}
 
+
+            #must groom for gatk compat
+            ~{scripts_path}/groom_vcf.py \
+                ~{base_name}.annot_cosmic.tmp.vcf ~{base_name}.annot_cosmic.vcf
+      
+            bgzip ~{base_name}.annot_cosmic.vcf
+      
             tabix ~{base_name}.annot_cosmic.vcf.gz
 
     >>>

@@ -1,5 +1,7 @@
 version 1.0
 
+import "https://github.com/NCIP/ctat-mutations/raw/devel/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+
 workflow ctat_mutations {
     input {
         String sample_id
@@ -48,6 +50,22 @@ workflow ctat_mutations {
         String? star_reference_dir
 
         Boolean annotate_variants = true
+
+
+        # annotation options
+        Boolean incl_snpEff = true
+        Boolean incl_dbsnp = true
+        Boolean incl_gnomad = true
+        Boolean incl_rna_editing = true
+        Boolean include_read_var_pos_annotations = true
+        Boolean incl_repeats = true
+        Boolean incl_homopolymers = true
+        Boolean incl_splice_dist = true
+        Boolean incl_blat_ED = true
+        Boolean incl_cosmic = true
+        Boolean incl_cravat = true
+
+
         Boolean filter_variants = true
         Boolean filter_cancer_variants = true
 		
@@ -400,7 +418,7 @@ workflow ctat_mutations {
      File variant_vcf_index = select_first([MergePrimaryAndExtraVCFs.output_vcf_index, MergeVCFs.output_vcf_index, HaplotypeCaller.output_vcf_index, vcf_index])
 
      if(annotate_variants && !filter_ready_vcf) {
-        call AnnotateVariants {
+        call VariantAnnotation.annotate_variants_wf as AnnotateVariants {
                 input:
                     input_vcf = variant_vcf,
                     base_name = sample_id,
@@ -427,11 +445,22 @@ workflow ctat_mutations {
                     genome_version=genome_version,
                     docker = docker,
                     preemptible = preemptible,
-	                cpu = variant_annotation_cpu
+	                cpu = variant_annotation_cpu,
+                    incl_snpEff = incl_snpEff,
+                    incl_dbsnp = incl_dbsnp,
+                    incl_gnomad = incl_gnomad,
+                    incl_rna_editing = incl_rna_editing,
+                    include_read_var_pos_annotations = include_read_var_pos_annotations,
+                    incl_repeats = incl_repeats,
+                    incl_homopolymers = incl_homopolymers,
+                    incl_splice_dist = incl_splice_dist,
+                    incl_blat_ED = incl_blat_ED,
+                    incl_cosmic = incl_cosmic,
+                    incl_cravat = incl_cravat
             }
-
+            
       }
-
+      
       if (filter_variants) {
 
             String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
@@ -629,299 +658,6 @@ task CancerVariantReport {
     }
 }
 
-task AnnotateVariants {
-    input {
-        File input_vcf
-        File? bam
-        File? bai
-
-        File? db_snp_vcf
-        File? db_snp_vcf_index
-
-        File? gnomad_vcf
-        File? gnomad_vcf_index
-
-        File? rna_editing_vcf
-        File? rna_editing_vcf_index
-
-        File? cosmic_vcf
-        File? cosmic_vcf_index
-
-        File? ref_splice_adj_regions_bed
-        String base_name
-        File? cravat_lib
-        String? cravat_lib_dir
-        File? repeat_mask_bed
-
-        File ref_fasta
-        File ref_fasta_index
-        File? gtf
-
-        String plugins_path
-        String scripts_path
-        String? genome_version
-        Boolean include_read_var_pos_annotations
-
-        String docker
-        Int preemptible
-        Int cpu
-    }
-
-    String vcf_extension = "vcf.gz"
-    Int disk = ceil((size(bam, "GB") * 3) + 50 + if(defined(cravat_lib))then 100 else 0)
-    command <<<
-        set -ex
-        # monitor_script.sh &
-
-
-        VCF="~{input_vcf}"
-        OUT="~{base_name}.norm.groom.sorted.vcf.gz"
-
-        # leftnorm and split multiallelics
-        bcftools norm \
-        -f ~{ref_fasta} \
-        -m -any \
-        -o ~{base_name}.norm.vcf \
-        $VCF
-
-      
-        ~{scripts_path}/groom_vcf.py ~{base_name}.norm.vcf ~{base_name}.norm.groom.vcf
-
-        bcftools sort -T . ~{base_name}.norm.groom.vcf > ~{base_name}.norm.groom.sorted.vcf
-        bgzip -c ~{base_name}.norm.groom.sorted.vcf > $OUT
-        tabix $OUT
-        VCF=$OUT
-
-        # SnpEff
-        if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ]; then
-            OUT="~{base_name}.snpeff.vcf.gz" # does not gzip
-
-            bgzip -cd $VCF | \
-            java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
-            -nostats -noLof -no-downstream -no-upstream -noLog \
-            ~{genome_version} > ~{base_name}.snpeff.tmp.vcf
-
-            ~{scripts_path}/update_snpeff_annotations.py \
-            ~{base_name}.snpeff.tmp.vcf \
-            ~{base_name}.snpeff.vcf
-
-            bgzip -c ~{base_name}.snpeff.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # dbSNP common variant annotations
-        if [[ -f "~{db_snp_vcf}" ]]; then
-            OUT="~{base_name}.dbsnp.~{vcf_extension}"
-            bcftools annotate \
-            --output-type z \
-            --annotations ~{db_snp_vcf} \
-            --columns "INFO/OM,INFO/PM,INFO/SAO,INFO/RS" \
-            --output $OUT \
-            $VCF
-
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # gnomad pop allelic frequency info for min 0.1% pop AF variants
-        if [[ -f "~{gnomad_vcf}" ]]; then
-            OUT="~{base_name}.gnomad.~{vcf_extension}"
-
-            bcftools annotate \
-            --output-type z \
-            --annotations ~{gnomad_vcf} \
-            --columns "INFO/gnomad_RS,INFO/gnomad_AF" \
-            --output $OUT \
-            $VCF
-
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # RNAediting
-        if [[ -f "~{rna_editing_vcf}" ]]; then
-            OUT="~{base_name}.rna_edit.~{vcf_extension}"
-
-            bcftools annotate \
-            --output-type z \
-            --annotations ~{rna_editing_vcf} \
-            --columns "INFO/RNAEDIT" \
-            --output $OUT \
-            $VCF
-
-            #must groom for gatk compat
-            ~{scripts_path}/groom_vcf.py $OUT ~{base_name}.rna_edit.groom.vcf
-
-            OUT="~{base_name}.rna_edit.groom.vcf.gz"
-            bgzip -c ~{base_name}.rna_edit.groom.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # PASS read annotations (requires variant to be at least 6 bases from ends of reads.)
-        if [ "~{include_read_var_pos_annotations}" == "true" ]; then
-            OUT="~{base_name}.pass_read.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_PASS_reads.py \
-            --vcf $VCF \
-            --bam ~{bam} \
-            --output_vcf ~{base_name}.pass_read.vcf \
-            --threads ~{cpu}
-
-            bgzip -c ~{base_name}.pass_read.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # RepeatMasker annotations (mobile elements, etc.)
-        if [[ -f "~{repeat_mask_bed}" ]]; then
-            OUT="~{base_name}.repeat.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_repeats.py \
-            --input_vcf $VCF \
-            --repeats_bed ~{repeat_mask_bed} \
-            --output_vcf ~{base_name}.repeat.vcf
-
-            bgzip -c ~{base_name}.repeat.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # Homopolymers and Entropy
-        if [[ -f "~{repeat_mask_bed}" ]]; then
-            OUT="~{base_name}.homopolymer.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_entropy_n_homopolymers.py \
-            --input_vcf $VCF \
-            --ref_genome_fa ~{ref_fasta} \
-            --tmpdir $TMPDIR \
-            --output_vcf ~{base_name}.homopolymer.vcf
-
-            bgzip -c ~{base_name}.homopolymer.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # splice distance
-        if [[ -f "~{ref_splice_adj_regions_bed}" ]]; then
-            OUT="~{base_name}.splice.distance.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_exon_splice_proximity.py \
-            --input_vcf $VCF \
-            --bed ~{ref_splice_adj_regions_bed} \
-            --tmpdir $TMPDIR \
-            --output_vcf ~{base_name}.splice.distance.vcf
-
-            bgzip -c ~{base_name}.splice.distance.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # DJ annotation
-        if [[ -f "~{gtf}" ]]; then
-            OUT="~{base_name}.DJ.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_DJ.py \
-            --input_vcf $VCF \
-            --splice_bed ~{ref_splice_adj_regions_bed} \
-            --temp_dir $TMPDIR \
-            --output_vcf ~{base_name}.DJ.vcf
-
-            bgzip -c ~{base_name}.DJ.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # ED annotation
-        if [[ -f "~{gtf}" ]]; then
-            OUT="~{base_name}.ED.~{vcf_extension}"
-
-            ~{scripts_path}/annotate_ED.py \
-            --input_vcf $VCF \
-            --output_vcf ~{base_name}.ED.vcf \
-            --reference ~{ref_fasta} \
-            --temp_dir $TMPDIR \
-            --threads ~{cpu}
-
-            bgzip -c ~{base_name}.ED.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # cosmic
-        if [[ -f "~{cosmic_vcf}" ]]; then
-            OUT="~{base_name}.cosmic.~{vcf_extension}"
-
-            bcftools annotate \
-            --output-type z \
-            --annotations ~{cosmic_vcf} \
-            --columns "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC" \
-            --output $OUT \
-            $VCF
-
-            tabix $OUT
-            VCF=$OUT
-        fi
-
-        # cravat
-        cravat_lib_dir="~{cravat_lib}"
-        if [ "$cravat_lib_dir" == "" ]; then
-            cravat_lib_dir="~{cravat_lib_dir}"
-        fi
-
-        if [ "~{genome_version}" == "hg19" ] || [ "~{genome_version}" == "hg38" ] && [ "$cravat_lib_dir" != "" ]; then
-
-            OUT="~{base_name}.cravat.vcf.gz"
-
-            if [ -f "$cravat_lib_dir" ] ; then
-                mkdir cravat_lib_dir
-                #compress="pigz"
-                #
-                #if [[ $cravat_lib_dir == *.bz2 ]] ; then
-                #    compress="pbzip2"
-                #fi
-
-               #tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
-               tar -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
-                cravat_lib_dir="cravat_lib_dir"
-            fi
-
-            export TMPDIR=/tmp # https://github.com/broadinstitute/cromwell/issues/3647
-
-            ~{scripts_path}/annotate_with_cravat.py \
-            --input_vcf $VCF \
-            --genome ~{genome_version} \
-            --cravat_lib_dir $cravat_lib_dir \
-            --output_vcf ~{base_name}.cravat.tmp.vcf
-
-            #must groom for gatk compat
-            ~{scripts_path}/groom_vcf.py \
-            ~{base_name}.cravat.tmp.vcf ~{base_name}.cravat.groom.vcf
-
-            bcftools sort -T . ~{base_name}.cravat.groom.vcf > ~{base_name}.cravat.vcf
-            bgzip -c ~{base_name}.cravat.vcf > $OUT
-            tabix $OUT
-            VCF=$OUT
-        fi
-        mv $VCF "~{base_name}.annotated.~{vcf_extension}"
-        mv $VCF.tbi "~{base_name}.annotated.~{vcf_extension}.tbi"
-
-    >>>
-
-    output {
-        File vcf = "~{base_name}.annotated.~{vcf_extension}"
-        File vcf_index = "~{base_name}.annotated.~{vcf_extension}.tbi"
-    }
-
-    runtime {
-        disks: "local-disk " + disk + " HDD"
-        docker: docker
-        memory: "40G"
-        preemptible: preemptible
-        cpu : cpu
-    }
-}
 
 task MarkDuplicates {
     input {
