@@ -328,6 +328,8 @@ task left_norm_vcf {
     command <<<
         set -ex
 
+        echo "####### leftnorm and split multiallelics ##########"
+      
         # leftnorm and split multiallelics
         bcftools norm \
         -f ~{ref_fasta} \
@@ -383,6 +385,9 @@ task snpEff {
 
         set -ex
 
+
+        echo "######### SnpEFF #########"
+      
         bgzip -cd ~{input_vcf} | \
             java -Xmx3500m -jar ~{plugins_path}/snpEff.jar \
             -nostats -noLof -no-downstream -no-upstream -noLog \
@@ -432,6 +437,8 @@ task annotate_dbsnp {
     command <<<
         set -ex
 
+        echo "####### Annotate dbSNP ########"
+      
         bcftools annotate \
             --output-type z \
             --annotations ~{dbsnp_vcf} \
@@ -475,7 +482,10 @@ task annotate_gnomad {
 
     command <<<
         set -ex
-        
+
+        echo "####### Annotate gnomAD ########"
+
+      
         bcftools annotate \
             --output-type z \
             --annotations ~{gnomad_vcf} \
@@ -522,6 +532,9 @@ task annotate_RNA_editing {
     command <<<
         set -ex
 
+
+         echo "######### Annotate RNA Editing #############"
+      
          bcftools annotate \
             --output-type z \
             --annotations ~{rna_editing_vcf} \
@@ -577,6 +590,8 @@ task annotate_PASS_reads {
 
         set -ex
 
+        echo "######## Annotate PASS Reads #########"
+      
         ~{scripts_path}/annotate_PASS_reads.py \
             --vcf ~{input_vcf}  \
             --bam ~{bam} \
@@ -626,6 +641,9 @@ task annotate_repeats {
 
         set -ex
 
+        echo "####### Annotate Repeats #########"
+
+      
         ~{scripts_path}/annotate_repeats.py \
             --input_vcf ~{input_vcf} \
             --repeats_bed ~{repeat_mask_bed} \
@@ -675,6 +693,8 @@ task annotate_homopolymers_n_entropy {
 
         set -ex
 
+         echo "########## Annotate Entropy and Homopolymers ###############"
+      
          ~{scripts_path}/annotate_entropy_n_homopolymers.py \
             --input_vcf ~{input_vcf} \
             --ref_genome_fa ~{ref_fasta} \
@@ -726,6 +746,9 @@ task annotate_splice_distance {
 
         set -ex
 
+
+        echo "########## Annotate Splice Distance ##############"
+      
         ~{scripts_path}/annotate_DJ.py \
             --input_vcf ~{input_vcf} \
             --splice_bed ~{ref_splice_adj_regions_bed} \
@@ -777,7 +800,9 @@ task annotate_blat_ED {
     command <<<
 
         set -ex
-
+      
+        echo "########### Annotate BLAT ED #############"
+      
         ~{scripts_path}/annotate_ED.py \
             --input_vcf ~{input_vcf} \
             --output_vcf ~{base_name}.blat_ED.vcf \
@@ -833,6 +858,8 @@ task annotate_cosmic_variants {
 
         set -ex
 
+        echo "############# Annotate COSMIC Variants ################"
+      
         bcftools annotate \
             --annotations ~{cosmic_vcf} \
             --columns "INFO/COSMIC_ID,INFO/TISSUE,INFO/TUMOR,INFO/FATHMM,INFO/SOMATIC" \
@@ -895,8 +922,9 @@ task open_cravat {
 
         set -ex
 
+        echo "########### Annotate CRAVAT #############"
+        
         # cravat
-        cravat_lib_dir="~{cravat_lib_tar_gz}"
         if [ "$cravat_lib_dir" == "" ]; then
             
             if [ "$cravat_lib_tar_gz" == "" ]; then
@@ -971,6 +999,8 @@ task rename_vcf {
 
         set -ex
 
+        echo "####### Final step: Renaming Vcf ########"
+      
         mv ~{input_vcf} ~{base_name}.vcf.gz
         mv ~{input_vcf} ~{base_name}.vcf.gz.tbi
 
