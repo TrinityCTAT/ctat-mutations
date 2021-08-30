@@ -480,10 +480,10 @@ task annotate_gnomad {
             --output-type z \
             --annotations ~{gnomad_vcf} \
             --columns "INFO/gnomad_RS,INFO/gnomad_AF" \
-            --output ~{base_name}.gnomad.gz \
+            --output ~{base_name}.gnomad.vcf.gz \
             ~{input_vcf}
 
-            tabix ~{base_name}.gnomad.gz
+            tabix ~{base_name}.gnomad.vcf.gz
 
     >>>
 
