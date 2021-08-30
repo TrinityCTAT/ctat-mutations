@@ -87,7 +87,7 @@ workflow ctat_mutations {
 
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
-        ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","SPLICEADJ","TCR","TDM","VAF","VMMF"]
+        ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","TCR","TDM","VAF","VMMF"]
         # minimum score threshold for boosted variant selection"
         Float boosting_score_threshold = 0.05
 
@@ -1153,8 +1153,8 @@ task VariantFiltration {
             --filter "FS > 30.0" \
             --filter-name "QD" \
             --filter "QD < 2.0" \
-            --filter-name "SPLICEADJ" \
-            --filter "SPLICEADJ < 3" \
+            --filter-name "SPLICEDIST" \
+            --filter "DJ < 3" \
             -O tmp.vcf
 
             ~{gatk_path} --java-options "-Xmx2500m" \

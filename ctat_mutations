@@ -144,7 +144,7 @@ def main():
 
     parser.add_argument(
         "--boosting_attributes",
-        default="AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,SPLICEADJ,TCR,TDM,VAF,VMMF",
+        default="AC,ALT,BaseQRankSum,DJ,DP,ED,Entropy,ExcessHet,FS,Homopolymer,LEN,MLEAF,MMF,QUAL,REF,RPT,RS,ReadPosRankSum,SAO,SOR,TCR,TDM,VAF,VMMF",
         help="Variant attributes on which to perform boosting",
     )
 	
