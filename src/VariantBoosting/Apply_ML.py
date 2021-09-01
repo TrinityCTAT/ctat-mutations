@@ -127,8 +127,11 @@ class CTAT_Boosting:
  
         ## Training data
         if args.predictor.lower() == 'classifier': 
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_data, self.y_data, train_size=0.6,  stratify= self.y_data, random_state=SEED)
-            print(self.X_train.shape, self.X_test.shape)
+            #self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_data, self.y_data, train_size=0.6,  stratify= self.y_data, random_state=SEED)
+            # update: Sep-1-2021 using all data for training
+            self.X_train = self.X_data
+            self.y_train = self.y_data
+            #print(self.X_train.shape, self.X_test.shape)
         elif args.predictor.lower() == 'regressor':
             self.X_train, self.y_train = self.X_data, self.y_data
         
