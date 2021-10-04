@@ -64,14 +64,6 @@ RUN wget -q https://github.com/samtools/bcftools/releases/download/1.9/bcftools-
     cd bcftools-1.9 && ./configure && make && make install && \
     rm $SRC/bcftools-1.9.tar.bz2
 
-## STAR
-WORKDIR $SRC
-ENV STAR_VERSION=2.7.2b
-RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" &&\
-    wget -q -P $SRC $STAR_URL &&\
-    tar -xvf $SRC/${STAR_VERSION}.tar.gz -C $SRC && \
-    mv $SRC/STAR-${STAR_VERSION}/bin/Linux_x86_64_static/STAR /usr/local/bin && \
-    rm ${STAR_VERSION}.tar.gz
 
 ## Bedtools
 RUN wget -q https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2.30.0.tar.gz && \
@@ -101,6 +93,16 @@ RUN git clone https://github.com/igvteam/igv-reports.git && \
 #RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
 #RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
 #RUN chmod a+rx /usr/local/src/ctat-mutations/WDL/monitor_script.sh
+
+
+## STAR
+WORKDIR $SRC
+ENV STAR_VERSION=2.7.8a
+RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" &&\
+    wget -q -P $SRC $STAR_URL &&\
+    tar -xvf $SRC/${STAR_VERSION}.tar.gz -C $SRC && \
+    mv $SRC/STAR-${STAR_VERSION}/bin/Linux_x86_64_static/STAR /usr/local/bin && \
+    rm ${STAR_VERSION}.tar.gz
 
 
 

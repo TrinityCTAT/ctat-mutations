@@ -15,14 +15,16 @@ HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
 
 
-## Docker and Singularity
+## Docker
 
 HC_standard_docker:
-	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O example.HC_standard.Docker
 
+
+## Singularity
 
 HC_standard_singularity:
-	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.vLATEST.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.singularity --genome_lib_dir /ctat_genome_lib_dir --boosting_method none
+	singularity exec -e -B `pwd`:/data -B ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro  ../Docker/ctat_mutations.vLATEST.simg /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.singularity --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O example.HC_standard.Singularity
 
 
 ##########################################
@@ -128,6 +130,10 @@ RF_GRCh38: BOOSTING_PREP
 
 XGBoost_GRCh38: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method XGBoost --sample_id example.boosting -O example.boosting 
+
+XGBoost_docker: 
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --bam /data/${boosting_bam_target}  --vcf /data/${boosting_vcf_target} --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method XGBoost -O /data/example.Docker_XGBoost
+
 
 LR_GRCh38: BOOSTING_PREP
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --bam ${boosting_bam_target}  --vcf ${boosting_vcf_target} --boosting_method LR --sample_id example.boosting -O example.boosting 
