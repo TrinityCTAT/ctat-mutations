@@ -934,6 +934,7 @@ task open_cravat {
             fi
             
             #use the provided tar.gz cravat lib      
+            cravat_lib_dir="~{cravat_lib_tar_gz}"
 
             mkdir cravat_lib_dir
             compress="pigz"
