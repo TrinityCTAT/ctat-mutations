@@ -943,7 +943,7 @@ task open_cravat {
                 compress="pbzip2"
             fi
 
-            tar -I $compress -xf ~{cravat_lib_dir} -C cravat_lib_dir --strip-components 1
+            tar -I $compress -xf $cravat_lib_dir -C cravat_lib_dir --strip-components 1
             cravat_lib_dir="cravat_lib_dir"
 
         fi
