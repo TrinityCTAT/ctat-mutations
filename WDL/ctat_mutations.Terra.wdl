@@ -65,6 +65,7 @@ workflow ctat_mutations_Terra {
       genome_version = pipe_inputs_config.genome_version,
       cravat_lib_tar_gz = pipe_inputs_config.cravat_lib_tar_gz,
       db_snp_vcf = pipe_inputs_config.db_snp_vcf,
+      db_snp_vcf_index = pipe_inputs_config.db_snp_vcf_index,
       cosmic_vcf = pipe_inputs_config.cosmic_vcf,
       cosmic_vcf_index = pipe_inputs_config.cosmic_vcf_index,
       gnomad_vcf = pipe_inputs_config.gnomad_vcf,
