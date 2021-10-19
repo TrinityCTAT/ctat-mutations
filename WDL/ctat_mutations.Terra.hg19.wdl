@@ -17,7 +17,7 @@ workflow ctat_mutations_Terra_hg19 {
       "gtf" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ref_annot.gtf",
       "ref_bed" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ctat_mutation_lib/refGene.sort.bed.gz",
       "ref_fasta" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ref_genome.fa",
-      "ref_fasta_index" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ref_genome.fa",
+      "ref_fasta_index" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ref_genome.fa.fai",
       "ref_dict" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ref_genome.dict",
       "cravat_lib_tar_gz" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ctat_mutation_lib/cravat.tar.bz2",
       "db_snp_vcf" : "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play/ctat_mutation_lib/dbsnp.vcf.gz",
