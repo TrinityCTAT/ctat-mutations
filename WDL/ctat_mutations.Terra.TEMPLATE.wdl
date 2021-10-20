@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://github.com/NCIP/ctat-mutations/raw/ced9c7ed0eac760c025cf70836fa8bf259625fa6/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
+import "https://github.com/NCIP/ctat-mutations/raw/__COMMIT_ID__/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
 
 
 struct Ctat_mutations_config {
