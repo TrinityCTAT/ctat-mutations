@@ -6,7 +6,7 @@ version 1.0
 
 
 
-import "https://github.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
 
 
 

@@ -2,7 +2,7 @@ version 1.0
 
 
 
-import "https://github.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 
 
