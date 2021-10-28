@@ -9,12 +9,12 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
-usage = "\n\n\tusage: {} commit_id\n\n\n".format(sys.argv[0])
+usage = "\n\n\tusage: {} terra_branch_name\n\n\n".format(sys.argv[0])
 
 if len(sys.argv) < 2:
     exit(usage)
 
-commit_id = sys.argv[1]
+terra_branch = sys.argv[1]
 
 template_wdls = glob.glob("*.TEMPLATE.wdl")
 for template_wdl in template_wdls:
@@ -22,7 +22,7 @@ for template_wdl in template_wdls:
 
     with open(template_wdl) as fh:
         input = "\n".join(fh.readlines())
-        input = re.sub("__COMMIT_ID__", commit_id, input)
+        input = re.sub("__TERRA_BRANCH__", terra_branch, input)
         with open(deployment_wdl, 'wt') as ofh:
             print(input, file=ofh)
         logger.info("-converted {} to {}".format(template_wdl, deployment_wdl))
