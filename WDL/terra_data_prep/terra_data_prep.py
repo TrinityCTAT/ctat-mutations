@@ -96,7 +96,7 @@ def main():
 
         gs_resource_path = "{}/{}".format(gs_base_url, resource)
         if gs_path_exists(gs_resource_path):
-            logger("gs resource {} already exists, not reuploading".format(gs_resource_path))
+            logger.info("gs resource {} already exists, not reuploading".format(gs_resource_path))
 
         else:
             logger.info("uploading to gs: {}".format(gs_resource_path))
@@ -113,10 +113,17 @@ def main():
 def gs_path_exists(gs_path):
 
     try:
-        subprocess.check_call("gsutil ls {}".format(gs_path))
+        logger.debug("checking for {}".format(gs_path))
+        subprocess.check_call("gsutil ls {}".format(gs_path), shell=True)
+        logger.debug("gs path exists")
         return True
+    
     except FileNotFoundError:
+        logger.debug("gs path not found on the cloud")
         return False
+
+    logger.debug("- no error thrown... ")
+
 
 
 if __name__=='__main__':
