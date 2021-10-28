@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://github.com/NCIP/ctat-mutations/__TERRA_BRANCH__/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/__TERRA_BRANCH__/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
