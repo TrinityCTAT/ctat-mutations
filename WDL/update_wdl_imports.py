@@ -21,7 +21,7 @@ for template_wdl in template_wdls:
     deployment_wdl = template_wdl.replace(".TEMPLATE.wdl", ".wdl")
 
     with open(template_wdl) as fh:
-        input = "\n".join(fh.readlines())
+        input = "".join(fh.readlines())
         input = re.sub("__TERRA_BRANCH__", terra_branch, input)
         with open(deployment_wdl, 'wt') as ofh:
             print(input, file=ofh)
