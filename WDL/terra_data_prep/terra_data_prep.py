@@ -42,7 +42,11 @@ def main():
                           "ctat_mutation_lib/repeats_ucsc_gb.bed.gz",
                           "ctat_mutation_lib/RNAediting.library.vcf.gz",
                           "ctat_mutation_lib/RNAediting.library.vcf.gz.csi",
-                          "ref_genome.fa.star.idx"}
+                          "ref_genome.fa.star.idx",
+                          "ref_genome.fa",
+                          "ref_genome.fa.fai",
+                          "ref_genome.dict",
+                          "ref_annot.gtf" }
 
     
 
@@ -69,8 +73,8 @@ def main():
 
         subprocess.check_call(cmd, shell=True)
 
-        resources_required.remove("ctat_mutation_lib/cravat")
-        resources_required.add(cravat_lib)
+    resources_required.remove("ctat_mutation_lib/cravat")
+    resources_required.add(cravat_lib)
 
     # prep star index
     star_index_bundle = "ref_genome.fa.star.idx.tar.bz2"
@@ -82,23 +86,37 @@ def main():
 
         subprocess.check_call(cmd, shell=True)
 
-        resources_required.remove("ref_genome.fa.star.idx")
-        resources_required.add(star_index_bundle)
+    resources_required.remove("ref_genome.fa.star.idx")
+    resources_required.add(star_index_bundle)
                     
-
+    
     # upload to google cloud:
     logger.info("Copying resources to google cloud")
     for resource in resources_required:
-        cmd = "gsutil cp {} {}/{}".format(os.path.join(ctat_genome_lib, resource), gs_base_url, resource)
-        logger.info(cmd)
-        subprocess.check_call(cmd, shell=True)
 
+        gs_resource_path = "{}/{}".format(gs_base_url, resource)
+        if gs_path_exists(gs_resource_path):
+            logger("gs resource {} already exists, not reuploading".format(gs_resource_path))
+
+        else:
+            logger.info("uploading to gs: {}".format(gs_resource_path))
+            cmd = "gsutil cp {} {}/{}".format(os.path.join(ctat_genome_lib, resource), gs_base_url, resource)
+            logger.info(cmd)
+            subprocess.check_call(cmd, shell=True)
+        
 
     logger.info("done")
     
     sys.exit(0)
 
 
+def gs_path_exists(gs_path):
+
+    try:
+        subprocess.check_call("gsutil ls {}".format(gs_path))
+        return True
+    except FileNotFoundError:
+        return False
 
 
 if __name__=='__main__':
