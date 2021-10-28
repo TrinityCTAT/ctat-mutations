@@ -2,7 +2,7 @@ version 1.0
 
 
 
-import "https://github.com/NCIP/ctat-mutations/raw/67c3d078b5b32f6147883660a5b2f9276a62f969/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
+import "https://github.com/NCIP/ctat-mutations/raw/23f3b166556d157e363b298e0d43d9b6161b3ccc/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
 
 
 
