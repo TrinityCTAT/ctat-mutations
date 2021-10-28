@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://github.com/NCIP/ctat-mutations/raw/__COMMIT_ID__/WDL/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
+import "https://github.com/NCIP/ctat-mutations/__TERRA_BRANCH__/WDL/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
 
 
 workflow ctat_mutations_Terra_hg19 {
