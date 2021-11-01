@@ -86,7 +86,6 @@ workflow ctat_mutations_Terra {
         File? aligned_bam = CM_wf.aligned_bam
         File? output_log_final =  CM_wf.output_log_final
         File? output_SJ =  CM_wf.output_SJ
-        Array[File]? unmapped_reads = CM_wf.unmapped_reads
         File? recalibrated_bam = CM_wf.recalibrated_bam
         File? recalibrated_bam_index = CM_wf.recalibrated_bam_index
         File? cancer_igv_report = CM_wf.cancer_igv_report
