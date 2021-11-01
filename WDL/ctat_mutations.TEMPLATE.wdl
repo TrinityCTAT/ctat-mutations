@@ -518,20 +518,13 @@ workflow ctat_mutations {
     
 
     output {
-        File? extra_bam = SplitReads.extra_bam
-        File? extra_bam_index = SplitReads.extra_bai
-        Int? extra_bam_number_of_reads = SplitReads.extra_bam_number_of_reads
-
-        File? extra_vcf = HaplotypeCallerExtra.output_vcf
 
         File? haplotype_caller_vcf = variant_vcf
-
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
         File? output_log_final =  StarAlign.output_log_final
         File? output_SJ =  StarAlign.output_SJ
-        Array[File]? unmapped_reads = StarAlign.unmapped_reads
         File? recalibrated_bam = ApplyBQSR.bam
         File? recalibrated_bam_index = ApplyBQSR.bam_index
         File? cancer_igv_report = CancerVariantReport.cancer_igv_report
