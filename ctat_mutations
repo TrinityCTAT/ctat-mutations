@@ -8,6 +8,9 @@ import tempfile
 
 import sys
 
+VERSION = "ctat_mutations-3.2.0"
+
+
 if sys.version_info[0] < 3:
     print("This script requires Python 3")
     exit(1)
@@ -58,6 +61,8 @@ def main():
 
     parser.add_argument("--right", help="Path to one of the two paired samples")
 
+    parser.add_argument("--version", action='store_true', help="show version: {}".format(VERSION))
+    
     parser.add_argument(
         "--bam",
         help="Previously aligned bam file. When VCF is provided, the output from ApplyBQSR should be provided as the bam input.",
@@ -208,6 +213,11 @@ def main():
     # )
     args = parser.parse_args()
 
+
+    if args.version:
+        exit(VERSION)
+    
+    
     left = args.left
     right = args.right
     bam = args.bam
@@ -463,4 +473,8 @@ def main():
 
 
 if __name__ == "__main__":
+
+    if "--version" in sys.argv:
+        exit(VERSION)
+    
     main()

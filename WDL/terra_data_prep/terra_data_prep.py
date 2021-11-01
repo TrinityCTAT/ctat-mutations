@@ -25,6 +25,10 @@ def main():
     ctat_genome_lib = args.ctat_genome_lib
     gs_base_url = args.gs_base_url
 
+
+    os.chdir(ctat_genome_lib)
+
+
     if gs_base_url[-1] == "/":
         gs_base_url = gs_base_url[:-1]
 
@@ -53,12 +57,11 @@ def main():
     ## verify resources exist.
     missing_resource_flag = False
     for resource in resources_required:
-        local_path = os.path.join(ctat_genome_lib, resource)
-        if os.path.exists(local_path):
-            logger.info("-verified found {}".format(local_path))
+        if os.path.exists(resource):
+            logger.info("-verified found {}".format(resource))
         else:
             missing_resource_flag = True
-            logger.error("-missing {}".format(local_path))
+            logger.error("-missing {}".format(resource))
 
     if missing_resource_flag:
         raise RuntimeError("at least one resource was missing. Please resolve before retrying")
@@ -66,8 +69,9 @@ def main():
     # prep cravat
     cravat_lib = "ctat_mutation_lib/cravat.tar.bz2"
     if not os.path.exists(os.path.join(ctat_genome_lib, cravat_lib)):
-        cmd = "tar --bzip2 -cvf {} {}".format(os.path.join(ctat_genome_lib, cravat_lib),
-                                              os.path.join(ctat_genome_lib, "ctat_mutation_lib/cravat"))
+        cmd = "tar -C {} --bzip2 -cvf {} {}".format("ctat_mutation_lib",
+                                                    cravat_lib,
+                                             "cravat")
         logger.info("-building {}".format(cravat_lib))
         logger.info(cmd)
 
@@ -79,8 +83,8 @@ def main():
     # prep star index
     star_index_bundle = "ref_genome.fa.star.idx.tar.bz2"
     if not os.path.exists(os.path.join(ctat_genome_lib, star_index_bundle)):
-        cmd = "tar --bzip2 -cvf {} {}".format(os.path.join(ctat_genome_lib, star_index_bundle),
-                                              os.path.join(ctat_genome_lib, "ref_genome.fa.star.idx"))
+        cmd = "tar --bzip2 -cvf {} {}".format(star_index_bundle,
+                                              "ref_genome.fa.star.idx")
         logger.info("-building {}".format(star_index_bundle))
         logger.info(cmd)
 
@@ -100,7 +104,7 @@ def main():
 
         else:
             logger.info("uploading to gs: {}".format(gs_resource_path))
-            cmd = "gsutil cp {} {}/{}".format(os.path.join(ctat_genome_lib, resource), gs_base_url, resource)
+            cmd = "gsutil cp {} {}/{}".format(resource, gs_base_url, resource)
             logger.info(cmd)
             subprocess.check_call(cmd, shell=True)
         
@@ -118,7 +122,7 @@ def gs_path_exists(gs_path):
         logger.debug("gs path exists")
         return True
     
-    except FileNotFoundError:
+    except:
         logger.debug("gs path not found on the cloud")
         return False
 
