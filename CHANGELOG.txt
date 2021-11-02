@@ -1,4 +1,14 @@
 
+3.2.0
+- revised WDLs for simpler configuration with Terra
+- using all common variants for training ML in boosting
+- drop SPLICEADJ, now just using DJ
+- now explicitly writing feature matrices for use with the downstream ML steps for improved transparency and flexibility
+- our RVBLR and py-snpir are now available as submodules, although not fully integrated into the ctat_mutations, and also leverage feature matrices as above.
+- uses CTAT genome lib: https://data.broadinstitute.org/Trinity/CTAT_RESOURCE_LIB/__genome_libs_StarFv1.10/
+
+
+3.0.1
 * note: 3.0.1 - bugfix, new syntax for CreateSequenceDictionary with gatk 4.1.9.0 in mut lib prep step
     docker and singularity images provided.
 
