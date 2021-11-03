@@ -6,7 +6,7 @@ import "https://raw.githubusercontent.com/NCIP/ctat-mutations/__TERRA_BRANCH__/W
 
 
 
-workflow ctat_mutations_Terra_hg19 {
+workflow ctat_mutations_Terra_hg38 {
 
 
   input {
