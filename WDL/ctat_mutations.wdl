@@ -113,7 +113,7 @@ workflow ctat_mutations {
 
         Boolean include_read_var_pos_annotations = true
         Float mark_duplicates_memory = 16
-        Float split_n_cigar_reads_memory = 14
+        Float split_n_cigar_reads_memory = 16
     }
 
     Boolean vcf_input = defined(vcf)
@@ -1333,7 +1333,7 @@ task SplitNCigarReads {
     >>>
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 5 + size(ref_fasta, "GB"))) + " HDD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 10 + size(ref_fasta, "GB") * 2)) + " HDD"
         docker: docker
         memory: memory + "GB"
         preemptible: preemptible
