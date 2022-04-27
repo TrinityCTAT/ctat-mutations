@@ -113,7 +113,7 @@ workflow ctat_mutations {
 
         Boolean include_read_var_pos_annotations = true
         Float mark_duplicates_memory = 16
-        Float split_n_cigar_reads_memory = 16
+        Float split_n_cigar_reads_memory = 32
     }
 
     Boolean vcf_input = defined(vcf)
