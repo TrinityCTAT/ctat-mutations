@@ -109,8 +109,8 @@ RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" 
 
 ## NCIP CTAT mutations
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.2.0
-ENV CTAT_MUTATIONS_COMMIT=87c423c761714540bba070f86dc302b68b4c11db
+ENV CTAT_MUTATIONS_TAG=v3.2.1
+ENV CTAT_MUTATIONS_COMMIT=21c5817aaba5ca406b7536c425ede12aa672de3a
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
