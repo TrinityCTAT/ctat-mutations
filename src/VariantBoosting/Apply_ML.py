@@ -25,6 +25,9 @@ import gzip
 warnings.filterwarnings("ignore")
 
 ## Import python libraries
+import matplotlib
+matplotlib.use('pdf')
+
 import matplotlib.pyplot as plt
 import pandas as pd  
 import numpy as np   
