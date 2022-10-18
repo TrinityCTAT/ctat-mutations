@@ -4,7 +4,7 @@ MAINTAINER bhaas@broadinstitute.org
 
 # for java
 RUN mkdir /usr/share/man/man1/
-RUN apt-get -qq update && apt-get -qq -y install --no-install-recommends \
+RUN apt-get --allow-releaseinfo-change update && apt-get -qq -y install --no-install-recommends \
     automake \
     build-essential \
     bzip2 \
