@@ -118,6 +118,13 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     make
     
 
+#~~~~~~~~~~~
+## Picard tools
+#~~~~~~~~~~~
+WORKDIR $SRC
+RUN wget https://github.com/broadinstitute/picard/releases/download/2.25.2/picard.jar
+ENV PICARD_HOME $SRC/picard.jar
+
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
     apt-get clean && \
