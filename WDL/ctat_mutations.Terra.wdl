@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
+import "https://raw.githubusercontent.com/brownmp/ctat-mutations/master/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
 
 
 struct Ctat_mutations_config {
