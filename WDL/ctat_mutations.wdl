@@ -1,8 +1,6 @@
 version 1.0
 
-import "subworkflows/annotate_variants.wdl" as VariantAnnotation
-#TERRA import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
-
+import "https://raw.githubusercontent.com/brownmp/ctat-mutations/master/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
@@ -114,8 +112,8 @@ workflow ctat_mutations {
         String scripts_path = "/usr/local/src/ctat-mutations/src"
 
         Boolean include_read_var_pos_annotations = true
-        Float mark_duplicates_memory = 8
-        Float split_n_cigar_reads_memory = 14
+        Float mark_duplicates_memory = 16
+        Float split_n_cigar_reads_memory = 32
     }
 
     Boolean vcf_input = defined(vcf)
@@ -685,7 +683,7 @@ task MarkDuplicates {
     }
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 2) * 3.25)) + " HDD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 2) * 10)) + " HDD"
         docker: docker
         memory: memory + "GB"
         preemptible: preemptible
@@ -1335,7 +1333,7 @@ task SplitNCigarReads {
     >>>
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 5 + size(ref_fasta, "GB"))) + " HDD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 1) * 10 + size(ref_fasta, "GB") * 2)) + " HDD"
         docker: docker
         memory: memory + "GB"
         preemptible: preemptible
