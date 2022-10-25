@@ -581,7 +581,7 @@ task annotate_PASS_reads {
         String docker
         Int preemptible
         Int cpu
-        Int disk = ceil((size(bam, "GB") * 3) + (size(input_vcf, "GB") * 10) + 20)
+        Int disk = ceil((size(bam, "GB") * 4) + (size(input_vcf, "GB") * 10) + 20)
         
     }
 
@@ -592,6 +592,8 @@ task annotate_PASS_reads {
 
         echo "######## Annotate PASS Reads #########"
       
+        samtools index ~{bam}
+
         ~{scripts_path}/annotate_PASS_reads.py \
             --vcf ~{input_vcf}  \
             --bam ~{bam} \
