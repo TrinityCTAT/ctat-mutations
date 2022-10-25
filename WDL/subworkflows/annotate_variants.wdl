@@ -581,7 +581,7 @@ task annotate_PASS_reads {
         String docker
         Int preemptible
         Int cpu
-        Int disk = ceil((size(bam, "GB") * 3) + (size(input_vcf, "GB") * 3) + 20)
+        Int disk = ceil((size(bam, "GB") * 3) + (size(input_vcf, "GB") * 10) + 20)
         
     }
 
