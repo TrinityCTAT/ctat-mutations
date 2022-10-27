@@ -14,6 +14,55 @@ logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG
 logger = logging.getLogger(__name__)
 
 
+def processVCFHead(line, outfile):
+    '''
+    Add the annotation flag description to the head of the VCF
+        VPR : Variant Passed Reads, reads that PASS filtering that contain the variation
+        TPR : Total Passed Reads , reads that PASS filtering, position not in the terminal 6 bases of read
+        TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.
+        PctExtPos: Fraction of variant-supporting reads with variant positions in the first six bases of the reads
+        TDM : Total Duplicate Marked, number of reads that are duplicate marked
+        VAF: Variant allele fraction
+        TMMR: Number of multi-mapped reads
+        MMF: multi-mapped read fraction of TPR
+    '''
+
+    if line[0] == "#":
+        if re.match("#CHROM\t", line):
+            # add header info line for the repeat annotation type
+            # once you get to the #CHROM line,
+            #       write the new INFO annotations above the #CHROM header line
+            outfile.write("##INFO=<ID=VPR,Number=1,Type=Integer,Description=\"Variant Passed Reads, reads that PASS filtering that contain the variation\">\n")
+            outfile.write("##INFO=<ID=TPR,Number=1,Type=Integer,Description=\"Total Passed Reads , reads that PASS filtering\">\n")
+            outfile.write("##INFO=<ID=TCR,Number=1,Type=Integer,Description=\"TCR: Total Covered Reads, meet quality requirements, variant position anywhere in read.\">\n")
+            outfile.write("##INFO=<ID=PctExtPos,Number=1,Type=Integer,Description=\"Fraction of variant-supporting reads with variant positions in the first six bases of the reads\">\n")
+            outfile.write("##INFO=<ID=TDM,Number=1,Type=Integer,Description=\"Total Duplicate Marked, number of reads that are duplicate marked \">\n")
+            outfile.write("##INFO=<ID=VAF,Number=1,Type=Float,Description=\"Variant allele fraction (VPR / TPR) \">\n")
+            outfile.write("##INFO=<ID=TMMR,Number=1,Type=Integer,Description=\"Total multi-mapped reads at site\">\n")
+            outfile.write("##INFO=<ID=MMF,Number=1,Type=Float,Description=\"Multi-mapped read fraction (TMMR / TPR) \">\n")
+            outfile.write("##INFO=<ID=VMMR,Number=1,Type=Float,Description=\"Total variant-supporting multi-mapped reads \">\n")
+            outfile.write("##INFO=<ID=VMMF,Number=1,Type=Float,Description=\"Variant-supporting multi-mapped read fraction (VMMR / VPR) \">\n")
+
+        outfile.write(line) #writes the CHROM line
+
+
+def progress_bar(progress_percent):
+    #-------------------------
+    # Create the Progress bar
+    #-------------------------
+    # Create progress bar to monitor the progress of the multiprocessing
+    ## Remove the line from before
+    sys.stdout.write("\r")
+    sys.stdout.flush()
+    ## print the progress bar and percent
+    if progress_percent == 100:
+        sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%\n"))
+    else:
+        sys.stdout.write("[{}{}]{}".format("*" * progress_percent, " "* (100-progress_percent), str(progress_percent)+"%"))
+
+
+
+
 
 def check_reverse_strand(sam_flag):
     #----------------------------------------------------
@@ -48,13 +97,20 @@ def check_duplicate_marked(sam_flag):
     return duplicateMarked
 
 
-def evaluate_PASS_reads(vcf_line, bamFile):
+def evaluate_PASS_reads(vcf_lines, bamFile):
 
-    try:
-        return worker_evaluate_PASS_reads(vcf_line, bamFile)
-    except Exception as e:
-        traceback.print_exc()
-        return("ERROR: " + str(e))
+    # return vcf_lines[0]
+    return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile) for i in vcf_lines]
+    # for i in vcf_lines:
+    #     test = worker_evaluate_PASS_reads(i, bamFile)
+        # print(test)
+
+    # try:
+    #     # return worker_evaluate_PASS_reads(vcf_line, bamFile)
+    #     return [worker_evaluate_PASS_reads(i, bamFile) for i in vcf_line]
+    # except Exception as e:
+    #     traceback.print_exc()
+    #     return("ERROR: " + str(e))
 
 
 
@@ -232,33 +288,6 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile):
 
 
 
-
-
-def runAddAnnotator(input_vcf, idx, count, header, bamFile):
-    '''
-    Open the VCF file and extract the lines of interest
-        write these lines to a new vcf (subsetted)
-        run the expression analysis on this subsetted file 
-        then remove the temp subsetted files 
-    
-    '''
-    with gzip.open(input_vcf, 'r') as vcf:
-        # read in the specific lines 
-        output_vcf_lines = vcf.readlines()[idx[0]:(idx[-1]+1)]
-        
-        file_name = f"tmp{count}.vcf"
-        with open(file_name, "w") as tmp:
-            # Write the header to the file 
-            for header_line in header:
-                tmp.write(header_line)#.encode())
-            # Write the output to the temp file 
-            for line in output_vcf_lines:
-                new_line = evaluate_PASS_reads(line.decode(),bamFile)
-                tmp.write(new_line)
-
-    
-
-
 class SplitVCF:
     '''
     Class to annotate a given vcf in a multiprocessing fashion 
@@ -267,14 +296,20 @@ class SplitVCF:
     def __init__(   self, 
                     input_vcf,
                     cpu,
-                    bamFile
+                    bamFile,
+                    chunks,
+                    output_vcf
                     ): # arguments to class instantiation 
         
         self.input_vcf    = input_vcf
         self.cpu          = cpu
         self.bamFile      = bamFile
+        self.chunks       = chunks
+        self.output_vcf   = output_vcf
 
-        message_str = f"Annotating VCF:\n\tVCF : {input_vcf}\n\tCPU count : {cpu}\n\t BAM : {bamFile}"
+        # Print the inputs for reference 
+        message_str = f"""
+            {'Annotating VCF':^20s}\n\t{'VCF':11s} : {input_vcf}\n\t{'BAM':11s} : {bamFile}\n\t{'CPU count':11s} : {cpu}\n\t{'Chunking':11s} : {chunks}"""
         logger.info(message_str)
 
     def getIDs( self ):
@@ -311,49 +346,122 @@ class SplitVCF:
         self.stats = test
         return self 
 
+
     def AddAnnotaion( self ):
         # Apply annotaions to the VCF
         ## Split the VCF file by thier contig
-        message_str = f"\tAdding Expression INFO"
+        message_str = f"\tAdding Annotaions"
         logger.info(message_str)
 
+        # Get the index values for the vcf rows that will be subsetted 
+        ##  the VCf is subsetted based on the chunks wanted 
         idx_range = list(range(len(self.header), self.stats))
-        idx_list = np.array_split(idx_range, self.cpu)
+        idx_list = np.array_split(idx_range, self.chunks)
+        
+        results = []
+        def logging_return(line):
+            results.append(line)
 
         # Initiate the Pool
         pool = multiprocessing.Pool(self.cpu)
         
         
     
-        # get the start time
+        # get the start time and print it for reference
         start_time = time.process_time()
         message_str = f"\t\tStart Time: {time.asctime( time.localtime(time.time()) )}"
         logger.info(message_str)
 
-        # get all the arguments into a list of lists to pass for multiprocessing 
-        args = [[self.input_vcf, list(i), j, self.header, self.bamFile] for j,i in enumerate(idx_list) ]
-        
-        pool.starmap(runAddAnnotator, args)
+
+        # Loop over all the chunks, and send them to the CPUs
+        for j,i in enumerate(idx_list):
+            with gzip.open(self.input_vcf, 'r') as vcf:
+                idx = list(i)
+                # read in the specific lines 
+                output_vcf_lines = vcf.readlines()[idx[0]:(idx[-1]+1)]
+                pool.apply_async(evaluate_PASS_reads, args=(output_vcf_lines, self.bamFile), callback = logging_return)
 
         pool.close()
 
-        # get the end time
-        end_time = time.process_time()
-        message_str = f"\t\tEnd Time: {time.asctime( time.localtime(time.time()) )}"
-        logger.info(message_str)
-        # get execution time
-        time_total = end_time - start_time
-        message_str = f"\t\tProcess time: {time_total}"
-        logger.info(message_str)
+        #~~~~~~~~~~~~~~~~~~
+        # Progress Bar
+        #~~~~~~~~~~~~~~~~~~
+        prev_results_len = 0;
+        while len(results) < len(idx_list):
+            
+            curr_results_len = len(results)
+            if curr_results_len > prev_results_len:
+                ## check for errors
+                for idx in range(prev_results_len, curr_results_len):
+                    for str_line in results[idx]:
+                        if str_line.startswith("ERROR: "):
+                            # error detected
+                            raise results[idx]
+                prev_results_len = curr_results_len
 
-        # save the arguments 
-        file_list = []
-        for count,i in enumerate(idx_list):
-            file_list.append(f"tmp{count}.vcf")
+            # get the total progress made as a percentage
+            progress_percent = int(len(results)/len(idx_list) * 100)
+            # Print the progress percentage to the terminal
+            progress_bar(progress_percent)
 
-        self.tmp_files = file_list
+            time.sleep(2)
+        # make sure to finish the progress bar with 100%
+        progress_bar(100)
+
+
+        # Resutls are in a list of lists, so need to flatten (join list of lists )
+        flaten_list = [item for sublist in results for item in sublist]
+        self.results = flaten_list
 
         return self 
+
+
+    def writeOutput( self ):
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
+        variant_count = list(range(len(self.header), self.stats))
+        if variant_count != len(self.results):
+            message_str = f"The output VCF has a different number of variants than the input VCF \n\t Actual: {variant_count} \n\t Given: {len(self.results)} : "
+        logger.info(message_str)
+
+
+        # resort records since they might now be out of order due to multithreading
+        def chr_pos_retriever(result_line): # inner function for sorting vcf output by chr, pos
+            vals = result_line.split("\t")
+            chr_val = vals[0]
+            pos_val = int(vals[1])
+
+            if len(chr_val) < 5:
+                chr_val = chr_val.replace("chr", "chr0") # ensure chr08 comes before chr12, etc.
+
+            return(chr_val, pos_val)
+        # sort it
+        results = sorted(self.results, key=chr_pos_retriever)
+
+
+        # Write to output file 
+        message_str = f"\tWriting to output vcf:  {output_vcf}"
+        logger.info(message_str)
+        outfile = open(self.output_vcf, "w")
+
+        #-----------
+        # VCF Header
+        #-----------
+        # counter to count number of variants
+        variant_count = 0
+        for header_line in self.header:
+            processVCFHead(header_line, outfile)
+
+        #~~~~~~~~~~~~
+        # VCF Body 
+        #~~~~~~~~~~~~
+        for i in results:
+            outfile.write(i)
+
+        # close the output file 
+        outfile.close()
+
+
 
 
     def getHeader( self ):
@@ -373,38 +481,6 @@ class SplitVCF:
 
     
 
-    def mergeVCFs( self, file_list, output):
-        #~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Merge the VCFs created in expression annotaion step 
-        #~~~~~~~~~~~~~~~~~~~~~~~~~
-        message_str = f"\t\tMerging VCFs."
-        logger.info(message_str)
-
-        vcfs = [f"I={i}" for i in file_list ]
-
-        vcfs = " ".join(vcfs)
-
-        cmd = f"""java -jar /usr/local/src/picard.jar MergeVcfs {vcfs} O={output}"""
-
-        print(cmd.replace(" ", " \n"))
-
-        subprocess.run(cmd, shell=True)
-
-
-    def removeVCFs( self, file_list):
-        #~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Remove the unneeded VCFs created in expression annotaion step 
-        #~~~~~~~~~~~~~~~~~~~~~~~~~
-        message_str = f"\tRemoving unneeded VCFs."
-        logger.info(message_str)
-
-        # remove the intermediate files 
-        vcfs_remove = " ".join(file_list)
-
-        cmd = f"""rm {vcfs_remove}"""
-
-        subprocess.run(cmd, shell=True)
-
 
 
 
@@ -420,6 +496,7 @@ def main():
     parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
     parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
     parser.add_argument("--bam", type=str, required=False, help="input bam file.")
+    parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
 
     # Parse the variables given 
     args = parser.parse_args()
@@ -427,9 +504,10 @@ def main():
     output_vcf = args.output_vcf
     cpu = args.threads
     bam = args.bam
+    chunks = args.chunks
 
-    if output_path ==  ".":
-        output_path = os.getcwd()
+    # if output_path ==  ".":
+    #     output_path = os.getcwd()
 
     message_str = "\n####################################################################################\n\tAnnotating Expression Information\n####################################################################################"
     print(message_str)
@@ -439,15 +517,14 @@ def main():
     ##############################
     # initiate the ViFi object 
     
-    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam)
+    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks)
     VCF = VCF.getIDs()
     VCF = VCF.getStats()
     VCF = VCF.getHeader()
 
 
-    VCF.AddAnnotaion()
-    VCF.mergeVCFs(file_list = VCF.tmp_files, output = output_vcf)
-    # VCF.removeVCFs(file_list = VCF.tmp_files)
+    VCF = VCF.AddAnnotaion()
+    VCF.writeOutput()
 
     sys.exit(0)
 
