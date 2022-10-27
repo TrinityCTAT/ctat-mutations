@@ -99,18 +99,11 @@ def check_duplicate_marked(sam_flag):
 
 def evaluate_PASS_reads(vcf_lines, bamFile):
 
-    # return vcf_lines[0]
-    return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile) for i in vcf_lines]
-    # for i in vcf_lines:
-    #     test = worker_evaluate_PASS_reads(i, bamFile)
-        # print(test)
-
-    # try:
-    #     # return worker_evaluate_PASS_reads(vcf_line, bamFile)
-    #     return [worker_evaluate_PASS_reads(i, bamFile) for i in vcf_line]
-    # except Exception as e:
-    #     traceback.print_exc()
-    #     return("ERROR: " + str(e))
+    try:
+        return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile) for i in vcf_lines]
+    except Exception as e:
+        traceback.print_exc()
+        return("ERROR: " + str(e))
 
 
 
@@ -413,16 +406,20 @@ class SplitVCF:
         flaten_list = [item for sublist in results for item in sublist]
         self.results = flaten_list
 
+        #~~~~~~~~~
+        # CHECK: 
+        #   check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
+        #~~~~~~~~~
+        variant_count = list(range(len(self.header), self.stats))
+        # len(variant_count)
+        if len(variant_count) != len(self.results):
+            message_str = f"The output VCF has a different number of variants than the input VCF \n\t Actual: {len(variant_count)} \n\t Given: {len(self.results)} : "
+        logger.info(message_str)
+
         return self 
 
 
     def writeOutput( self ):
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # CHECK: check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
-        variant_count = list(range(len(self.header), self.stats))
-        if variant_count != len(self.results):
-            message_str = f"The output VCF has a different number of variants than the input VCF \n\t Actual: {variant_count} \n\t Given: {len(self.results)} : "
-        logger.info(message_str)
 
 
         # resort records since they might now be out of order due to multithreading
@@ -484,50 +481,50 @@ class SplitVCF:
 
 
 
-def main():
+# def main():
 
-    ####################
-    # Parse the use supplied information 
-    ####################
-    # Set the variables to supply 
-    parser = argparse.ArgumentParser(description="Rsplit VCF.", 
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
-    parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
-    parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
-    parser.add_argument("--bam", type=str, required=False, help="input bam file.")
-    parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
+#     ####################
+#     # Parse the use supplied information 
+#     ####################
+#     # Set the variables to supply 
+#     parser = argparse.ArgumentParser(description="Rsplit VCF.", 
+#                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+#     parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
+#     parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
+#     parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
+#     parser.add_argument("--bam", type=str, required=False, help="input bam file.")
+#     parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
 
-    # Parse the variables given 
-    args = parser.parse_args()
-    VCF = args.vcf
-    output_vcf = args.output_vcf
-    cpu = args.threads
-    bam = args.bam
-    chunks = args.chunks
+#     # Parse the variables given 
+#     args = parser.parse_args()
+#     VCF = args.vcf
+#     output_vcf = args.output_vcf
+#     cpu = args.threads
+#     bam = args.bam
+#     chunks = args.chunks
 
-    # if output_path ==  ".":
-    #     output_path = os.getcwd()
+#     # if output_path ==  ".":
+#     #     output_path = os.getcwd()
 
-    message_str = "\n####################################################################################\n\tAnnotating Expression Information\n####################################################################################"
-    print(message_str)
+#     message_str = "\n####################################################################################\n\tAnnotating Expression Information\n####################################################################################"
+#     print(message_str)
 
-    ##############################
-    # Load Data
-    ##############################
-    # initiate the ViFi object 
+#     ##############################
+#     # Load Data
+#     ##############################
+#     # initiate the ViFi object 
     
-    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks)
-    VCF = VCF.getIDs()
-    VCF = VCF.getStats()
-    VCF = VCF.getHeader()
+#     VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks)
+#     VCF = VCF.getIDs()
+#     VCF = VCF.getStats()
+#     VCF = VCF.getHeader()
 
 
-    VCF = VCF.AddAnnotaion()
-    VCF.writeOutput()
+#     VCF = VCF.AddAnnotaion()
+#     VCF.writeOutput()
 
-    sys.exit(0)
+#     sys.exit(0)
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    main()
+#     main()
