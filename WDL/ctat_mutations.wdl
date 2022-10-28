@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://raw.githubusercontent.com/brownmp/ctat-mutations/master/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
