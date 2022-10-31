@@ -1165,8 +1165,7 @@ task VariantFiltration {
             ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
                 --vcf ~{input_vcf} \
                 --features ~{sep=',' boosting_attributes} \
-                --snps \
-                ~{median_replace_NA} \
+                --snps ~{median_replace_NA} \
                 --output ~{boosting_method}.snps.feature_matrix
       
 
@@ -1185,8 +1184,7 @@ task VariantFiltration {
             ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
                 --vcf ~{input_vcf} \
                 --features ~{sep=',' boosting_attributes} \
-                --indels \
-                ~{median_replace_NA} \
+                --indels ~{median_replace_NA} \
                 --output ~{boosting_method}.indels.feature_matrix
       
 
