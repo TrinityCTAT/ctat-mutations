@@ -4,7 +4,7 @@ MAINTAINER bhaas@broadinstitute.org
 
 # for java
 RUN mkdir /usr/share/man/man1/
-RUN apt-get -qq update && apt-get -qq -y install --no-install-recommends \
+RUN apt-get --allow-releaseinfo-change update && apt-get -qq -y install --no-install-recommends \
     automake \
     build-essential \
     bzip2 \
@@ -117,6 +117,13 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     git submodule init && git submodule update && \
     make
     
+
+#~~~~~~~~~~~
+## Picard tools
+#~~~~~~~~~~~
+WORKDIR $SRC
+RUN wget https://github.com/broadinstitute/picard/releases/download/2.25.2/picard.jar
+ENV PICARD_HOME $SRC/picard.jar
 
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \

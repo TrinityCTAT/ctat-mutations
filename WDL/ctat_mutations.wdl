@@ -1,8 +1,6 @@
 version 1.0
 
 import "subworkflows/annotate_variants.wdl" as VariantAnnotation
-#TERRA import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
-
 
 workflow ctat_mutations {
     input {
@@ -1167,8 +1165,7 @@ task VariantFiltration {
             ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
                 --vcf ~{input_vcf} \
                 --features ~{sep=',' boosting_attributes} \
-                --snps \
-                ~{median_replace_NA} \
+                --snps ~{median_replace_NA} \
                 --output ~{boosting_method}.snps.feature_matrix
       
 
@@ -1187,8 +1184,7 @@ task VariantFiltration {
             ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
                 --vcf ~{input_vcf} \
                 --features ~{sep=',' boosting_attributes} \
-                --indels \
-                ~{median_replace_NA} \
+                --indels ~{median_replace_NA} \
                 --output ~{boosting_method}.indels.feature_matrix
       
 
