@@ -1,6 +1,7 @@
 version 1.0
 
-import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+#import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "https://raw.githubusercontent.com/brownmp/ctat-mutations/master/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
@@ -871,8 +872,7 @@ task StarAlign {
         STAR \
         --genomeDir $genomeDir \
         --runThreadN ~{cpu} \
-        --readFilesIn ~{fastq1} ~{fastq2} \
-        ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
+        --readFilesIn ~{fastq1} ~{fastq2} ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
         --outSAMtype BAM SortedByCoordinate \
         --twopassMode Basic \
         --limitBAMsortRAM 30000000000 \
