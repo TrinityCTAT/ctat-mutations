@@ -1,6 +1,6 @@
 version 1.0
 
-import "subworkflows/annotate_variants.wdl" as VariantAnnotation
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 workflow ctat_mutations {
     input {
@@ -114,6 +114,8 @@ workflow ctat_mutations {
         Boolean include_read_var_pos_annotations = true
         Float mark_duplicates_memory = 16
         Float split_n_cigar_reads_memory = 32
+
+        Float filter_memory = 10
     }
 
     Boolean vcf_input = defined(vcf)
@@ -480,6 +482,7 @@ workflow ctat_mutations {
                     gatk_path = gatk_path,
                     scripts_path=scripts_path,
                     cpu=variant_filtration_cpu,
+                    memory=filter_memory,
                     docker = docker,
                     preemptible = preemptible
             }
@@ -520,6 +523,7 @@ workflow ctat_mutations {
     output {
 
         File? haplotype_caller_vcf = variant_vcf
+        File? haplotype_caller_vcf_index = variant_vcf_index
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
@@ -864,18 +868,33 @@ task StarAlign {
             genomeDir="genome_dir"
         fi
 
+        fastqs="~{fastq1} ~{fastq2}"
+        readFilesCommand=""
+        if [[ "~{fastq1}" == *.gz ]] ; then
+            readFilesCommand="--readFilesCommand \"gunzip -c\""
+        fi
+
+        # special case for tar of fastq files
+        if [[ "~{fastq1}" == *.tar.gz ]] ; then
+            mkdir fastq
+            tar -I pigz -xvf ~{fastq1} -C fastq
+            fastqs=$(find fastq -type f)
+            readFilesCommand=""
+            if [[ "$fastqs" = *.gz ]] ; then
+                readFilesCommand="--readFilesCommand \"gunzip -c\""
+            fi
+        fi
+
         STAR \
         --genomeDir $genomeDir \
         --runThreadN ~{cpu} \
-        --readFilesIn ~{fastq1} ~{fastq2} \
-        ~{true='--readFilesCommand "gunzip -c"' false='' is_gzip} \
+        --readFilesIn $fastqs $readFilesCommand \
         --outSAMtype BAM SortedByCoordinate \
         --twopassMode Basic \
         --limitBAMsortRAM 30000000000 \
         --outSAMmapqUnique 60 \
         --outFileNamePrefix ~{base_name}. \
-        ~{true='--outReadsUnmapped Fastx' false='' output_unmapped_reads} \
-        ~{'--genomeFastaFiles ' + genomeFastaFiles}
+        ~{'--genomeFastaFiles ' + genomeFastaFiles} ~{true='--outReadsUnmapped Fastx' false='' output_unmapped_reads} \
 
 
         if [ "~{output_unmapped_reads}" == "true" ] ; then
@@ -1110,6 +1129,7 @@ task VariantFiltration {
         String boosting_method
         Array[String] boosting_attributes
         Float boosting_score_threshold
+        Float memory
 
         String scripts_path
         String gatk_path
@@ -1214,8 +1234,8 @@ task VariantFiltration {
     runtime {
         docker: docker
         cpu: cpu
-        memory: "3 GB"
-        disks: "local-disk " + ceil((size(input_vcf, "GB") * 2) + 30) + " HDD"
+        memory: memory + "GB"
+        disks: "local-disk " + ceil((size(input_vcf, "GB") * 4) + (size(ref_fasta, "GB") * 2) + 30) + " HDD"
         preemptible: preemptible
     }
 
