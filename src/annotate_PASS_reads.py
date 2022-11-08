@@ -437,7 +437,7 @@ class SplitVCF:
 
 
         # Write to output file 
-        message_str = f"\tWriting to output vcf:  {output_vcf}"
+        message_str = f"\tWriting to output vcf:  {self.output_vcf}"
         logger.info(message_str)
         outfile = open(self.output_vcf, "w")
 
