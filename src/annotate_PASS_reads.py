@@ -514,7 +514,7 @@ def main():
     ##############################
     # initiate the ViFi object 
     
-    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks)
+    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks, output_vcf = output_vcf)
     VCF = VCF.getIDs()
     VCF = VCF.getStats()
     VCF = VCF.getHeader()
