@@ -117,7 +117,7 @@ ENV PICARD_HOME $SRC/picard.jar
 RUN apt-get update && apt-get install -y git
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_TAG=v3.2.2
-ENV CTAT_MUTATIONS_COMMIT=001bb93eabc30965c780198f77348c6106f26be8
+ENV CTAT_MUTATIONS_COMMIT=05232f4e28be95cf6769987924cb804c13552186
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
