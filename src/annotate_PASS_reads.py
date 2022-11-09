@@ -350,6 +350,8 @@ class SplitVCF:
         ##  the VCf is subsetted based on the chunks wanted 
         idx_range = list(range(len(self.header), self.stats))
         idx_list = np.array_split(idx_range, self.chunks)
+        ## Remove empty arrays 
+        idx_list = list(filter(None, idx_list))
         
         results = []
         def logging_return(line):
