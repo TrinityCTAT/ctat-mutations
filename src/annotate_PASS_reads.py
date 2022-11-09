@@ -351,7 +351,7 @@ class SplitVCF:
         idx_range = list(range(len(self.header), self.stats))
         idx_list = np.array_split(idx_range, self.chunks)
         ## Remove empty arrays 
-        idx_list = list(filter(None, idx_list))
+        idx_list = [i for i in idx_list if len(i) != 0]
         
         results = []
         def logging_return(line):
