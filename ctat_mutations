@@ -84,6 +84,14 @@ def main():
         help="Genome lib directory - see http://FusionFilter.github.io for details. Uses env variable CTAT_GENOME_LIB as default",
     )
 
+
+    parser.add_argument(
+        "--intervals",
+        default=None,
+        type=str,
+        help="intervals file defining target regions for variant calling"
+    )
+    
     parser.add_argument(
         "--HC_xtra_args",
         help="extra arguments to provide to GATK HaplotypeCaller",
@@ -334,6 +342,9 @@ def main():
     if vcf is not None:
         input_json["vcf"] = vcf
         input_json["vcf_index"] = vcf_index
+
+    if args.intervals is not None:
+        input_json["intervals"] = args.intervals
         
     if extra_fasta is not None:
         input_json["extra_fasta"] = extra_fasta

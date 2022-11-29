@@ -49,6 +49,8 @@ workflow ctat_mutations {
         File? star_reference
         String? star_reference_dir
 
+        File? intervals
+      
         Boolean annotate_variants = true
 
 
@@ -133,6 +135,8 @@ workflow ctat_mutations {
         ref_dict:{help:"Sequence dictionary for ref_fasta"}
         gtf:{help:"Annotations GTF."}
 
+        intervals:{help:"Intervals file to restrict variant calling to. (eg. exome target list file)"}
+        
         extra_fasta:{help:"Extra genome to use in alignment and variant calling."}
         merge_extra_fasta:{help:"Whether to merge extra genome fasta to use in variant calling. Set to false when extra fasta is already included in primary fasta, but you want to process the reads from extra_fasta differently."}
 
@@ -352,6 +356,7 @@ workflow ctat_mutations {
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     ref_dict=ref_dict,
+                    intervals=intervals,
                     scatter_count = variant_scatter_count,
                     docker = docker,
                     gatk_path = gatk_path,
