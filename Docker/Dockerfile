@@ -105,19 +105,6 @@ RUN STAR_URL="https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz" 
     rm ${STAR_VERSION}.tar.gz
 
 
-
-
-## NCIP CTAT mutations
-WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.2.1
-ENV CTAT_MUTATIONS_COMMIT=21c5817aaba5ca406b7536c425ede12aa672de3a
-RUN git clone https://github.com/NCIP/ctat-mutations.git && \
-    cd ctat-mutations && \
-    git checkout $CTAT_MUTATIONS_COMMIT && \
-    git submodule init && git submodule update && \
-    make
-    
-
 #~~~~~~~~~~~
 ## Picard tools
 #~~~~~~~~~~~
@@ -125,10 +112,24 @@ WORKDIR $SRC
 RUN wget https://github.com/broadinstitute/picard/releases/download/2.25.2/picard.jar
 ENV PICARD_HOME $SRC/picard.jar
 
+
+## NCIP CTAT mutations
+RUN apt-get update && apt-get install -y git
+WORKDIR $SRC
+ENV CTAT_MUTATIONS_TAG=v3.2.3
+ENV CTAT_MUTATIONS_COMMIT=a1594b247bbbd370c00c56d3b6e97d3248a71edf
+RUN git clone https://github.com/NCIP/ctat-mutations.git && \
+    cd ctat-mutations && \
+    git checkout $CTAT_MUTATIONS_COMMIT && \
+    git submodule init && git submodule update && \
+    make
+    
+
+ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
+
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
 
-ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
 

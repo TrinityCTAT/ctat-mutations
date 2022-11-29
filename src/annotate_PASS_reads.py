@@ -350,6 +350,8 @@ class SplitVCF:
         ##  the VCf is subsetted based on the chunks wanted 
         idx_range = list(range(len(self.header), self.stats))
         idx_list = np.array_split(idx_range, self.chunks)
+        ## Remove empty arrays 
+        idx_list = [i for i in idx_list if len(i) != 0]
         
         results = []
         def logging_return(line):
@@ -437,7 +439,7 @@ class SplitVCF:
 
 
         # Write to output file 
-        message_str = f"\tWriting to output vcf:  {output_vcf}"
+        message_str = f"\tWriting to output vcf:  {self.output_vcf}"
         logger.info(message_str)
         outfile = open(self.output_vcf, "w")
 
@@ -481,50 +483,50 @@ class SplitVCF:
 
 
 
-# def main():
+def main():
 
-#     ####################
-#     # Parse the use supplied information 
-#     ####################
-#     # Set the variables to supply 
-#     parser = argparse.ArgumentParser(description="Rsplit VCF.", 
-#                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-#     parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
-#     parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
-#     parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
-#     parser.add_argument("--bam", type=str, required=False, help="input bam file.")
-#     parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
+    ####################
+    # Parse the use supplied information 
+    ####################
+    # Set the variables to supply 
+    parser = argparse.ArgumentParser(description="Rsplit VCF.", 
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
+    parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
+    parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
+    parser.add_argument("--bam", type=str, required=False, help="input bam file.")
+    parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
 
-#     # Parse the variables given 
-#     args = parser.parse_args()
-#     VCF = args.vcf
-#     output_vcf = args.output_vcf
-#     cpu = args.threads
-#     bam = args.bam
-#     chunks = args.chunks
+    # Parse the variables given 
+    args = parser.parse_args()
+    VCF = args.vcf
+    output_vcf = args.output_vcf
+    cpu = args.threads
+    bam = args.bam
+    chunks = args.chunks
 
-#     # if output_path ==  ".":
-#     #     output_path = os.getcwd()
+    # if output_path ==  ".":
+    #     output_path = os.getcwd()
 
-#     message_str = "\n####################################################################################\n\tAnnotating Expression Information\n####################################################################################"
-#     print(message_str)
+    message_str = "\n####################################################################################\n\tAnnotating\n####################################################################################"
+    print(message_str)
 
-#     ##############################
-#     # Load Data
-#     ##############################
-#     # initiate the ViFi object 
+    ##############################
+    # Load Data
+    ##############################
+    # initiate the ViFi object 
     
-#     VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks)
-#     VCF = VCF.getIDs()
-#     VCF = VCF.getStats()
-#     VCF = VCF.getHeader()
+    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks, output_vcf = output_vcf)
+    VCF = VCF.getIDs()
+    VCF = VCF.getStats()
+    VCF = VCF.getHeader()
 
 
-#     VCF = VCF.AddAnnotaion()
-#     VCF.writeOutput()
+    VCF = VCF.AddAnnotaion()
+    VCF.writeOutput()
 
-#     sys.exit(0)
+    sys.exit(0)
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     main()
+    main()
