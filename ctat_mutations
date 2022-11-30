@@ -8,7 +8,7 @@ import tempfile
 
 import sys
 
-VERSION = "ctat_mutations-3.2.2"
+VERSION = "ctat_mutations-3.3.0-predev"
 
 
 if sys.version_info[0] < 3:
