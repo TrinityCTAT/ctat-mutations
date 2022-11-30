@@ -284,6 +284,10 @@ def main():
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
+    intervals_file = args.intervals
+    if intervals_file:
+        intervals_file = os.path.abspath(intervals_file)
+    
     ctat_mutation_lib_path = os.path.abspath(
         os.path.join(ctat_genome_lib_path, "ctat_mutation_lib")
     )
@@ -343,8 +347,8 @@ def main():
         input_json["vcf"] = vcf
         input_json["vcf_index"] = vcf_index
 
-    if args.intervals is not None:
-        input_json["intervals"] = args.intervals
+    if intervals_file is not None:
+        input_json["intervals"] = intervals_file
         
     if extra_fasta is not None:
         input_json["extra_fasta"] = extra_fasta

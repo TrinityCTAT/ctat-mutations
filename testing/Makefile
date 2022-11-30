@@ -10,6 +10,9 @@ HC_standard:
 HC_standard_single_thread:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1 -O example.HC_standard.onethread --boosting_method none
 
+HC_standard_w_intervals:
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard_w_intervals --boosting_method none --intervals __misc_data/intervals.list
+
 ## Using single-end reads:
 HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
