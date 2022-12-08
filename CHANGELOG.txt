@@ -1,4 +1,10 @@
 
+3.3.0 Dec 8, 2022
+- support for providing target interval list (eg. just search exome regions)
+- local wdl imports so not requiring network connection on secure systems.
+- further improvements for parallelization and memory usage (annotate_PASS_reads.py)
+
+
 3.2.0
 - revised WDLs for simpler configuration with Terra
 - using all common variants for training ML in boosting
