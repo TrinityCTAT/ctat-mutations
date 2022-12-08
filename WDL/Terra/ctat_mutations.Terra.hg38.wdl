@@ -54,6 +54,9 @@ workflow ctat_mutations_Terra_hg38 {
       sample_id = sample_id,
       left = left,
       right = right,
+      intervals = intervals,
+      annotate_variants = annotate_variants,
+      boosting_method = boosting_method,
       pipe_inputs_config = pipe_inputs_config
 
   }
