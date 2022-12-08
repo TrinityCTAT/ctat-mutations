@@ -48,6 +48,9 @@ workflow ctat_mutations_Terra {
     String sample_id
     File left
     File? right
+    File? intervals
+    Boolean annotate_variants = true
+    String boosting_method = "none"
     Ctat_mutations_config pipe_inputs_config
   }
   
@@ -58,7 +61,11 @@ workflow ctat_mutations_Terra {
       sample_id = sample_id,
       left = left,
       right = right,
-    
+
+      intervals = intervals,
+      annotate_variants = annotate_variants,
+      boosting_method = boosting_method,
+      
       gtf = pipe_inputs_config.gtf,
       ref_bed = pipe_inputs_config.ref_bed,
       ref_fasta = pipe_inputs_config.ref_fasta,
