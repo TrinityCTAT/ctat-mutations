@@ -50,6 +50,7 @@ workflow ctat_mutations {
 
         File? star_reference
         String? star_reference_dir
+        Int? star_limitBAMsortRAM
 
         File? intervals
       
@@ -166,7 +167,8 @@ workflow ctat_mutations {
 
         star_reference:{help:"STAR index archive"}
         star_reference_dir:{help:"STAR directory (for non-Terra use)"}
-
+        star_limitBAMsortRAM:{help:"setting for STAR limitBAMsortRAM parameter"}
+      
         genome_version:{help:"Genome version for annotating variants using Cravat and SnpEff", choices:["hg19", "hg38"]}
 
         add_read_groups : {help:"Whether to add read groups and sort the bam. Turn off for optimization with prealigned sorted bam with read groups."}
@@ -209,6 +211,7 @@ workflow ctat_mutations {
                 fastq2 = right,
                 output_unmapped_reads = output_unmapped_reads,
                 genomeFastaFiles=extra_fasta,
+                STAR_limitBAMsortRAM=star_limitBAMsortRAM,
                 base_name = sample_id + '.star',
                 extra_disk_space = star_extra_disk_space,
                 fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
@@ -852,6 +855,7 @@ task StarAlign {
         Boolean use_ssd
         File? genomeFastaFiles
         Boolean output_unmapped_reads
+        Int STAR_limitBAMsortRAM = 30000000000
     }
     Boolean is_gzip = sub(select_first([fastq1]), "^.+\\.(gz)$", "GZ") == "GZ"
 
@@ -898,7 +902,7 @@ task StarAlign {
         --readFilesIn $fastqs $readFilesCommand \
         --outSAMtype BAM SortedByCoordinate \
         --twopassMode Basic \
-        --limitBAMsortRAM 30000000000 \
+        --limitBAMsortRAM ~{STAR_limitBAMsortRAM} \
         --outSAMmapqUnique 60 \
         --outFileNamePrefix ~{base_name}. \
         ~{'--genomeFastaFiles ' + genomeFastaFiles} ~{true='--outReadsUnmapped Fastx' false='' output_unmapped_reads} \

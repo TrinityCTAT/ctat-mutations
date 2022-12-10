@@ -207,6 +207,15 @@ def main():
         help="Output directory",
     )
 
+
+    parser.add_argument(
+        "--star_limitBAMsortRAM",
+        dest="star_limitBAMsortRAM",
+        required=False,
+        type=int,
+        help="value for STAR star_limitBAMsortRAM parameter"
+    )
+    
     # parser.add_argument(
     #     "--star_memory",
     #     help="Memory for STAR alignment step"
@@ -399,6 +408,11 @@ def main():
     input_json["docker"] = "a/b"  # hack to make cromwell happy
     input_json["variant_scatter_count"] = variant_scatter_count
 
+
+    if args.star_limitBAMsortRAM:
+        input_json["star_limitBAMsortRAM"] = args.star_limitBAMsortRAM
+
+    
     input_json[
         "include_read_var_pos_annotations"
     ] = not no_include_read_var_pos_annotations
