@@ -1,7 +1,7 @@
 version 1.0
 
 
-import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.2.0/WDL/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/Terra/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
 
 
 workflow ctat_mutations_Terra_hg38 {
@@ -54,6 +54,9 @@ workflow ctat_mutations_Terra_hg38 {
       sample_id = sample_id,
       left = left,
       right = right,
+      intervals = intervals,
+      annotate_variants = annotate_variants,
+      boosting_method = boosting_method,
       pipe_inputs_config = pipe_inputs_config
 
   }
