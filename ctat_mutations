@@ -212,7 +212,7 @@ def main():
         "--star_limitBAMsortRAM",
         dest="star_limitBAMsortRAM",
         required=False,
-        type=int,
+        type=str,
         help="value for STAR star_limitBAMsortRAM parameter"
     )
     

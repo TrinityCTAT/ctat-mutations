@@ -5,7 +5,7 @@ all: HC_standard  HC_SE_Reads  BOOSTING_ALL
 ## HaplotypeCaller tests
 
 HC_standard:
-	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard --boosting_method none
+	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard -O example.HC_standard --boosting_method none --star_limitBAMsortRAM 400000000
 
 HC_standard_single_thread:
 	../ctat_mutations --left reads_1.fastq.gz --right reads_2.fastq.gz --sample_id example.HC_standard.onethread --star_cpu 1 -O example.HC_standard.onethread --boosting_method none

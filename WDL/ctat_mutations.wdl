@@ -50,7 +50,7 @@ workflow ctat_mutations {
 
         File? star_reference
         String? star_reference_dir
-        Int? star_limitBAMsortRAM
+        String star_limitBAMsortRAM = "30000000000"  # doesnt like large integer value as int type in wdl... so using string to make it work. 
 
         File? intervals
       
@@ -855,7 +855,7 @@ task StarAlign {
         Boolean use_ssd
         File? genomeFastaFiles
         Boolean output_unmapped_reads
-        Int STAR_limitBAMsortRAM = 30000000000
+        String STAR_limitBAMsortRAM
     }
     Boolean is_gzip = sub(select_first([fastq1]), "^.+\\.(gz)$", "GZ") == "GZ"
 
@@ -1181,11 +1181,11 @@ task VariantFiltration {
             --filter "DJ < 3" \
             -O tmp.vcf
 
+            # note, no hard-filtering applied to indels currently
             ~{gatk_path} --java-options "-Xmx2500m" \
             SelectVariants \
             --R ~{ref_fasta} \
             --V tmp.vcf \
-            -select-type SNP \
             --exclude-filtered \
             -O ~{output_name}
 
