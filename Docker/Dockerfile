@@ -116,11 +116,9 @@ ENV PICARD_HOME $SRC/picard.jar
 ## NCIP CTAT mutations
 RUN apt-get update && apt-get install -y git
 
-RUN pip install bsddb3
-
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_TAG=v3.3.0-postdev2
-ENV CTAT_MUTATIONS_COMMIT=3f702e76bac2918ab826590b72a70bb67e231da4
+ENV CTAT_MUTATIONS_COMMIT=577536bb945fb7fe1568a05c6dc6575691d3ec67
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
