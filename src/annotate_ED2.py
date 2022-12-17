@@ -14,6 +14,8 @@ import subprocess
 import csv
 import pandas as pd
 from collections import defaultdict
+import bsddb3
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -175,14 +177,19 @@ def main():
     # ~~~~~~~~~~~~~~
     # Create a dictionary to calculate the ED values
     logger.info("Creating ED features")
-    hit_counts = defaultdict(int)
+    hit_counts = bsddb3.hashopen("hitcounts.bdb", "n")
     for row in reader:
         names = re.split(":|-", row["Q name"])
         val1 = abs(int(names[1]) - int(row["T start"]) )
         val2 = abs(int(names[2]) - int(row["T end"]) )
-        hit_counts[row["Q name"]] += 1
+        q_name = row["Q name"].encode()
 
-        
+        if q_name in hit_counts:
+            hit_counts[q_name] += 1
+        else:
+            hit_counts[q_name] = 1
+
+            
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Process the VCF Header
     # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,7 +229,7 @@ def main():
     pos_index = -1
     for row in vcf_reader:
         pos_index += 1
-        pos_name = positions[pos_index]
+        pos_name = positions[pos_index].encode()
         if pos_name in hit_counts:
             row["INFO"] = row["INFO"] + ";ED={}".format(
                 hit_counts[pos_name]
