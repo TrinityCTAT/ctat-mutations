@@ -9,12 +9,11 @@ import argparse
 import csv
 import gzip
 import logging
-import os
-import re
+import sys, os, re
 import subprocess
-
+import csv
 import pandas as pd
-
+from collections import defaultdict
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,13 +94,16 @@ def main():
         os.makedirs(temp_dir)
 
     if os.path.exists(temp_dir):
-        positions_file = os.path.join(temp_dir, "positions.fa")
+        positions_file = os.path.join(temp_dir, "positions.txt")
         faidx_output = os.path.join(temp_dir, "faidx_output.fa")
+
     # Write the positions
     outfile = open(positions_file, "w")
     outfile.write("\n".join(positions))
     outfile.close()
 
+    del temp # no longer needed, free mem
+    
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Run SAMTOOLS - FAIDX
     # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,7 +113,9 @@ def main():
         reference, positions_file, faidx_output
     )
     print(cmd)
-    subprocess.check_call(cmd, shell=True)
+    
+    if not os.path.exists(faidx_output):
+        subprocess.check_call(cmd, shell=True)
 
     # fsa = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8', shell=True).communicate()[0]
 
@@ -131,8 +135,11 @@ def main():
     )
     print(cmd)
     # subprocess.Popen(cmd, stdin=subprocess.PIPE, encoding='utf8', shell=True).communicate(fsa)
-    subprocess.check_call(cmd, shell=True)
+    if not os.path.exists("blat_output.psl.ok"):
+        subprocess.check_call(cmd, shell=True)
 
+    subprocess.check_call("touch blat_output.psl.ok", shell=True)
+    
     # Process the psl output
     logger.info("Processing Output")
     header = [
@@ -158,38 +165,28 @@ def main():
         "qStarts",
         "tStarts",
     ]
-    psl_df = pd.read_csv(
-        psl_output, sep="\t", low_memory=False, comment="#", names=header
-    )
+
+    psl_fh = open(psl_output, "rt")
+    reader = csv.DictReader(psl_fh, delimiter="\t", fieldnames=header)
+    
 
     # ~~~~~~~~~~~~~~
     # Find ED Value
     # ~~~~~~~~~~~~~~
     # Create a dictionary to calculate the ED values
     logger.info("Creating ED features")
-    dic = {}
-    names = [re.split(":|-", i) for i in psl_df["Q name"]]
-    for i in range(len(names)):
-        val1 = abs(int(names[i][1]) - psl_df["T start"][i])
-        val2 = abs(int(names[i][2]) - psl_df["T end"][i])
-        if val1 >= 1 or val2 >= 1:
-            if psl_df["Q name"][i] not in dic:
-                dic[psl_df["Q name"][i]] = 1
-            else:
-                dic[psl_df["Q name"][i]] += 1
-    ## Add the ED to each variant
-    for i in range(len(positions)):
-        if positions[i] in dic:
-            input_vcf_df.loc[i, ["INFO"]] = input_vcf_df["INFO"][i] + ";ED={}".format(
-                dic[positions[i]]
-            )
-        else:
-            input_vcf_df.loc[i, ["INFO"]] = input_vcf_df["INFO"][i] + ";ED=-1"
+    #hit_counts = bsddb3.hashopen("hitcounts.bdb", "c")
+    #hit_counts = dbm.open("hitcounts.bdb", "c")
+    hit_counts = defaultdict(int)
 
-    # Remove the output file if it exist
-    if os.path.exists(out_file):
-        os.remove(out_file)
+    for row in reader:
+        names = re.split(":|-", row["Q name"])
+        val1 = abs(int(names[1]) - int(row["T start"]) )
+        val2 = abs(int(names[2]) - int(row["T end"]) )
+        q_name = row["Q name"]
+        hit_counts[q_name] += 1
 
+            
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Process the VCF Header
     # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -198,15 +195,16 @@ def main():
     with gzip.open(input_vcf, "rt") if input_vcf.endswith(".gz") else open(
         input_vcf, "rt"
     ) as vcf:
-        for line in vcf.readlines():
+        for line in vcf:
             # check to see if header, is so append the line to header
-            if line[0] == "#":
+            if re.match("##", line):
                 header.append(line)
-                continue
-    ## add the new DJ annotation info
-    header.insert(
-        -1,
-        '##INFO=<ID=ED,Number=1,Type=Integer,Description="Number of blat hits to reference genome, not counting self-hit">\n',
+            else:
+                break
+                
+    ## add the new ED annotation info
+    header.append(
+        '##INFO=<ID=ED,Number=1,Type=Integer,Description="Number of blat hits to reference genome, not counting self-hit">\n'
     )
     ## Join each line and write to a file
     vcf_header = "".join(header)
@@ -215,13 +213,33 @@ def main():
     add_header.close()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~
-    # Write variants
+    # Write variants and add annotations
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # write the variants to the new VCF
-    input_vcf_df.to_csv(
-        out_file, mode="a", header=False, index=False, sep="\t", quoting=csv.QUOTE_NONE
-    )
 
+    vcf_fh = gzip.open(input_vcf, "rt") if input_vcf.endswith(".gz") else open(input_vcf, "rt")
+    vcf_reader = csv.DictReader(filter(lambda row: row[0] != '#' or re.match("#CHROM", row), vcf_fh), delimiter="\t")
+    fieldnames = list(vcf_reader.fieldnames)
+    vcf_ofh = open(out_file, "at")
+    vcf_writer = csv.DictWriter(vcf_ofh, fieldnames=fieldnames, delimiter="\t", lineterminator='\n')
+    vcf_writer.writeheader()
+    pos_index = -1
+    for row in vcf_reader:
+        pos_index += 1
+        pos_name = positions[pos_index]
+        if pos_name in hit_counts:
+            row["INFO"] = row["INFO"] + ";ED={}".format(hit_counts[pos_name] )
+            #row["INFO"] = row["INFO"] + ";region_name={};ED={}".format(pos_name.decode(), hit_counts[pos_name].decode() )
+            
+        else:
+            row["INFO"] = row["INFO"] + ";ED=-1"
+
+        vcf_writer.writerow(row)
+
+    assert pos_index == len(positions)-1, "Error, vcf position index is offset from entries parsed"
+
+    sys.exit(0)
+    
 
 if __name__ == "__main__":
 
