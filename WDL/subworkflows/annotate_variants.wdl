@@ -805,11 +805,15 @@ task annotate_blat_ED {
       
         echo "########### Annotate BLAT ED #############"
       
+        if [ ! -d tmpdir ]; then
+            mkdir tmpdir
+        fi
+
         ~{scripts_path}/annotate_ED.py \
             --input_vcf ~{input_vcf} \
             --output_vcf ~{base_name}.blat_ED.vcf \
             --reference ~{ref_fasta} \
-            --temp_dir $TMPDIR \
+            --temp_dir tmpdir \
             --threads ~{cpu}
 
             bgzip -c ~{base_name}.blat_ED.vcf > ~{base_name}.blat_ED.vcf.gz

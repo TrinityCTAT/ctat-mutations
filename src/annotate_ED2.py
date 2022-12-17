@@ -15,6 +15,7 @@ import csv
 import pandas as pd
 from collections import defaultdict
 import bsddb3
+#import dbm
 
 
 logging.basicConfig(
@@ -114,7 +115,9 @@ def main():
         reference, positions_file, faidx_output
     )
     print(cmd)
-    subprocess.check_call(cmd, shell=True)
+    
+    if not os.path.exists(faidx_output):
+        subprocess.check_call(cmd, shell=True)
 
     # fsa = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8', shell=True).communicate()[0]
 
@@ -164,9 +167,9 @@ def main():
         "qStarts",
         "tStarts",
     ]
-    psl_df = pd.read_csv(
-        psl_output, sep="\t", low_memory=False, comment="#", names=header
-    )
+    #psl_df = pd.read_csv(
+    #    psl_output, sep="\t", low_memory=False, comment="#", names=header
+    #)
 
     psl_fh = open(psl_output, "rt")
     reader = csv.DictReader(psl_fh, delimiter="\t", fieldnames=header)
@@ -177,7 +180,8 @@ def main():
     # ~~~~~~~~~~~~~~
     # Create a dictionary to calculate the ED values
     logger.info("Creating ED features")
-    hit_counts = bsddb3.hashopen("hitcounts.bdb", "n")
+    hit_counts = bsddb3.hashopen("hitcounts.bdb", "c")
+    #hit_counts = dbm.open("hitcounts.bdb", "c")
     for row in reader:
         names = re.split(":|-", row["Q name"])
         val1 = abs(int(names[1]) - int(row["T start"]) )
@@ -185,9 +189,9 @@ def main():
         q_name = row["Q name"].encode()
 
         if q_name in hit_counts:
-            hit_counts[q_name] += 1
+            hit_counts[q_name] = str((int(hit_counts[q_name].decode()) + 1)).encode()  # looks ridiculous
         else:
-            hit_counts[q_name] = 1
+            hit_counts[q_name] = "1".encode()
 
             
     # ~~~~~~~~~~~~~~~~~~~~~~~
