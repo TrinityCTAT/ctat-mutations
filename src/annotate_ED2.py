@@ -14,9 +14,6 @@ import subprocess
 import csv
 import pandas as pd
 from collections import defaultdict
-import bsddb3
-#import dbm
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,8 +94,9 @@ def main():
         os.makedirs(temp_dir)
 
     if os.path.exists(temp_dir):
-        positions_file = os.path.join(temp_dir, "positions.fa")
+        positions_file = os.path.join(temp_dir, "positions.txt")
         faidx_output = os.path.join(temp_dir, "faidx_output.fa")
+
     # Write the positions
     outfile = open(positions_file, "w")
     outfile.write("\n".join(positions))
@@ -167,9 +165,6 @@ def main():
         "qStarts",
         "tStarts",
     ]
-    #psl_df = pd.read_csv(
-    #    psl_output, sep="\t", low_memory=False, comment="#", names=header
-    #)
 
     psl_fh = open(psl_output, "rt")
     reader = csv.DictReader(psl_fh, delimiter="\t", fieldnames=header)
@@ -180,18 +175,16 @@ def main():
     # ~~~~~~~~~~~~~~
     # Create a dictionary to calculate the ED values
     logger.info("Creating ED features")
-    hit_counts = bsddb3.hashopen("hitcounts.bdb", "c")
+    #hit_counts = bsddb3.hashopen("hitcounts.bdb", "c")
     #hit_counts = dbm.open("hitcounts.bdb", "c")
+    hit_counts = defaultdict(int)
+
     for row in reader:
         names = re.split(":|-", row["Q name"])
         val1 = abs(int(names[1]) - int(row["T start"]) )
         val2 = abs(int(names[2]) - int(row["T end"]) )
-        q_name = row["Q name"].encode()
-
-        if q_name in hit_counts:
-            hit_counts[q_name] = str((int(hit_counts[q_name].decode()) + 1)).encode()  # looks ridiculous
-        else:
-            hit_counts[q_name] = "1".encode()
+        q_name = row["Q name"]
+        hit_counts[q_name] += 1
 
             
     # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -225,7 +218,7 @@ def main():
     # write the variants to the new VCF
 
     vcf_fh = gzip.open(input_vcf, "rt") if input_vcf.endswith(".gz") else open(input_vcf, "rt")
-    vcf_reader = csv.DictReader(filter(lambda row: row[0]!='#' or re.match("#CHROM", row), vcf_fh), delimiter="\t")
+    vcf_reader = csv.DictReader(filter(lambda row: row[0] != '#' or re.match("#CHROM", row), vcf_fh), delimiter="\t")
     fieldnames = list(vcf_reader.fieldnames)
     vcf_ofh = open(out_file, "at")
     vcf_writer = csv.DictWriter(vcf_ofh, fieldnames=fieldnames, delimiter="\t", lineterminator='\n')
@@ -233,16 +226,17 @@ def main():
     pos_index = -1
     for row in vcf_reader:
         pos_index += 1
-        pos_name = positions[pos_index].encode()
+        pos_name = positions[pos_index]
         if pos_name in hit_counts:
-            row["INFO"] = row["INFO"] + ";ED={}".format(
-                hit_counts[pos_name]
-            )
+            row["INFO"] = row["INFO"] + ";ED={}".format(hit_counts[pos_name] )
+            #row["INFO"] = row["INFO"] + ";region_name={};ED={}".format(pos_name.decode(), hit_counts[pos_name].decode() )
+            
         else:
             row["INFO"] = row["INFO"] + ";ED=-1"
 
         vcf_writer.writerow(row)
 
+    assert pos_index == len(positions)-1, "Error, vcf position index is offset from entries parsed"
 
     sys.exit(0)
     
