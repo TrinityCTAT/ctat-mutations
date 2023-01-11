@@ -21,7 +21,7 @@ HC_SE_Reads:
 ## Docker
 
 HC_standard_docker:
-	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O example.HC_standard.Docker
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O /data/example.HC_standard.Docker
 
 
 ## Singularity
