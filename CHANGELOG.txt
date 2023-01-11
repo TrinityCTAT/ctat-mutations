@@ -1,3 +1,5 @@
+3.3.1 Jan 22, 2023
+- greatly improved memory usage around the annotate BLAT ED step
 
 3.3.0 Dec 8, 2022
 - support for providing target interval list (eg. just search exome regions)
