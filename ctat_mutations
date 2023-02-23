@@ -178,7 +178,7 @@ def main():
         help="Number of parallel variant caller jobs",
     )
     parser.add_argument(
-        "--no_cravat", action="store_true", help="Skips CRAVAT annotations",
+        "--no_cravat", action="store_true", help="Skips CRAVAT annotations, also skips partitioning of cancer-related variants given they rely on cravat annotations",
     )
 
     parser.add_argument(
@@ -390,6 +390,7 @@ def main():
     input_json["ref_bed"] = ref_bed
     if no_cravat:
         input_json["incl_cravat"] = False
+        no_filter_cancer_variants = True # relies largely on cravat
     elif cravat_lib_directory is not None:
         input_json["cravat_lib_dir"] = cravat_lib_directory
     
