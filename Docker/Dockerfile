@@ -22,6 +22,7 @@ RUN apt-get --allow-releaseinfo-change update && apt-get -qq -y install --no-ins
     pbzip2 \
     perl \
     pigz \
+    procps \
     unzip \
     wget \
     zlib1g \
