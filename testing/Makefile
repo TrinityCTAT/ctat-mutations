@@ -191,6 +191,8 @@ boost_vcf_only: ctat_mutation_ext_testdata
                       --no_filter_cancer_variants
 
 
+# test running via boosting wrapper script.
+# ../../src/VariantBoosting/run_boosting_methods.py  --input_vcf SRR5665260.gatk_HC.hg.chr1.annotated.vcf.gz --filter_method ALL --gatk_path $GATK_HOME/  --output_dir ladedadir --ref_genome_fa $CTAT_GENOME_LIB/ref_genome.fa
 
 
 ## benchmark eval
