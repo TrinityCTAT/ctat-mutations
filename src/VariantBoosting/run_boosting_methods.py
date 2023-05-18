@@ -72,13 +72,6 @@ def main():
         )
 
     parser.add_argument(
-        "--run_all_combinations",
-        action='store_true',
-        default=False,
-        help='run all combinations of filter methods and alg types')
-
-
-    parser.add_argument(
         "--output_dir",
         required=True,
         help="output directory name")
@@ -99,11 +92,10 @@ def main():
     boosting_alg_types = [args.boosting_alg_type]
     boosting_score_threshold = args.boosting_score_threshold
     boosting_attributes = args.boosting_attributes
-    run_all_combinations_flag = args.run_all_combinations
     output_dir = os.path.abspath(args.output_dir)
     gatk_path = args.gatk_path
 
-    if boosting_alg_type in ["HC", "ALL"]:
+    if boosting_alg_types[0] in ["HC", "ALL"]:
         if not gatk_path:
             sys.exit("Sorry, must specify path to gatk installation dir as --gatk_path")
         gatk_path = os.path.abspath(gatk_path)
@@ -111,26 +103,31 @@ def main():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    checkpoint_dir = os.path.sep.join(output_dir, "__chkpts")
+    checkpoint_dir = os.path.join(output_dir, "__chkpts")
     
     os.chdir(output_dir)
 
     pipeliner = Pipeliner(checkpoint_dir)
 
-
+    logger.info("Filter methods: {}".format(filter_methods))
 
     if filter_methods[0] == "ALL":
         filter_methods = boost_choices
         boosting_alg_type = ["classifier", "regressor"]
 
+    logger.info("Filter methods: {}".format(filter_methods))
+
     for filter_method in filter_methods:
             
         if filter_method == "HC":
             output_name = os.path.basename(input_vcf)
-            run_hard_cutoff_filtering(ref_genome_fa, input_vcf, pipeliner)
+            run_hard_cutoff_filtering(ref_genome_fa, input_vcf, gatk_path, pipeliner)
 
         else:
             for boosting_alg_type in boosting_alg_types:
+                if filter_method == "LR" and boosting_alg_type == "regressor":
+                    continue
+
                 run_ML_boosting(input_vcf, boosting_attributes, filter_method, boosting_alg_type, boosting_score_threshold, pipeliner)
 
 
@@ -139,14 +136,14 @@ def main():
     
 
 
-def run_hard_cutoff_filtering(ref_fasta, input_vcf, gatk_path):
+def run_hard_cutoff_filtering(ref_fasta, input_vcf, gatk_path, pipeliner):
 
     output_name = os.path.basename(input_vcf)
-    output_name = output_name.replace(".vcf", ".hard_filtered")
-
+    output_name = re.sub("\\.vcf(\\.gz)?$", ".hard_filtered", output_name)
+    
     assert output_name != input_vcf, f"Error, could not create output_name based on {input_vcf}"
 
-    cmd = " ".join([ f"{gatk_path} --java-options \"-Xmx2500m\"",
+    cmd = " ".join([ f"{gatk_path}/gatk --java-options \"-Xmx2500m\"",
                      "VariantFiltration",
                      f"--R {ref_fasta}",
                      f"--V {input_vcf}",
@@ -160,10 +157,10 @@ def run_hard_cutoff_filtering(ref_fasta, input_vcf, gatk_path):
                      "--filter \"DJ < 3\" ",
                      f"-O {output_name}.tmp.varfilt.vcf" ])
     
-    pipeliner.add_commands([Command(cmd, "{output_name}.hard_filter_VariantFiltration.ok")])
+    pipeliner.add_commands([Command(cmd, f"{output_name}.hard_filter_VariantFiltration.ok")])
 
     # note, no hard-filtering applied to indels currently
-    cmd = " ".join([f"{gatk_path} --java-options \"-Xmx2500m\" ",
+    cmd = " ".join([f"{gatk_path}/gatk --java-options \"-Xmx2500m\" ",
                     "SelectVariants",
                     f"--R {ref_fasta}",
                     f"--V {output_name}.tmp.varfilt.vcf",
@@ -172,18 +169,20 @@ def run_hard_cutoff_filtering(ref_fasta, input_vcf, gatk_path):
 
     pipeliner.add_commands([Command(cmd, f"{output_name}.hard_filter_SelectVariants.ok")])
 
-    add_bgzip_and_tabix(output_name, pipeliner)
+    add_bgzip_and_tabix(f"{output_name}.vcf", pipeliner)
+
+    pipeliner.run()
     
     return
     
 
-def run_ML_boosting(input_vcf, boosting_attributes, boosting_method, boosting_alg_type, boosting_score_threshold, output_name, output_dir, pipeliner):
+def run_ML_boosting(input_vcf, boosting_attributes, boosting_method, boosting_alg_type, boosting_score_threshold, pipeliner):
+
+    output_name = os.path.basename(input_vcf)
+    output_name = re.sub("\\.vcf(\\.gz)?$", "", output_name)
 
     
     median_replace_NA = "--replace_NA_w_median" if boosting_method == "regressor"  else ""
-    
-    # special rules for dealing with indels
-    indel_alg_type = "classifier" if boosting_method == "LR" else "regressor"
     
 
     ##############
@@ -191,7 +190,7 @@ def run_ML_boosting(input_vcf, boosting_attributes, boosting_method, boosting_al
     cmd = " ".join([f"{script_dir}/annotated_vcf_to_feature_matrix.py",
                     f"--vcf {input_vcf}",
                     f"--features {boosting_attributes}",
-                    f"--snps ",
+                    "--snps ",
                     f"{median_replace_NA}",
                     f"--output {boosting_method}.{boosting_alg_type}.snps.feature_matrix"])
 
@@ -218,35 +217,37 @@ def run_ML_boosting(input_vcf, boosting_attributes, boosting_method, boosting_al
                     f"--features {boosting_attributes}",
                     "--indels",
                     f"{median_replace_NA}",
-                    f"--output {boosting_method}.{indel_alg_type}.indels.feature_matrix"])
+                    f"--output {boosting_method}.{boosting_alg_type}.indels.feature_matrix"])
 
-    pipeliner.add_commands([Command(cmd, f"{boosting_method}.{indel_alg_type}.indels.feature_matrix.ok")])
+    pipeliner.add_commands([Command(cmd, f"{boosting_method}.{boosting_alg_type}.indels.feature_matrix.ok")])
     
     
     cmd = " ".join([f"{script_dir}/VariantBoosting/Apply_ML.py",
-                    f"--feature_matrix {boosting_method}.indels.feature_matrix",
+                    f"--feature_matrix {boosting_method}.{boosting_alg_type}.indels.feature_matrix",
                     "--indels",
                     f"--features {boosting_attributes}",
-                    f"--predictor {indel_alg_type}",
+                    f"--predictor {boosting_alg_type}",
                     f"--model {boosting_method}",
-                    f"--output {boosting_method}.{indel_alg_type}.indels.feature_matrix.wPreds"])
+                    f"--output {boosting_method}.{boosting_alg_type}.indels.feature_matrix.wPreds"])
 
 
-    pipeliner.add_commands([Command(cmd, "{boosting_method}.{indel_alg_type}.indels.feature_matrix.wPreds.ok")])
+    pipeliner.add_commands([Command(cmd, f"{boosting_method}.{boosting_alg_type}.indels.feature_matrix.wPreds.ok")])
     
     #########
     ## combine predictions into single output vcf
       
-    cmd = " ".join([f"{scripts_path}/extract_boosted_vcf.py",
+    cmd = " ".join([f"{script_dir}/extract_boosted_vcf.py",
                     f"--vcf_in {input_vcf}",
-                    f"--boosted_variants_matrix {boosting_method}.{boosting_alg_type}.snps.feature_matrix.wPreds {boosting_method}.{indel_alg_type}.indels.feature_matrix.wPreds",
-                    f"--vcf_out {boosting_method}.{boosting_alg_type}.snps.{indel_alg_type}.indels.vcf"])
+                    f"--boosted_variants_matrix {boosting_method}.{boosting_alg_type}.snps.feature_matrix.wPreds {boosting_method}.{boosting_alg_type}.indels.feature_matrix.wPreds",
+                    f"--vcf_out {output_name}.{boosting_method}.{boosting_alg_type}.vcf"])
 
 
-    pipeliner.add_commands([Command(cmd, "{boosting_method}.{boosting_alg_type}.snps.{indel_alg_type}.indels.vcf.ok")])
+    pipeliner.add_commands([Command(cmd, f"{output_name}.{boosting_method}.{boosting_alg_type}.vcf.ok")])
 
 
-    add_bgzip_and_tabix(f"{boosting_method}.{boosting_alg_type}.snps.{indel_alg_type}.indels.vcf", pipeliner)
+    add_bgzip_and_tabix(f"{output_name}.{boosting_method}.{boosting_alg_type}.vcf", pipeliner)
+
+    pipeliner.run()
 
     return
 
@@ -256,11 +257,11 @@ def add_bgzip_and_tabix(vcf_filename, pipeliner):
 
     cmd = f"bgzip -c {vcf_filename} > {vcf_filename}.gz"
 
-    pipeliner.add_commands([Command(cmd, "{vcf_filename}.gz.ok")])
+    pipeliner.add_commands([Command(cmd, f"{vcf_filename}.gz.ok")])
 
-    cmd = "tabix {vcf_filename}.gz"
+    cmd = f"tabix {vcf_filename}.gz"
 
-    pipeliner.add_commands([Command(cmd, "{vcf_filename}.gz.tbi.ok")])
+    pipeliner.add_commands([Command(cmd, f"{vcf_filename}.gz.tbi.ok")])
       
     
 
