@@ -113,7 +113,7 @@ def main():
 
     if filter_methods[0] == "ALL":
         filter_methods = boost_choices
-        boosting_alg_type = ["classifier", "regressor"]
+        boosting_alg_types = ["classifier", "regressor"]
 
     logger.info("Filter methods: {}".format(filter_methods))
 

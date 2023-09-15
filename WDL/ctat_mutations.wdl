@@ -88,7 +88,7 @@ workflow ctat_mutations {
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
         String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
-        Boolean seperate_snps_indels = true
+        Boolean boost_indels = false
 
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
@@ -161,7 +161,7 @@ workflow ctat_mutations {
 
         ref_splice_adj_regions_bed:{help:"For annotating exon splice proximity"}
 
-        ref_bed:{help:"Reference bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
+        ref_bed:{help:"Reference gene annotation bed file for IGV cancer mutation report (refGene.sort.bed.gz)"}
         cravat_lib_tar_gz:{help:"CRAVAT resource archive"}
         cravat_lib_dir:{help:"CRAVAT resource directory (for non-Terra use)"}
 
@@ -486,7 +486,8 @@ workflow ctat_mutations {
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     boosting_alg_type = boosting_alg_type,
-                    boosting_method =boosting_method,
+                    boosting_method = boosting_method,
+                    boost_indels = boost_indels,
                     boosting_attributes=boosting_attributes,
                     boosting_score_threshold=boosting_score_threshold,
                     gatk_path = gatk_path,
@@ -778,6 +779,7 @@ task BaseRecalibrator {
         -R ~{ref_fasta} \
         -I ~{input_bam} \
         --use-original-qualities \
+        --maximum-cycle-value 20000 \
         -O ~{recal_output_file} \
         -known-sites ~{db_snp_vcf}
 
@@ -1138,6 +1140,7 @@ task VariantFiltration {
         File ref_fasta_index
         String boosting_alg_type
         String boosting_method
+        Boolean boost_indels
         Array[String] boosting_attributes
         Float boosting_score_threshold
         Float memory
@@ -1209,31 +1212,35 @@ task VariantFiltration {
                 --output ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds
 
 
+            if [ "~{boost_indels}" == "true" ] ; then
 
-            ##############
-            ## indels next
-            ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
-                --vcf ~{input_vcf} \
-                --features ~{sep=',' boosting_attributes} \
-                --indels ~{median_replace_NA} \
-                --output ~{boosting_method}.indels.feature_matrix
+                ##############
+                ## indels next
+                ~{scripts_path}/annotated_vcf_to_feature_matrix.py \
+                   --vcf ~{input_vcf} \
+                   --features ~{sep=',' boosting_attributes} \
+                   --indels ~{median_replace_NA} \
+                    --output ~{boosting_method}.indels.feature_matrix
       
 
-            ~{scripts_path}/VariantBoosting/Apply_ML.py \
-                --feature_matrix ~{boosting_method}.indels.feature_matrix \
-                --indels \
-                --features ~{sep=',' boosting_attributes} \
-                --predictor ~{boosting_alg_type} \
-                --model ~{boosting_method} \
-                --output ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds
+                ~{scripts_path}/VariantBoosting/Apply_ML.py \
+                   --feature_matrix ~{boosting_method}.indels.feature_matrix \
+                   --indels \
+                   --features ~{sep=',' boosting_attributes} \
+                   --predictor ~{boosting_alg_type} \
+                   --model ~{boosting_method} \
+                   --output ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds
+            fi
 
-
+        
              #########
              ## combine predictions into single output vcf
       
-             ~{scripts_path}/extract_boosted_vcf.py \
+             ~{scripts_path}/annotate_boosted_vcf.py \
                  --vcf_in ~{input_vcf} \
-                 --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds\
+                 --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds \
+                                           ~{true="~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds" false='' boost_indels} \
+                 --boost_type ~{boosting_alg_type}:~{boosting_method} \
                  --vcf_out ~{boosting_method}.~{boosting_alg_type}.vcf
 
              bgzip -c ~{boosting_method}.~{boosting_alg_type}.vcf > ~{output_name}
