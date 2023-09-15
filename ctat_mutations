@@ -126,7 +126,7 @@ def main():
 
     parser.add_argument(
         "--boosting_method",
-        default="XGBoost",
+        default="none",
         choices=[
                 "none",
                 "AdaBoost",
