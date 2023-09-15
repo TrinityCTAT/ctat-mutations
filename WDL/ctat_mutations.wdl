@@ -1211,6 +1211,7 @@ task VariantFiltration {
                 --model ~{boosting_method} \
                 --output ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds
 
+            indel_boost_output=""
 
             if [ "~{boost_indels}" == "true" ] ; then
 
@@ -1230,6 +1231,8 @@ task VariantFiltration {
                    --predictor ~{boosting_alg_type} \
                    --model ~{boosting_method} \
                    --output ~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds
+
+                   indel_boost_output="~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds"
             fi
 
         
@@ -1238,8 +1241,7 @@ task VariantFiltration {
       
              ~{scripts_path}/annotate_boosted_vcf.py \
                  --vcf_in ~{input_vcf} \
-                 --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds \
-                                           ~{true="~{boosting_method}.~{boosting_alg_type}.indels.feature_matrix.wPreds" false='' boost_indels} \
+                 --boosted_variants_matrix ~{boosting_method}.~{boosting_alg_type}.snps.feature_matrix.wPreds $indel_boost_output \
                  --boost_type ~{boosting_alg_type}:~{boosting_method} \
                  --vcf_out ~{boosting_method}.~{boosting_alg_type}.vcf
 
