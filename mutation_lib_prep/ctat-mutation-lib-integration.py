@@ -55,9 +55,9 @@ if not os.path.exists(ctat_mutation_lib_dir):
 # Generating ref_genome.dict in ctat_genome_lib
 # if not present
 ref_dict = os.path.join(ctat_genome_lib_path, "ref_genome.dict")
+ref_fa = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
 if not os.path.exists(ref_dict):
     logger.info("Generating " + ref_dict)
-    ref_fa = os.path.join(ctat_genome_lib_path, "ref_genome.fa")
     cmd = [gatk,
            "CreateSequenceDictionary",
            "R=", ref_fa,
@@ -107,6 +107,18 @@ if not os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
 
     cmd = "tabix -p bed {}.gz".format(refGene_sorted_bed_file)
     subprocess.check_call(cmd, shell=True)
+
+
+
+# prep minimap2 index
+ref_genome_mm2 = os.path.join(ctat_mutation_lib_dir, "ref_genome.fa.mm2")
+
+if not os.path.exists(ref_genome_mm2):
+    cmd = f"minimap2 -d {ref_genome_mm2} {ref_fa}"
+    subprocess.check_call(cmd, shell=True)
+
+    
+
 
 logger.info("Done prepping ctat mutation lib.")
 
