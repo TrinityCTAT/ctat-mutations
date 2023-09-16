@@ -983,7 +983,6 @@ task Minimap2_align {
 
         Int cpu
         Float memory
-        String base_name
         String docker
         Int preemptible
         Float extra_disk_space
