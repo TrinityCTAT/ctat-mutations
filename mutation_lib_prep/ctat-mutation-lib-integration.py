@@ -74,22 +74,31 @@ else:
 
 splice_adjacent_bed_file = os.path.join(ctat_mutation_lib_dir, "ref_annot.splice_adj.bed")
 
-if not os.path.exists(splice_adjacent_bed_file + ".gz.tbi"):
+if os.path.exists(splice_adjacent_bed_file + ".gz.tbi"):
+    logger.info(f"splice adjacent targets file already exists: {splice_adjacent_bed_file}")
+else:
     logger.info("extracting splice-adjacent regions")
     cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_splice_adjacent_regions.pl") +
               " " + os.path.join(ctat_genome_lib_path, "ref_annot.gtf") +
               " > {}".format(splice_adjacent_bed_file))
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     cmd = "bgzip {}".format(splice_adjacent_bed_file)
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     cmd = "tabix -p bed {}.gz".format(splice_adjacent_bed_file)
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
+
 
 refGene_sorted_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.sort.bed")
 
-if not os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
+if os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
+    logger.info(f"ref gene sorted bed file already exists: {refGene_sorted_bed_file}")
+else:
+    
     logger.info("prepping gene regions bed")
 
     refGene_bed_file = os.path.join(ctat_mutation_lib_dir, "refGene.bed")
@@ -97,27 +106,47 @@ if not os.path.exists(refGene_sorted_bed_file + ".gz.tbi"):
     cmd = str(os.path.join(UTILDIR, "gencode_gtf_to_bed.pl") +
               " " + os.path.join(ctat_genome_lib_path, "ref_annot.gtf") +
               " > {}".format(refGene_bed_file))
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     cmd = "sort -k 1,1 -k2,2g -k3,3g < {} > {}".format(refGene_bed_file, refGene_sorted_bed_file)
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     cmd = "bgzip {}".format(refGene_sorted_bed_file)
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     cmd = "tabix -p bed {}.gz".format(refGene_sorted_bed_file)
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
 
 
 # prep minimap2 index
-ref_genome_mm2 = os.path.join(ctat_mutation_lib_dir, "ref_genome.fa.mm2")
+ref_genome_mm2 = os.path.join(ctat_genome_lib_path, "ref_genome.fa.mm2")
 
-if not os.path.exists(ref_genome_mm2):
+if os.path.exists(ref_genome_mm2):
+    logger.info(f"minimap2 index for ref genome already exists: {ref_genome_mm2}")
+else:
     cmd = f"minimap2 -d {ref_genome_mm2} {ref_fa}"
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
-    
+
+ref_annot_gtf = os.path.join(ctat_genome_lib_path, "ref_annot.gtf")
+ref_annot_splice_bed = ref_annot_gtf + ".mm2.splice.bed"
+
+if os.path.exists(ref_annot_splice_bed):
+    logger.info(f"mm2 splice bed already exists: {ref_annot_splice_bed}")
+else:
+    cmd = " ".join([os.path.join(UTILDIR, "../ctat-genome-lib-builder/util/paftools.ctat.js"),
+                                 "gff2bed ",
+                                 ref_annot_gtf,
+                                 ">",
+                                 ref_annot_splice_bed])
+    logger.info(cmd)
+    subprocess.check_call(cmd, shell=True)
 
 
 logger.info("Done prepping ctat mutation lib.")
