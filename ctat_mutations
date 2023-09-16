@@ -436,10 +436,23 @@ def main():
     if args.star_limitBAMsortRAM:
         input_json["star_limitBAMsortRAM"] = args.star_limitBAMsortRAM
 
+    if boosting_method == "none":
+        # disable the time-consuming annotations that aren't essential.
+        input_json[
+            "include_read_var_pos_annotations"
+        ] = False
+
+        input_json[
+            "incl_blat_ED"
+        ] = False
+
+    else:
+        input_json[
+            "include_read_var_pos_annotations"
+        ] = not no_include_read_var_pos_annotations
+
     
-    input_json[
-        "include_read_var_pos_annotations"
-    ] = not no_include_read_var_pos_annotations
+    
     if gatk_path is not None:
         input_json["gatk_path"] = gatk_path
     if not is_in_path(gatk_path):
