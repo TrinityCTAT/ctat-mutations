@@ -215,6 +215,14 @@ def main():
         type=str,
         help="value for STAR star_limitBAMsortRAM parameter"
     )
+
+
+    parser.add_argument(
+        "--is_long_reads",
+        action='store_true',
+        default=False,
+        help="long reads (eg. PacBio) are input as --left ")
+
     
     # parser.add_argument(
     #     "--star_memory",
@@ -293,6 +301,11 @@ def main():
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
+    mm2_genome_idx = os.path.join(ctat_genome_lib_path, "ref_genome.fa.mm2")
+    mm2_splice_bed = os.path.join(ctat_genome_lib_path, "ref_annot.gtf.mm2.splice.bed")
+    
+
+    
     intervals_file = args.intervals
     if intervals_file:
         intervals_file = os.path.abspath(intervals_file)
@@ -369,7 +382,17 @@ def main():
 
     if hc_xtra_args is not None:
         input_json["haplotype_caller_xtra_args"] = hc_xtra_args
-    
+
+
+    if args.is_long_reads:
+        if not os.path.exists(mm2_genome_idx) or not os.path.exists(mm2_splice_bed):
+            logger.critical("Error, missing ctat genome lib minimap2 resources. Be sure to run the ctat mutation lib prep step (see wiki docs)")
+            sys.exit(4)
+        input_json["is_long_reads"] = True
+        input_json["mm2_genome_idx"] = mm2_genome_idx
+        input_json["mm2_splice_bed"] = mm2_splice_bed
+
+        
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
     input_json["variant_annotation_cpu"] = cpu

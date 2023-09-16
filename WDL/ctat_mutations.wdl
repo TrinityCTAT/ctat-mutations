@@ -15,7 +15,7 @@ workflow ctat_mutations {
         File? bai
         File? vcf
         File? vcf_index
-
+        
         File? extra_fasta
         Boolean merge_extra_fasta = true
 
@@ -25,6 +25,12 @@ workflow ctat_mutations {
         File ref_fasta_index
         File? gtf
 
+        # for long reads
+        Boolean is_long_reads = false
+        File? mm2_genome_idx
+        File? mm2_splice_bed
+
+        # annotation resources
         File? db_snp_vcf
         File? db_snp_vcf_index
 
@@ -90,6 +96,9 @@ workflow ctat_mutations {
         String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
         Boolean boost_indels = false
 
+        # no boosting if long reads!  Not trained for that yet.
+        String boosting_method_use = if (is_long_reads) then "none" else boosting_method
+        
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
         ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","TCR","TDM","VAF","VMMF"]
@@ -203,7 +212,29 @@ workflow ctat_mutations {
     }
 
     if(!vcf_input && !defined(bam) && (defined(star_reference_dir) || defined(star_reference))) {
-        call StarAlign {
+
+        if (is_long_reads) {
+
+            call Minimap2_align as mm2 {
+              input:
+                sample_id=sample_id,
+                mm2_genome_idx = mm2_genome_idx,
+                mm2_splice_bed = mm2_splice_bed,
+                reads = left,
+                
+                extra_disk_space = star_extra_disk_space,
+                fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
+                memory = star_memory,
+                use_ssd = star_use_ssd,
+                cpu = star_cpu,
+                docker = docker,
+                preemptible = preemptible
+            }  
+        }
+        
+        if (! is_long_reads) {
+                    
+          call StarAlign {
             input:
                 star_reference = star_reference,
                 star_reference_dir = star_reference_dir,
@@ -220,13 +251,17 @@ workflow ctat_mutations {
                 cpu = star_cpu,
                 docker = docker,
                 preemptible = preemptible
-        }
+           }
+            
+       }
+
     }
 
+   
     if(!vcf_input && !variant_ready_bam && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
-                input_bam = select_first([StarAlign.bam, bam]),
+                input_bam = select_first([StarAlign.bam, mm2.bam, bam]),
                 sample_id = sample_id,
                 base_name = sample_id + '.sorted',
                 sequencing_platform=sequencing_platform,
@@ -475,7 +510,7 @@ workflow ctat_mutations {
       
       if (filter_variants) {
 
-            String base_name = if (boosting_method == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
+            String base_name = if (boosting_method_use == "none") then sample_id  else "~{sample_id}.~{boosting_method}-~{boosting_alg_type}"
 
             call VariantFiltration {
                 input:
@@ -486,7 +521,7 @@ workflow ctat_mutations {
                     ref_fasta = ref_fasta,
                     ref_fasta_index = ref_fasta_index,
                     boosting_alg_type = boosting_alg_type,
-                    boosting_method = boosting_method,
+                    boosting_method = boosting_method_use,
                     boost_indels = boost_indels,
                     boosting_attributes=boosting_attributes,
                     boosting_score_threshold=boosting_score_threshold,
@@ -931,6 +966,56 @@ task StarAlign {
     runtime {
         preemptible: preemptible
         disks: "local-disk " + ceil(size(fastq1, "GB")*fastq_disk_space_multiplier + size(fastq2, "GB") * fastq_disk_space_multiplier + size(star_reference, "GB")*8 + extra_disk_space) + " " + (if use_ssd then "SSD" else "HDD")
+        docker: docker
+        cpu: cpu
+        memory: memory + "GB"
+    }
+
+}
+
+
+task Minimap2_align {
+    input {
+        String sample_id
+        File? mm2_genome_idx
+        String? mm2_splice_bed
+        File? reads
+
+        Int cpu
+        Float memory
+        String base_name
+        String docker
+        Int preemptible
+        Float extra_disk_space
+        Float fastq_disk_space_multiplier
+        Boolean use_ssd
+    }
+
+
+    command <<<
+        set -ex
+
+        minimap2 --junc-bed ~{mm2_splice_bed} -ax splice -u b -t ~{cpu} ~{mm2_genome_idx} ~{reads} > mm2.sam
+
+        samtools view -Sb -o mm2.unsorted.bam mm2.sam
+        
+        rm mm2.sam # free up disk
+        
+        samtools sort -@~{cpu} -o ~{sample_id}.mm2.bam mm2.unsorted.bam
+        
+        samtools index ~{sample_id}.mm2.bam
+
+
+    >>>
+
+    output {
+        File bam = "~{sample_id}.mm2.bam"
+        File bai = "~{sample_id}.mm2.bam.bai"
+    }
+
+    runtime {
+        preemptible: preemptible
+        disks: "local-disk " + ceil(size(reads, "GB")*fastq_disk_space_multiplier + size(mm2_genome_idx, "GB")*8 + extra_disk_space) + " " + (if use_ssd then "SSD" else "HDD")
         docker: docker
         cpu: cpu
         memory: memory + "GB"
