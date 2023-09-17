@@ -17,6 +17,10 @@ HC_standard_w_intervals:
 HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
 
+## Using long reads:
+HC_long_reads:
+	../ctat_mutations --left __misc_data/UHR.pbio.fq.gz --sample_id example.long_reads -O example.long_reads --is_long_reads
+
 
 ## Docker
 
