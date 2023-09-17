@@ -1,9 +1,11 @@
-FROM continuumio/miniconda3:4.7.12
+FROM ubuntu:20.04
 
 MAINTAINER bhaas@broadinstitute.org
 
-# for java
-RUN mkdir /usr/share/man/man1/
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+
 RUN apt-get --allow-releaseinfo-change update && apt-get -qq -y install --no-install-recommends \
     automake \
     build-essential \
@@ -34,7 +36,24 @@ RUN cpanm install URI::Escape
 ENV SRC /usr/local/src
 ENV BIN /usr/local/bin
 
-RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
+
+# Install Miniconda
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+WORKDIR $SRC
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda_install.sh && \
+   bash ./miniconda_install.sh -b
+
+ENV PATH="/root/miniconda3/bin:${PATH}"
+
+#RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
+
+RUN conda install python=3.10.12
+
+
+RUN conda install -y pip && pip install requests  pandas  xgboost statsmodels ngboost scikit-learn
+
+RUN pip install open-cravat==2.0.1
+
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
@@ -122,11 +141,15 @@ RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.2
 
 
 ## NCIP CTAT mutations
+
+
+RUN pip install open-cravat==2.1.0  ## upgrade needed
+
 RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_TAG=v4.0.0
-ENV CTAT_MUTATIONS_COMMIT=dc5618b505733d98f48d600aa7a7180a2196ff15
+ENV CTAT_MUTATIONS_COMMIT=1895d9b322a166b1d3a4654ecc245ddda6bf4226
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
