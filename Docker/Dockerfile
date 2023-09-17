@@ -82,13 +82,14 @@ RUN wget -q https://github.com/icebert/pblat/archive/2.5.tar.gz && \
    rm $SRC/2.5.tar.gz
 
 ## update igv-reports to current bleeding edge
-WORKDIR $SRC
-ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
-RUN git clone https://github.com/igvteam/igv-reports.git && \
-    cd igv-reports && \
-    git checkout ${IGV_REPORTS_CO} && \
-    pip install -e .
+#WORKDIR $SRC
+#ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
+#RUN git clone https://github.com/igvteam/igv-reports.git && \
+#    cd igv-reports && \
+#    git checkout ${IGV_REPORTS_CO} && \
+#    pip install -e .
 
+RUN pip install igv-reports==1.9.0
 
 #RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
 #RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
