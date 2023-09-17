@@ -1,3 +1,13 @@
+4.0.0 Sept. 17, 2023
+- included preliminary support for pacbio rna-seq (operational, but not benchmarked):  use --left <pbio.fastq> and --is_long_reads
+- turned off boosting by default
+- when boosting on, adds boosting annotations instead of filtering (vcf annotation of BOOSTselect)
+- boosting of indels turned off, only boosting on snvs
+- added ctat-genome-lib-builder submodule, incorporated minimap2 index prep
+- cravat data resources provided as tarball and documentation for installation updated.
+
+
+
 3.3.1 Jan 22, 2023
 - greatly improved memory usage around the annotate BLAT ED step
 

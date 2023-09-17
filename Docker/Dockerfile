@@ -114,16 +114,25 @@ RUN wget https://github.com/broadinstitute/picard/releases/download/2.25.2/picar
 ENV PICARD_HOME $SRC/picard.jar
 
 
+## Minimap2
+
+WORKDIR $SRC
+RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.26_x64-linux.tar.bz2 | tar -jxvf - && \
+    mv ./minimap2-2.26_x64-linux/minimap2 $BIN/
+
+
 ## NCIP CTAT mutations
 RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.3.1
-ENV CTAT_MUTATIONS_COMMIT=a6dabd43b3776386a9af12d3afc529d9b055affb
+ENV CTAT_MUTATIONS_TAG=v4.0.0
+ENV CTAT_MUTATIONS_COMMIT=dc5618b505733d98f48d600aa7a7180a2196ff15
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
     git submodule init && git submodule update && \
+    git submodule foreach --recursive git submodule init && \
+    git submodule foreach --recursive git submodule update && \
     make
     
 
