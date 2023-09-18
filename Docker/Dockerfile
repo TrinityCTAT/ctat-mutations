@@ -1,9 +1,11 @@
-FROM continuumio/miniconda3:4.7.12
+FROM ubuntu:20.04
 
 MAINTAINER bhaas@broadinstitute.org
 
-# for java
-RUN mkdir /usr/share/man/man1/
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+
 RUN apt-get --allow-releaseinfo-change update && apt-get -qq -y install --no-install-recommends \
     automake \
     build-essential \
@@ -35,7 +37,24 @@ RUN cpanm install URI::Escape
 ENV SRC /usr/local/src
 ENV BIN /usr/local/bin
 
-RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
+
+# Install Miniconda
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+WORKDIR $SRC
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda_install.sh && \
+   bash ./miniconda_install.sh -b
+
+ENV PATH="/root/miniconda3/bin:${PATH}"
+
+#RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
+
+RUN conda install python=3.10.12
+
+
+RUN conda install -y pip && pip install requests  pandas  xgboost statsmodels ngboost scikit-learn
+
+RUN pip install open-cravat==2.0.1
+
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
 
@@ -83,13 +102,14 @@ RUN wget -q https://github.com/icebert/pblat/archive/2.5.tar.gz && \
    rm $SRC/2.5.tar.gz
 
 ## update igv-reports to current bleeding edge
-WORKDIR $SRC
-ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
-RUN git clone https://github.com/igvteam/igv-reports.git && \
-    cd igv-reports && \
-    git checkout ${IGV_REPORTS_CO} && \
-    pip install -e .
+#WORKDIR $SRC
+#ENV IGV_REPORTS_CO=1086ed7258c09bfe213836e2dc53b043c352a4a9
+#RUN git clone https://github.com/igvteam/igv-reports.git && \
+#    cd igv-reports && \
+#    git checkout ${IGV_REPORTS_CO} && \
+#    pip install -e .
 
+RUN pip install igv-reports==1.9.0
 
 #RUN wget -q https://github.com/broadinstitute/cromwell/releases/download/58/cromwell-58.jar -O /usr/local/src/ctat-mutations/WDL/cromwell-58.jar
 #RUN wget -q https://raw.githubusercontent.com/klarman-cell-observatory/cumulus/master/docker/monitor_script.sh -O /usr/local/src/ctat-mutations/WDL/monitor_script.sh
@@ -114,16 +134,29 @@ RUN wget https://github.com/broadinstitute/picard/releases/download/2.25.2/picar
 ENV PICARD_HOME $SRC/picard.jar
 
 
+## Minimap2
+
+WORKDIR $SRC
+RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.26_x64-linux.tar.bz2 | tar -jxvf - && \
+    mv ./minimap2-2.26_x64-linux/minimap2 $BIN/
+
+
 ## NCIP CTAT mutations
+
+
+RUN pip install open-cravat==2.1.0  ## upgrade needed
+
 RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v3.3.0-postdev2
-ENV CTAT_MUTATIONS_COMMIT=577536bb945fb7fe1568a05c6dc6575691d3ec67
+ENV CTAT_MUTATIONS_TAG=v4.0.0
+ENV CTAT_MUTATIONS_COMMIT=1895d9b322a166b1d3a4654ecc245ddda6bf4226
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
     git submodule init && git submodule update && \
+    git submodule foreach --recursive git submodule init && \
+    git submodule foreach --recursive git submodule update && \
     make
     
 

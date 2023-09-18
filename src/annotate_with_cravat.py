@@ -23,7 +23,7 @@ if __name__ == "__main__":
     cravat_lib_dir = args.cravat_lib_dir
 
     genome = args.genome
-    output_dir = os.path.dirname(output_vcf)
+    output_dir = os.path.abspath(os.path.dirname(output_vcf))
     output_vcf = os.path.basename(output_vcf)
 
     if re.search(".vcf$", output_vcf):

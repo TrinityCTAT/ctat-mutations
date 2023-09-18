@@ -7,3 +7,6 @@
 [submodule "plugins/SNPiR-Python"]
 	path = plugins/SNPiR-Python
 	url = https://github.com/broadinstitute/SNPiR-Python.git
+[submodule "ctat-genome-lib-builder"]
+	path = ctat-genome-lib-builder
+	url = https://github.com/NCIP/ctat-genome-lib-builder.git

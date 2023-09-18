@@ -1,4 +1,4 @@
-all: HC_standard  HC_SE_Reads  BOOSTING_ALL
+all: HC_standard  HC_SE_Reads  BOOSTING_ALL HC_long_reads
 
 
 ########################
@@ -17,11 +17,15 @@ HC_standard_w_intervals:
 HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
 
+## Using long reads:
+HC_long_reads:
+	../ctat_mutations --left __misc_data/UHR.pbio.fq.gz --sample_id example.long_reads -O example.long_reads --is_long_reads
+
 
 ## Docker
 
 HC_standard_docker:
-	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O example.HC_standard.Docker
+	docker run --rm -v `pwd`:/data -v ${CTAT_GENOME_LIB}:/ctat_genome_lib_dir:ro trinityctat/ctat_mutations:latest /usr/local/src/ctat-mutations/ctat_mutations --left /data/reads_1.fastq.gz --right /data/reads_2.fastq.gz --sample_id example.HC.docker --genome_lib_dir /ctat_genome_lib_dir --boosting_method none -O /data/example.HC_standard.Docker
 
 
 ## Singularity
@@ -191,6 +195,8 @@ boost_vcf_only: ctat_mutation_ext_testdata
                       --no_filter_cancer_variants
 
 
+# test running via boosting wrapper script.
+# ../../src/VariantBoosting/run_boosting_methods.py  --input_vcf SRR5665260.gatk_HC.hg.chr1.annotated.vcf.gz --filter_method ALL --gatk_path $GATK_HOME/  --output_dir ladedadir --ref_genome_fa $CTAT_GENOME_LIB/ref_genome.fa
 
 
 ## benchmark eval

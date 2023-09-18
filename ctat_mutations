@@ -8,7 +8,7 @@ import tempfile
 
 import sys
 
-VERSION = "ctat_mutations-3.3.1"
+VERSION = "ctat_mutations-4.0.0"
 #VERSION = "ctat_mutations-BLEEDING_EDGE"
 
 if sys.version_info[0] < 3:
@@ -126,7 +126,7 @@ def main():
 
     parser.add_argument(
         "--boosting_method",
-        default="XGBoost",
+        default="none",
         choices=[
                 "none",
                 "AdaBoost",
@@ -178,7 +178,7 @@ def main():
         help="Number of parallel variant caller jobs",
     )
     parser.add_argument(
-        "--no_cravat", action="store_true", help="Skips CRAVAT annotations",
+        "--no_cravat", action="store_true", help="Skips CRAVAT annotations, also skips partitioning of cancer-related variants given they rely on cravat annotations",
     )
 
     parser.add_argument(
@@ -215,6 +215,14 @@ def main():
         type=str,
         help="value for STAR star_limitBAMsortRAM parameter"
     )
+
+
+    parser.add_argument(
+        "--is_long_reads",
+        action='store_true',
+        default=False,
+        help="long reads (eg. PacBio) are input as --left ")
+
     
     # parser.add_argument(
     #     "--star_memory",
@@ -293,6 +301,11 @@ def main():
     ref_fasta_index = os.path.join(ctat_genome_lib_path, "ref_genome.fa.fai")
     star_reference = os.path.join(ctat_genome_lib_path, "ref_genome.fa.star.idx")
 
+    mm2_genome_idx = os.path.join(ctat_genome_lib_path, "ref_genome.fa.mm2")
+    mm2_splice_bed = os.path.join(ctat_genome_lib_path, "ref_annot.gtf.mm2.splice.bed")
+    
+
+    
     intervals_file = args.intervals
     if intervals_file:
         intervals_file = os.path.abspath(intervals_file)
@@ -369,7 +382,17 @@ def main():
 
     if hc_xtra_args is not None:
         input_json["haplotype_caller_xtra_args"] = hc_xtra_args
-    
+
+
+    if args.is_long_reads:
+        if not os.path.exists(mm2_genome_idx) or not os.path.exists(mm2_splice_bed):
+            logger.critical("Error, missing ctat genome lib minimap2 resources. Be sure to run the ctat mutation lib prep step (see wiki docs)")
+            sys.exit(4)
+        input_json["is_long_reads"] = True
+        input_json["mm2_genome_idx"] = mm2_genome_idx
+        input_json["mm2_splice_bed"] = mm2_splice_bed
+
+        
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
     input_json["variant_annotation_cpu"] = cpu
@@ -390,6 +413,7 @@ def main():
     input_json["ref_bed"] = ref_bed
     if no_cravat:
         input_json["incl_cravat"] = False
+        no_filter_cancer_variants = True # relies largely on cravat
     elif cravat_lib_directory is not None:
         input_json["cravat_lib_dir"] = cravat_lib_directory
     
@@ -412,10 +436,23 @@ def main():
     if args.star_limitBAMsortRAM:
         input_json["star_limitBAMsortRAM"] = args.star_limitBAMsortRAM
 
+    if boosting_method == "none":
+        # disable the time-consuming annotations that aren't essential.
+        input_json[
+            "include_read_var_pos_annotations"
+        ] = False
+
+        input_json[
+            "incl_blat_ED"
+        ] = False
+
+    else:
+        input_json[
+            "include_read_var_pos_annotations"
+        ] = not no_include_read_var_pos_annotations
+
     
-    input_json[
-        "include_read_var_pos_annotations"
-    ] = not no_include_read_var_pos_annotations
+    
     if gatk_path is not None:
         input_json["gatk_path"] = gatk_path
     if not is_in_path(gatk_path):
