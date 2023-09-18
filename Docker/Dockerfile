@@ -46,14 +46,12 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
 
 ENV PATH="/root/miniconda3/bin:${PATH}"
 
-#RUN conda install -y pip && pip install requests==2.22.0 open-cravat==2.0.1 pandas==1.2.1 xgboost==1.3.3 statsmodels==0.12.2 ngboost==0.3.9 scikit-learn==0.23.2
-
 RUN conda install python=3.10.12
 
 
 RUN conda install -y pip && pip install requests  pandas  xgboost statsmodels ngboost scikit-learn
 
-RUN pip install open-cravat==2.0.1
+RUN pip install open-cravat==2.1.0
 
 # Run an oc command to generate config files
 RUN oc config md > /dev/null
@@ -143,8 +141,6 @@ RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.2
 
 ## NCIP CTAT mutations
 
-
-RUN pip install open-cravat==2.1.0  ## upgrade needed
 
 RUN apt-get update && apt-get install -y git
 
