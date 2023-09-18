@@ -1,4 +1,4 @@
-all: HC_standard  HC_SE_Reads  BOOSTING_ALL
+all: HC_standard  HC_SE_Reads  BOOSTING_ALL HC_long_reads
 
 
 ########################
