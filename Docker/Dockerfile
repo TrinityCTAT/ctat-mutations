@@ -42,9 +42,9 @@ ENV BIN /usr/local/bin
 RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 WORKDIR $SRC
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda_install.sh && \
-   bash ./miniconda_install.sh -b
+   bash ./miniconda_install.sh -b -p $BIN/miniconda3
 
-ENV PATH="/root/miniconda3/bin:${PATH}"
+ENV PATH="$BIN/miniconda3/bin:${PATH}"
 
 RUN conda install python=3.10.12
 
