@@ -158,6 +158,14 @@ RUN git clone https://github.com/NCIP/ctat-mutations.git && \
 
 ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
 
+RUN pip install aiosqlite3
+
+# K8
+RUN curl -L https://github.com/attractivechaos/k8/releases/download/v0.2.4/k8-0.2.4.tar.bz2 | tar -jxf - && \
+    cp k8-0.2.4/k8-`uname -s` $BIN/k8
+
+
+
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
     apt-get clean && \
