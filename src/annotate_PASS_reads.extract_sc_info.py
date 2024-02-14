@@ -116,8 +116,6 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     #--------------
     quality_offset = 33
     minimal_base_quality = 25
-    minimum_mismatch = 1
-
 
     total_covered_reads = 0  # meets quality criteria at pos.
     total_pass_reads = 0 # not in the terminal 6 bases of read
@@ -169,6 +167,8 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         if (not sc_mode) and check_duplicate_marked(samflag):
             total_duplicate_marked += 1
             continue # not evaluating duplicate-marked reads unless in single cell mode.
+
+        print(readname)
         
         # get the current position
         currentpos, readpos = int(readstart), 1
@@ -188,10 +188,12 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
             M = Alignment Match, can be sequence mismatch or match 
         '''
 
+        position = int(position)
         for k in range(len(cigarletters)):
-            position = int(position)
+            
             if currentpos > position:
                 break
+
             if cigarletters[k] == "I" or cigarletters[k] == "S":
                 readpos = readpos + int(cigarnums[k])
 
@@ -202,6 +204,9 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                 for j in range(int(cigarnums[k])):
                     if currentpos == position:
                         base_readpos = readpos
+                        nuc = sequencebases[base_readpos-1]
+                        print("\t".join([readname, str(position), str(base_readpos), nuc]))
+                        
                     currentpos += 1
                     readpos += 1
 
@@ -209,8 +214,11 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
 
         if base_readpos:
+            print("Got read pos")
 
-            if ord(str(qualscores)[base_readpos-1]) >= minimal_base_quality + quality_offset:
+            base_qual = ord(str(qualscores)[base_readpos-1]) - quality_offset
+            print(base_qual)
+            if base_qual >= minimal_base_quality:
                 ## counting as a PASS read, contributes to total coverage (newcov)
 
                 total_covered_reads += 1
@@ -243,9 +251,9 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                 # check if the read base is the variant
                 is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
                 if is_variant_containing_read:
+                    reads_with_variant.append(readname)
                     if pass_central_read_pos:
                         total_pass_variant_reads += 1
-                        reads_with_variant.append(readname)
                         if is_multimapped_read:
                             total_pass_multimapped_variant_reads += 1
                     else:
@@ -253,8 +261,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                         total_fail_variant_reads += 1
 
                 else: # not variant containing
-                    if pass_central_read_pos:
-                        reads_without_variant.append(readname)
+                    reads_without_variant.append(readname)
                     
 
     #-----------------------
@@ -284,7 +291,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     # duplicateMarked : number of duplicate-marked reads
     new_line = "\t".join(lstr_outvcfline)
 
-    return(new_line, reads_with_variant=reads_with_variant, reads_without_variant=reads_without_variant)
+    return( [new_line, reads_with_variant, reads_without_variant ] )
 
 
 
@@ -299,7 +306,8 @@ class SplitVCF:
                     cpu,
                     bamFile,
                     chunks,
-                    output_vcf
+                    output_vcf,
+                    sc_mode
                     ): # arguments to class instantiation 
         
         self.input_vcf    = input_vcf
@@ -307,6 +315,7 @@ class SplitVCF:
         self.bamFile      = bamFile
         self.chunks       = chunks
         self.output_vcf   = output_vcf
+        self.sc_mode = sc_mode
 
         # Print the inputs for reference 
         message_str = f"""
@@ -348,10 +357,10 @@ class SplitVCF:
         return self 
 
 
-    def AddAnnotaion( self, sc_mode ):
+    def AddAnnotation( self ):
         # Apply annotaions to the VCF
         ## Split the VCF file by thier contig
-        message_str = f"\tAdding Annotaions"
+        message_str = f"\tAdding Annotations"
         logger.info(message_str)
 
         # Get the index values for the vcf rows that will be subsetted 
@@ -362,11 +371,8 @@ class SplitVCF:
         idx_list = [i for i in idx_list if len(i) != 0]
         
         results = []
-        sc_readnames = []
-        def logging_return(line, reads_with_variant, reads_without_variant):
-            results.append(line)
-            if sc_mode:
-                sc_readnames.append( [reads_with_variant, reads_without_variant] )
+        def logging_return(result):
+            results.append(result)
             
         # Initiate the Pool
         pool = multiprocessing.Pool(self.cpu)
@@ -397,7 +403,9 @@ class SplitVCF:
             if curr_results_len > prev_results_len:
                 ## check for errors
                 for idx in range(prev_results_len, curr_results_len):
-                    for str_line in results[idx]:
+                    chunk = results[idx]
+                    for entry in chunk:
+                        str_line = entry[0]
                         if str_line.startswith("ERROR: "):
                             # error detected
                             raise results[idx]
@@ -413,10 +421,28 @@ class SplitVCF:
         progress_bar(100)
 
 
-        # Resutls are in a list of lists, so need to flatten (join list of lists )
-        flaten_list = [item for sublist in results for item in sublist]
-        self.results = flaten_list
+        # Results are in a list of lists, so need to flatten (join list of lists )
+        ##
+        ## looks like:
+        ##   [
+        ##     [ # chunk:
+        ##        [line, var_reads_list, no_var_reads_list],
+        ##        [line, var_reads_list, no_var_reads_list],
+        ##        ...
+        ##     ]
+        ##  ]
 
+        ##
+        flattened_list = []
+
+        for chunk in results:
+            for line_n_reads_list in chunk:
+                flattened_list.append(line_n_reads_list)
+
+        # flaten_list = [item for sublist in results for item in sublist]
+        
+        self.results = flattened_list
+        
         #~~~~~~~~~
         # CHECK: 
         #   check to ensure that the number of variants given in the input VCF equals the number of variants in the output VCF
@@ -435,7 +461,7 @@ class SplitVCF:
 
         # resort records since they might now be out of order due to multithreading
         def chr_pos_retriever(result_line): # inner function for sorting vcf output by chr, pos
-            vals = result_line.split("\t")
+            vals = result_line[0].split("\t")
             chr_val = vals[0]
             pos_val = int(vals[1])
 
@@ -443,6 +469,7 @@ class SplitVCF:
                 chr_val = chr_val.replace("chr", "chr0") # ensure chr08 comes before chr12, etc.
 
             return(chr_val, pos_val)
+
         # sort it
         results = sorted(self.results, key=chr_pos_retriever)
 
@@ -463,11 +490,26 @@ class SplitVCF:
         #~~~~~~~~~~~~
         # VCF Body 
         #~~~~~~~~~~~~
-        for i in results:
-            outfile.write(i)
 
+        if self.sc_mode:
+            var_reads_filename = self.output_vcf + ".sc_reads"
+            sc_reads_ofh = open(var_reads_filename, "w")
+
+        for i in results:
+            vcf_line = i[0]
+            outfile.write(vcf_line)
+            if self.sc_mode:
+                reads_w_var_list = i[1]
+                reads_wo_var_list = i[2]
+                vcf_pts = vcf_line.split("\t")
+                pos_token = ":".join([vcf_pts[0], vcf_pts[1], vcf_pts[3], vcf_pts[4] ])
+                vcf_line = vcf_line.rstrip()
+                print("\t".join([pos_token, vcf_line, ",".join(reads_w_var_list), ",".join(reads_wo_var_list)]), file=sc_reads_ofh)
+                
         # close the output file 
         outfile.close()
+        if self.sc_mode:
+            sc_reads_ofh.close()
 
 
 
@@ -501,11 +543,11 @@ def main():
     parser = argparse.ArgumentParser(description="Rsplit VCF.", 
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
-    parser.add_argument("--output_vcf", type=str, required=False, help="output directory.", default = ".")
+    parser.add_argument("--output_vcf", type=str, required=True, help="output vcf filename")
     parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
     parser.add_argument("--bam", type=str, required=False, help="input bam file.")
     parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
-    parser.add_argument("--sc_mode", action='store_true', default=False, help="single cell mode, so capture cell/variant info")
+    parser.add_argument("--sc_mode", action='store_true', default=False, help="single cell mode, so capture cell/variant info. Creates separate file --output_vcf + .sc_reads")
     
     # Parse the variables given 
     args = parser.parse_args()
@@ -527,13 +569,13 @@ def main():
     ##############################
     # initiate the ViFi object 
     
-    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks, output_vcf = output_vcf)
+    VCF = SplitVCF(input_vcf = VCF, cpu = cpu, bamFile = bam, chunks = chunks, output_vcf = output_vcf, sc_mode=sc_mode)
     VCF = VCF.getIDs()
     VCF = VCF.getStats()
     VCF = VCF.getHeader()
-
-
-    VCF = VCF.AddAnnotaion(sc_mode)
+    
+    
+    VCF = VCF.AddAnnotation()
     VCF.writeOutput()
 
     sys.exit(0)
