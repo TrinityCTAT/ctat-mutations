@@ -8,6 +8,7 @@ import gzip
 import multiprocessing
 import time
 import numpy as np
+import traceback
 
 ## Set up the logging  
 logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
@@ -134,6 +135,9 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     chrom, position = lstr_vcfline[0], lstr_vcfline[1]
     bamposition = chrom + ':' + position + '-' + position
 
+    ref_bases = lstr_vcfline[3]
+    alt_bases = lstr_vcfline[4]
+
     lstr_outvcfline = lstr_vcfline
 
     #------------------
@@ -203,7 +207,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                 for j in range(int(cigarnums[k])):
                     if currentpos == position:
                         base_readpos = readpos
-                        nuc = sequencebases[base_readpos-1]
+                        #nuc = sequencebases[base_readpos-1]
                         #print("\t".join([readname, str(position), str(base_readpos), nuc]))
                         
                     currentpos += 1
@@ -249,7 +253,10 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
 
                 # check if the read base is the variant
-                is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
+                #is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
+                is_variant_containing_read = (re.match(alt_bases, sequencebases[(base_readpos-1):]) is not None)
+                is_refbases_containing_read = (re.match(ref_bases, sequencebases[(base_readpos-1):]) is not None)
+                
                 if is_variant_containing_read:
                     reads_with_variant.append(readname) #capture variant-containing read for single cells
                     if base_qual_ok:
@@ -261,7 +268,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                             # in read terminus
                             total_fail_variant_reads += 1
 
-                else: # not variant containing
+                elif is_refbases_containing_read: # not variant containing
                     reads_without_variant.append(readname) #capture non-variant read for single cells
                     
 
@@ -377,7 +384,8 @@ class SplitVCF:
             results.append(result)
             
         # Initiate the Pool
-        pool = multiprocessing.Pool(self.cpu)
+        if self.cpu > 1:
+            pool = multiprocessing.Pool(self.cpu)
             
         # get the start time and print it for reference
         start_time = time.process_time()
@@ -391,36 +399,42 @@ class SplitVCF:
                 idx = list(i)
                 # read in the specific lines 
                 output_vcf_lines = vcf.readlines()[idx[0]:(idx[-1]+1)]
-                pool.apply_async(evaluate_PASS_reads, args=(output_vcf_lines, self.bamFile, self.sc_mode), callback = logging_return)
 
-        pool.close()
+                if self.cpu > 1:
+                    pool.apply_async(evaluate_PASS_reads, args=(output_vcf_lines, self.bamFile, self.sc_mode), callback = logging_return)
+                else:
+                    result = evaluate_PASS_reads(output_vcf_lines, self.bamFile, self.sc_mode)
+                    logging_return(result)
 
-        #~~~~~~~~~~~~~~~~~~
-        # Progress Bar
-        #~~~~~~~~~~~~~~~~~~
-        prev_results_len = 0;
-        while len(results) < len(idx_list):
-            
-            curr_results_len = len(results)
-            if curr_results_len > prev_results_len:
-                ## check for errors
-                for idx in range(prev_results_len, curr_results_len):
-                    chunk = results[idx]
-                    for entry in chunk:
-                        str_line = entry[0]
-                        if str_line.startswith("ERROR: "):
-                            # error detected
-                            raise results[idx]
-                prev_results_len = curr_results_len
+        if self.cpu > 1:
+            pool.close()
 
-            # get the total progress made as a percentage
-            progress_percent = int(len(results)/len(idx_list) * 100)
-            # Print the progress percentage to the terminal
-            progress_bar(progress_percent)
+            #~~~~~~~~~~~~~~~~~~
+            # Progress Bar
+            #~~~~~~~~~~~~~~~~~~
+            prev_results_len = 0;
+            while len(results) < len(idx_list):
 
-            time.sleep(2)
-        # make sure to finish the progress bar with 100%
-        progress_bar(100)
+                curr_results_len = len(results)
+                if curr_results_len > prev_results_len:
+                    ## check for errors
+                    for idx in range(prev_results_len, curr_results_len):
+                        chunk = results[idx]
+                        for entry in chunk:
+                            str_line = entry[0]
+                            if str_line.startswith("ERROR: "):
+                                # error detected
+                                raise results[idx]
+                    prev_results_len = curr_results_len
+
+                # get the total progress made as a percentage
+                progress_percent = int(len(results)/len(idx_list) * 100)
+                # Print the progress percentage to the terminal
+                progress_bar(progress_percent)
+
+                time.sleep(2)
+            # make sure to finish the progress bar with 100%
+            progress_bar(100)
 
 
         # Results are in a list of lists, so need to flatten (join list of lists )
