@@ -138,6 +138,12 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     ref_bases = lstr_vcfline[3]
     alt_bases = lstr_vcfline[4]
 
+    variant_type = "M"
+    if len(ref_bases) > len(alt_bases):
+        variant_type = "D"
+    elif len(ref_bases) < len(alt_bases):
+        variant_type = "I"
+    
     lstr_outvcfline = lstr_vcfline
 
     #------------------
@@ -192,7 +198,12 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         '''
 
         position = int(position)
-        for k in range(len(cigarletters)):
+        num_cigarletters = len(cigarletters)
+        num_cigarnums = len(cigarnums)
+
+        adjacent_base_type = "M" #default
+
+        for k in range(num_cigarletters):
             
             if currentpos > position:
                 break
@@ -204,9 +215,16 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                 currentpos = currentpos + int(cigarnums[k])
 
             elif cigarletters[k] == "M":
-                for j in range(int(cigarnums[k])):
+                # iterate each base position of the match
+                num_aligned_bases = int(cigarnums[k])
+                segment_end_pos = readpos + num_aligned_bases
+                for j in range(num_aligned_bases):
                     if currentpos == position:
                         base_readpos = readpos
+                        if base_readpos == segment_end_pos:
+                            # see if its at an indel
+                            if k + 1 < num_cigar_letters:
+                                adjacent_base_type = cigarletteres[k+1]
                         #nuc = sequencebases[base_readpos-1]
                         #print("\t".join([readname, str(position), str(base_readpos), nuc]))
                         
@@ -215,6 +233,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
         read_end_pos = readpos
 
+        print(ref_bases, alt_bases, adjacent_base_type, cigarletters) ##DEBUG
 
         if base_readpos:
             #print("Got read pos")
