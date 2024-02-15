@@ -11,7 +11,7 @@ import numpy as np
 import traceback
 
 ## Set up the logging  
-logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -104,8 +104,8 @@ def evaluate_PASS_reads(vcf_lines, bamFile, sc_mode):
         return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile, sc_mode) for i in vcf_lines]
     except Exception as e:
         traceback.print_exc()
-        return("ERROR: " + str(e))
-
+        #return([["ERROR: " + str(e)]])
+        raise e
 
 
 def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
@@ -164,20 +164,24 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     for line in sam_output:
         if not re.match("\w", line):
             continue # sometimes get a blank line for some reason
-
+        
         bamfields = line.split("\t")
 
         if len(bamfields) < 11:
             print("-warning: line[{}] has insufficient fields... skipping".format(line), file=sys.stderr)
             continue
-
+        
         # separate the output
         readname, samflag, readstart, cigar, sequencebases, qualscores = bamfields[0], bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
-        
+
+
         if check_duplicate_marked(samflag):
             total_duplicate_marked += 1
             if not sc_mode:
                 continue # not evaluating duplicate-marked reads unless in single cell mode.
+
+        logger.debug(f"\n\n//{vcf_line}")
+        logger.debug("// readname: {}, readstart: {}, cigar: {}, sequencebases: {}".format(readname, readstart, cigar, sequencebases))
         
         # get the current position
         currentpos, readpos = int(readstart), 1
@@ -196,35 +200,45 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
             N = Skipped region from reference 
             M = Alignment Match, can be sequence mismatch or match 
         '''
-
+        
         position = int(position)
         num_cigarletters = len(cigarletters)
         num_cigarnums = len(cigarnums)
 
         adjacent_base_type = "M" #default
-
+        
         for k in range(num_cigarletters):
             
             if currentpos > position:
                 break
+            
+            cigarletter = cigarletters[k]
+            cigarnumval = int(cigarnums[k])
+                              
+            if (cigarletter == "I") or (cigarletter == "S"):
+                readpos = readpos + cigarnumval
+                logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
 
-            if cigarletters[k] == "I" or cigarletters[k] == "S":
-                readpos = readpos + int(cigarnums[k])
+            elif (cigarletter == "D") or (cigarletter == "N"):
+                currentpos = currentpos + cigarnumval
+                logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
 
-            elif cigarletters[k] == "D" or cigarletters[k] == "N":
-                currentpos = currentpos + int(cigarnums[k])
-
-            elif cigarletters[k] == "M":
+            elif cigarletter == "M":
                 # iterate each base position of the match
                 num_aligned_bases = int(cigarnums[k])
-                segment_end_pos = readpos + num_aligned_bases
+                segment_end_pos = readpos + num_aligned_bases -1
+                logger.debug("segment end pos: {}".format(segment_end_pos))
                 for j in range(num_aligned_bases):
+                    logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
                     if currentpos == position:
                         base_readpos = readpos
+                        logger.debug("** base_readpos: {} at variant site: {}".format(base_readpos, currentpos))
                         if base_readpos == segment_end_pos:
                             # see if its at an indel
-                            if k + 1 < num_cigar_letters:
-                                adjacent_base_type = cigarletteres[k+1]
+                            logger.debug("k + 1 = {} and num cigar letters: {}".format(k+1, num_cigarletters))
+                            if k + 1 < num_cigarletters:
+                                adjacent_base_type = cigarletters[k+1]
+                                logger.debug("adjacent_base_type: {}".format( adjacent_base_type))
                         #nuc = sequencebases[base_readpos-1]
                         #print("\t".join([readname, str(position), str(base_readpos), nuc]))
                         
@@ -233,8 +247,8 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
         read_end_pos = readpos
 
-        print(ref_bases, alt_bases, adjacent_base_type, cigarletters) ##DEBUG
-
+        logger.debug("\t".join([ref_bases, alt_bases, adjacent_base_type, str(cigarletters)]))
+        
         if base_readpos:
             #print("Got read pos")
             base_qual = ord(str(qualscores)[base_readpos-1]) - quality_offset
@@ -272,9 +286,17 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
 
                 # check if the read base is the variant
-                #is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
-                is_variant_containing_read = (re.match(alt_bases, sequencebases[(base_readpos-1):]) is not None)
-                is_refbases_containing_read = (re.match(ref_bases, sequencebases[(base_readpos-1):]) is not None)
+
+                is_variant_containing_read = False
+                is_refbases_containing_read = False
+                
+                if ( (re.match(alt_bases, sequencebases[(base_readpos-1):]) is not None)
+                     and
+                     variant_type == adjacent_base_type ):
+                    is_variant_containing_read = True
+
+                elif (re.match(ref_bases, sequencebases[(base_readpos-1):]) is not None):
+                    is_refbases_containing_read = True
                 
                 if is_variant_containing_read:
                     reads_with_variant.append(readname) #capture variant-containing read for single cells
@@ -529,7 +551,7 @@ class SplitVCF:
         if self.sc_mode:
             var_reads_filename = self.output_vcf + ".sc_reads"
             sc_reads_ofh = open(var_reads_filename, "w")
-            print("\t".join(["chr_pos_variant", "reads_with_variant", "reads_without_variant"]), file=sc_reads_ofh)
+            print("\t".join(["chr_pos_variant", "num_reads_with_variant", "reads_with_variant", "num_ref_matching_reads", "ref_matching_reads"]), file=sc_reads_ofh)
 
         
         for i in results:
@@ -541,7 +563,12 @@ class SplitVCF:
                 vcf_pts = vcf_line.split("\t")
                 pos_token = ":".join([vcf_pts[0], vcf_pts[1], vcf_pts[3], vcf_pts[4] ])
                 vcf_line = vcf_line.rstrip()
-                print("\t".join([pos_token, ",".join(reads_w_var_list), ",".join(reads_wo_var_list)]), file=sc_reads_ofh)
+                print("\t".join([pos_token,
+                                 str(len(reads_w_var_list)),
+                                 ",".join(reads_w_var_list),
+                                 str(len(reads_wo_var_list)),
+                                 ",".join(reads_wo_var_list)]),
+                      file=sc_reads_ofh)
                 
         # close the output file 
         outfile.close()
@@ -585,6 +612,11 @@ def main():
     parser.add_argument("--bam", type=str, required=False, help="input bam file.")
     parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
     parser.add_argument("--sc_mode", action='store_true', default=False, help="single cell mode, so capture cell/variant info. Creates separate file --output_vcf + .sc_reads")
+    parser.add_argument("--debug", "-d", action='store_true', default=False, help='debug mode, verbose')
+    
+    global DEBUG
+    
+    
     
     # Parse the variables given 
     args = parser.parse_args()
@@ -595,6 +627,9 @@ def main():
     chunks = args.chunks
     sc_mode = args.sc_mode
 
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    
     # if output_path ==  ".":
     #     output_path = os.getcwd()
 
