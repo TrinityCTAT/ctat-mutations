@@ -168,8 +168,6 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
             total_duplicate_marked += 1
             continue # not evaluating duplicate-marked reads unless in single cell mode.
 
-        print(readname)
-        
         # get the current position
         currentpos, readpos = int(readstart), 1
         base_readpos = None
@@ -214,14 +212,15 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
 
 
         if base_readpos:
-            print("Got read pos")
-
+            #print("Got read pos")
             base_qual = ord(str(qualscores)[base_readpos-1]) - quality_offset
-            print(base_qual)
-            if base_qual >= minimal_base_quality:
+
+            base_qual_ok = (base_qual >= minimal_base_quality)
+            if base_qual_ok or sc_mode:
                 ## counting as a PASS read, contributes to total coverage (newcov)
 
-                total_covered_reads += 1
+                if base_qual_ok:
+                    total_covered_reads += 1
 
                 # ----------------------------------------------------
                 # check is within 6 bases of the ends and quality score
@@ -230,7 +229,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                 pass_central_read_pos =  (base_readpos > 6) and (base_readpos < read_end_pos - 5)
                 # If quality score is greater than or equal to the cutoff  --> PASS
 
-                if pass_central_read_pos:
+                if pass_central_read_pos and base_qual_ok:
                     # central pos, min qual base => PASS status
                     total_pass_reads += 1
 
@@ -244,24 +243,25 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                         is_multimapped_read = True
 
 
-                if pass_central_read_pos and is_multimapped_read:
+                if pass_central_read_pos and is_multimapped_read and base_qual_ok:
                     total_pass_multimapped_reads += 1
 
 
                 # check if the read base is the variant
                 is_variant_containing_read = (sequencebases[base_readpos-1] == editnuc)
                 if is_variant_containing_read:
-                    reads_with_variant.append(readname)
-                    if pass_central_read_pos:
-                        total_pass_variant_reads += 1
-                        if is_multimapped_read:
-                            total_pass_multimapped_variant_reads += 1
-                    else:
-                        # in read terminus
-                        total_fail_variant_reads += 1
+                    reads_with_variant.append(readname) #capture variant-containing read for single cells
+                    if base_qual_ok:
+                        if pass_central_read_pos:
+                            total_pass_variant_reads += 1
+                            if is_multimapped_read:
+                                total_pass_multimapped_variant_reads += 1
+                        else:
+                            # in read terminus
+                            total_fail_variant_reads += 1
 
                 else: # not variant containing
-                    reads_without_variant.append(readname)
+                    reads_without_variant.append(readname) #capture non-variant read for single cells
                     
 
     #-----------------------
