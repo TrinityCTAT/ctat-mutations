@@ -36,11 +36,9 @@ def main(args):
                                                                     on=['chr_pos_variant', 'cell_barcode'],
                                                                     how='outer')
 
+    variant_cell_count_summary_df.fillna(0, inplace=True)
 
-    variant_cell_count_summary_df = variant_cell_count_summary_df.merge(cell_bc_to_type_df,
-                                                                        left_on='cell_barcode',
-                                                                        right_on='barcodes').drop(['barcodes'], axis=1)
-
+    
     # write output file with summary UMI counts
     variant_cell_count_summary_df.to_csv(args.output, sep="\t", index=False)
 
