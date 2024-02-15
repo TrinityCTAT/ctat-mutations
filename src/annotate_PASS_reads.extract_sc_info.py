@@ -164,10 +164,11 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         # separate the output
         readname, samflag, readstart, cigar, sequencebases, qualscores = bamfields[0], bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
         
-        if (not sc_mode) and check_duplicate_marked(samflag):
+        if check_duplicate_marked(samflag):
             total_duplicate_marked += 1
-            continue # not evaluating duplicate-marked reads unless in single cell mode.
-
+            if not sc_mode:
+                continue # not evaluating duplicate-marked reads unless in single cell mode.
+        
         # get the current position
         currentpos, readpos = int(readstart), 1
         base_readpos = None
@@ -203,7 +204,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
                     if currentpos == position:
                         base_readpos = readpos
                         nuc = sequencebases[base_readpos-1]
-                        print("\t".join([readname, str(position), str(base_readpos), nuc]))
+                        #print("\t".join([readname, str(position), str(base_readpos), nuc]))
                         
                     currentpos += 1
                     readpos += 1
@@ -272,16 +273,17 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     # TDM : Total Duplicate Marked, number of reads that are duplicate marked
 
 
-    lstr_outvcfline[7] += ";VPR={}".format(total_pass_variant_reads)
-    lstr_outvcfline[7] += ";TPR={}".format(total_pass_reads)
-    lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
-    lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format( (total_fail_variant_reads / (total_fail_variant_reads + total_pass_variant_reads)) if (total_fail_variant_reads + total_pass_variant_reads) > 0 else 0)
-    lstr_outvcfline[7] += ";TDM={}".format(total_duplicate_marked)
-    lstr_outvcfline[7] += ";VAF={:0.3f}".format(total_pass_variant_reads/total_pass_reads if total_pass_reads > 0 else 0)
-    lstr_outvcfline[7] += ";TMMR={}".format(total_pass_multimapped_reads)
-    lstr_outvcfline[7] += ";VMMR={}".format(total_pass_multimapped_variant_reads)
-    lstr_outvcfline[7] += ";MMF={:0.3f}".format(total_pass_multimapped_reads/total_pass_reads if total_pass_reads > 0 else 0)
-    lstr_outvcfline[7] += ";VMMF={:0.3f}".format(total_pass_multimapped_variant_reads/total_pass_variant_reads  if total_pass_variant_reads > 0 else 0)
+    if not sc_mode:
+        lstr_outvcfline[7] += ";VPR={}".format(total_pass_variant_reads)
+        lstr_outvcfline[7] += ";TPR={}".format(total_pass_reads)
+        lstr_outvcfline[7] += ";TCR={}".format(total_covered_reads)
+        lstr_outvcfline[7] += ";PctExtPos={:0.3f}".format( (total_fail_variant_reads / (total_fail_variant_reads + total_pass_variant_reads)) if (total_fail_variant_reads + total_pass_variant_reads) > 0 else 0)
+        lstr_outvcfline[7] += ";TDM={}".format(total_duplicate_marked)
+        lstr_outvcfline[7] += ";VAF={:0.3f}".format(total_pass_variant_reads/total_pass_reads if total_pass_reads > 0 else 0)
+        lstr_outvcfline[7] += ";TMMR={}".format(total_pass_multimapped_reads)
+        lstr_outvcfline[7] += ";VMMR={}".format(total_pass_multimapped_variant_reads)
+        lstr_outvcfline[7] += ";MMF={:0.3f}".format(total_pass_multimapped_reads/total_pass_reads if total_pass_reads > 0 else 0)
+        lstr_outvcfline[7] += ";VMMF={:0.3f}".format(total_pass_multimapped_variant_reads/total_pass_variant_reads  if total_pass_variant_reads > 0 else 0)
 
     # variant frequency if needed
     # varfreq = (newmismatch/newcov)
@@ -494,7 +496,9 @@ class SplitVCF:
         if self.sc_mode:
             var_reads_filename = self.output_vcf + ".sc_reads"
             sc_reads_ofh = open(var_reads_filename, "w")
+            print("\t".join(["chr_pos_variant", "reads_with_variant", "reads_without_variant"]), file=sc_reads_ofh)
 
+        
         for i in results:
             vcf_line = i[0]
             outfile.write(vcf_line)
@@ -504,7 +508,7 @@ class SplitVCF:
                 vcf_pts = vcf_line.split("\t")
                 pos_token = ":".join([vcf_pts[0], vcf_pts[1], vcf_pts[3], vcf_pts[4] ])
                 vcf_line = vcf_line.rstrip()
-                print("\t".join([pos_token, vcf_line, ",".join(reads_w_var_list), ",".join(reads_wo_var_list)]), file=sc_reads_ofh)
+                print("\t".join([pos_token, ",".join(reads_w_var_list), ",".join(reads_wo_var_list)]), file=sc_reads_ofh)
                 
         # close the output file 
         outfile.close()
