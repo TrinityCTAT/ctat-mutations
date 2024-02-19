@@ -101,7 +101,8 @@ def check_duplicate_marked(sam_flag):
 def evaluate_PASS_reads(vcf_lines, bamFile, sc_mode):
 
     try:
-        return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile, sc_mode) for i in vcf_lines]
+        #return [worker_evaluate_PASS_reads(i.decode('ASCII'), bamFile, sc_mode) for i in vcf_lines]
+        return [worker_evaluate_PASS_reads(i.decode("utf-8"), bamFile, sc_mode) for i in vcf_lines]
     except Exception as e:
         traceback.print_exc()
         #return([["ERROR: " + str(e)]])

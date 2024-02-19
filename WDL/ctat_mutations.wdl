@@ -430,6 +430,15 @@ workflow ctat_mutations {
                     docker = docker,
                     preemptible = preemptible
             }
+            call MergeRealignedBams {
+                input:
+                    input_bams = HaplotypeCallerInterval.output_realigned_bam,
+                    input_bais = HaplotypeCallerInterval.output_realigned_bai,
+                    output_bam_name = sample_id + ".HC_realigned.bam",
+                    output_bai_name = sample_id + ".HC_realigned.bai",
+                    docker = docker,
+                    preemptible = preemptible
+           }
         }
         if(variant_scatter_count <= 1) {
             call HaplotypeCaller {
@@ -463,6 +472,8 @@ workflow ctat_mutations {
 
      File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
      File variant_vcf_index = select_first([MergePrimaryAndExtraVCFs.output_vcf_index, MergeVCFs.output_vcf_index, HaplotypeCaller.output_vcf_index, vcf_index])
+     File realigned_bam = select_first([MergeRealignedBams.output_realigned_bam, HaplotypeCaller.output_realigned_bam])
+     File realigned_bai = select_first([MergeRealignedBams.output_realigned_bai, HaplotypeCaller.output_realigned_bai])
 
      if(annotate_variants && !filter_ready_vcf) {
         call VariantAnnotation.annotate_variants_wf as AnnotateVariants {
@@ -567,9 +578,10 @@ workflow ctat_mutations {
     
 
     output {
-
         File? haplotype_caller_vcf = variant_vcf
         File? haplotype_caller_vcf_index = variant_vcf_index
+        File? haplotype_caller_realigned_bam = realigned_bam
+        File? haplotype_caller_realigned_bai = realigned_bai
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
@@ -1069,6 +1081,38 @@ task MergeVCFs {
 
 }
 
+task MergeRealignedBams {
+    input {
+        Array[File] input_bams
+        Array[File] input_bais
+        String output_bam_name
+        String output_bai_name
+        Int? disk_size = 100
+        String docker
+        Int preemptible
+    }
+
+    output {
+        File output_realigned_bam = output_bam_name
+        File output_realigned_bai = output_bai_name
+    }
+    command <<<
+        set -ex
+        # monitor_script.sh &
+
+        samtools merge ~{output_bam_name} ~{sep=" " input_bams}
+        samtools index ~{output_bam_name} ~{output_bai_name}
+
+    >>>
+    runtime {
+        memory: "2.5 GB"
+        disks: "local-disk " + disk_size + " HDD"
+        docker: docker
+        preemptible: preemptible
+    }
+
+}
+
 task MergeFastas {
     input {
         File ref_fasta
@@ -1479,9 +1523,12 @@ task HaplotypeCaller {
     }
     Int command_mem = ceil(memory*1000 - 500)
 
+
     output {
         File output_vcf = "${base_name}.vcf.gz"
         File output_vcf_index = "${base_name}.vcf.gz.tbi"
+        File output_realigned_bam = "${base_name}.HC_realigned.bam"
+        File output_realigned_bai = "${base_name}.HC_realigned.bai"
     }
     command <<<
         set -e
@@ -1493,6 +1540,7 @@ task HaplotypeCaller {
         -R ~{ref_fasta} \
         -I ~{input_bam} \
         -O ~{base_name}.vcf.gz \
+        -bamout ~{base_name}.HC_realigned.bam \
         ~{"" + extra_args} \
         ~{"-L " + interval_list}
     >>>
