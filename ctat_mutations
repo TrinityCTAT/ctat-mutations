@@ -8,8 +8,8 @@ import tempfile
 
 import sys
 
-VERSION = "ctat_mutations-4.0.0"
-#VERSION = "ctat_mutations-BLEEDING_EDGE"
+#VERSION = "ctat_mutations-4.0.0"
+VERSION = "ctat_mutations-BLEEDING_EDGE"
 
 if sys.version_info[0] < 3:
     print("This script requires Python 3")
@@ -223,6 +223,14 @@ def main():
         default=False,
         help="long reads (eg. PacBio) are input as --left ")
 
+
+
+    parser.add_argument("--is_single_cells",
+                        action='store_true',
+                        default=False,
+                        help="single cell transcriptome reads used - note read name formatting required as: cellbarcode^UMI^readname to be recognized.")
+    
+    
     
     # parser.add_argument(
     #     "--star_memory",
@@ -392,7 +400,11 @@ def main():
         input_json["mm2_genome_idx"] = mm2_genome_idx
         input_json["mm2_splice_bed"] = mm2_splice_bed
 
-        
+
+    if args.is_single_cells:
+        input_json["singlecell_mode"] = True
+
+    
     input_json["star_cpu"] = cpu
     input_json["variant_filtration_cpu"] = cpu
     input_json["variant_annotation_cpu"] = cpu

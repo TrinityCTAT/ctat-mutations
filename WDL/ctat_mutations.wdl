@@ -90,6 +90,8 @@ workflow ctat_mutations {
         Int variant_filtration_cpu = 1
         Int variant_annotation_cpu = 5
 
+        Boolean singlecell_mode = false
+
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
@@ -472,14 +474,14 @@ workflow ctat_mutations {
 
      File variant_vcf = select_first([MergePrimaryAndExtraVCFs.output_vcf, MergeVCFs.output_vcf, HaplotypeCaller.output_vcf, vcf])
      File variant_vcf_index = select_first([MergePrimaryAndExtraVCFs.output_vcf_index, MergeVCFs.output_vcf_index, HaplotypeCaller.output_vcf_index, vcf_index])
-     File realigned_bam = select_first([MergeRealignedBams.output_realigned_bam, HaplotypeCaller.output_realigned_bam])
-     File realigned_bai = select_first([MergeRealignedBams.output_realigned_bai, HaplotypeCaller.output_realigned_bai])
+     File realigned_bam = select_first([MergeRealignedBams.output_realigned_bam, HaplotypeCaller.output_realigned_bam, bam])
+     File realigned_bai = select_first([MergeRealignedBams.output_realigned_bai, HaplotypeCaller.output_realigned_bai, bai])
 
      if(annotate_variants && !filter_ready_vcf) {
         call VariantAnnotation.annotate_variants_wf as AnnotateVariants {
                 input:
-          input_vcf = variant_vcf,
-          input_vcf_index = variant_vcf_index,
+                    input_vcf = variant_vcf,
+                    input_vcf_index = variant_vcf_index,
                     base_name = sample_id,
                     cravat_lib_tar_gz = cravat_lib_tar_gz,
                     cravat_lib_dir = cravat_lib_dir,
@@ -493,8 +495,8 @@ workflow ctat_mutations {
                     gnomad_vcf_index=gnomad_vcf_index,
                     rna_editing_vcf=rna_editing_vcf,
                     rna_editing_vcf_index=rna_editing_vcf_index,
-                    bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                    bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
+                    bam = select_first([realigned_bam, MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                    bam_index = select_first([realigned_bai, MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
                     include_read_var_pos_annotations=include_read_var_pos_annotations,
                     repeat_mask_bed=repeat_mask_bed,
                     ref_splice_adj_regions_bed=ref_splice_adj_regions_bed,
@@ -514,7 +516,8 @@ workflow ctat_mutations {
                     incl_splice_dist = incl_splice_dist,
                     incl_blat_ED = incl_blat_ED,
                     incl_cosmic = incl_cosmic,
-                    incl_cravat = incl_cravat
+                    incl_cravat = incl_cravat,
+                    singlecell_mode = singlecell_mode
             }
             
       }
@@ -592,6 +595,7 @@ workflow ctat_mutations {
         File? cancer_igv_report = CancerVariantReport.cancer_igv_report
         File? cancer_variants_tsv = FilterCancerVariants.cancer_variants_tsv
         File? cancer_vcf = FilterCancerVariants.cancer_vcf
+        File? sc_var_reads = AnnotateVariants.sc_var_reads
     }
 }
 

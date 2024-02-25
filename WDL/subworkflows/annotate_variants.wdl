@@ -26,6 +26,8 @@ workflow annotate_variants_wf {
         Boolean incl_cosmic = true
         Boolean incl_cravat = true
 
+        Boolean singlecell_mode = false
+
         File? dbsnp_vcf
         File? dbsnp_vcf_index
 
@@ -98,6 +100,8 @@ workflow annotate_variants_wf {
 
         plugins_path:{help:"Path to plugins"}
         scripts_path:{help:"Path to scripts"}
+
+        singlecell_mode:{help:"run in single-cell mode and capture the cell barcode to variant info"}
 
         docker:{help:"Docker or singularity image"}
     }
@@ -178,7 +182,7 @@ workflow annotate_variants_wf {
         }
     }
 
-    if (include_read_var_pos_annotations) {
+    if (include_read_var_pos_annotations || singlecell_mode) {
         
         call annotate_PASS_reads {
             input:
@@ -186,6 +190,7 @@ workflow annotate_variants_wf {
                 input_vcf_index = select_first([annotate_RNA_editing.vcf_index, annotate_gnomad.vcf_index, annotate_dbsnp.vcf_index, snpEff.vcf_index, left_norm_vcf.vcf_index]),
                 bam = select_first([bam]),
                 bam_index = select_first([bam_index]),
+                singlecell_mode=singlecell_mode,
                 base_name = base_name,
                 scripts_path = scripts_path,
                 docker = docker,
@@ -304,6 +309,7 @@ workflow annotate_variants_wf {
     
         File vcf = rename_vcf.vcf
         File vcf_index = rename_vcf.vcf_index
+        File? sc_var_reads = annotate_PASS_reads.sc_var_reads
     
     }
 }
@@ -577,6 +583,7 @@ task annotate_PASS_reads {
         File bam_index
         String base_name
         String scripts_path
+        Boolean singlecell_mode
 
         String docker
         Int preemptible
@@ -594,14 +601,19 @@ task annotate_PASS_reads {
       
         samtools index ~{bam}
 
-        ~{scripts_path}/annotate_PASS_reads.py \
+        ~{scripts_path}/annotate_PASS_reads.extract_sc_info.py \
             --vcf ~{input_vcf}  \
             --bam ~{bam} \
+            ~{true='--sc_mode' false='' singlecell_mode} \
             --output_vcf ~{base_name}.annot_pass_reads.vcf \
             --threads ~{cpu}
 
             bgzip -c ~{base_name}.annot_pass_reads.vcf > ~{base_name}.annot_pass_reads.vcf.gz
             tabix ~{base_name}.annot_pass_reads.vcf.gz
+
+        if [ -e ~{base_name}.annot_pass_reads.vcf.sc_reads ]; then
+               gzip ~{base_name}.annot_pass_reads.vcf.sc_reads
+        fi
 
     >>>
 
@@ -609,6 +621,7 @@ task annotate_PASS_reads {
     output {
         File vcf = "~{base_name}.annot_pass_reads.vcf.gz"
         File vcf_index = "~{base_name}.annot_pass_reads.vcf.gz.tbi"
+        File? sc_var_reads = "~{base_name}.annot_pass_reads.vcf.sc_reads.gz"
     }
 
     runtime {
