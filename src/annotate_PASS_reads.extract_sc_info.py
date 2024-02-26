@@ -139,6 +139,12 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
     ref_bases = lstr_vcfline[3]
     alt_bases = lstr_vcfline[4]
 
+    if alt_bases == "*":
+        # spanning deletion
+        # the deletion would be tackled separately by a different vcf line with the specifics.
+        # nothing to do here.
+        return( [vcf_line, [], [] ] )
+
     variant_type = "M"
     if len(ref_bases) > len(alt_bases):
         variant_type = "D"
@@ -420,15 +426,29 @@ class SplitVCF:
         idx_list = np.array_split(idx_range, self.chunks)
         ## Remove empty arrays 
         idx_list = [i for i in idx_list if len(i) != 0]
+
+        #print("idx_list: {}".format(idx_list))
         
         results = []
         def logging_return(result):
             results.append(result)
-            
+
+
+
+    
         # Initiate the Pool
         if self.cpu > 1:
             pool = multiprocessing.Pool(self.cpu)
+
+
+        def error_handler(error):
+            # note, without this, process will just hang forever
+            logger.error("ERROR_HANDLER - CAUGHT: " + str(error))
+            pool.terminate()
+            pool.join()
+            sys.exit(2)
             
+                    
         # get the start time and print it for reference
         start_time = time.process_time()
         message_str = f"\t\tStart Time: {time.asctime( time.localtime(time.time()) )}"
@@ -443,7 +463,9 @@ class SplitVCF:
                 output_vcf_lines = vcf.readlines()[idx[0]:(idx[-1]+1)]
 
                 if self.cpu > 1:
-                    pool.apply_async(evaluate_PASS_reads, args=(output_vcf_lines, self.bamFile, self.sc_mode), callback = logging_return)
+                    pool.apply_async(evaluate_PASS_reads, args=(output_vcf_lines, self.bamFile, self.sc_mode),
+                                     callback = logging_return,
+                                     error_callback = error_handler)
                 else:
                     result = evaluate_PASS_reads(output_vcf_lines, self.bamFile, self.sc_mode)
                     logging_return(result)

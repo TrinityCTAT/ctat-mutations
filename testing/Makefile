@@ -1,4 +1,4 @@
-all: HC_standard  HC_SE_Reads  HC_long_reads BOOSTING_ALL 
+all: HC_standard  HC_SE_Reads  HC_long_reads HC_SE_Reads_singlecell HC_long_reads_singlecell BOOSTING_ALL 
 
 
 ########################
@@ -17,10 +17,16 @@ HC_standard_w_intervals:
 HC_SE_Reads:
 	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE --boosting_method none
 
+# pretend single cell data, do read extractions:
+HC_SE_Reads_singlecell:
+	../ctat_mutations --left reads_1.fastq.gz --sample_id example.HC_standard_SE -O example.HC_standard_SE.singlecell --is_single_cells	
+
 ## Using long reads:
 HC_long_reads:
 	../ctat_mutations --left __misc_data/UHR.pbio.fq.gz --sample_id example.long_reads -O example.long_reads --is_long_reads
 
+HC_long_reads_singlecell:
+	../ctat_mutations --left __misc_data/UHR.pbio.fq.gz --sample_id example.long_reads -O example.long_reads.singlecell --is_long_reads  --is_single_cells
 
 ## Docker
 
