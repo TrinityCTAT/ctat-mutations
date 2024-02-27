@@ -182,6 +182,9 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         readname, samflag, readstart, cigar, sequencebases, qualscores = bamfields[0], bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
 
+        if sequencebases == "*":
+            continue
+
         if check_duplicate_marked(samflag):
             total_duplicate_marked += 1
             if not sc_mode:
