@@ -185,6 +185,11 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         if sequencebases == "*":
             continue
 
+        if qualscores == "*":
+            # single cell grouped deduped lack qual values - assume all hifi Q30, char '?'
+            qualscores = "".join(["?" for x in range(len(sequencebases))])
+
+
         if check_duplicate_marked(samflag):
             total_duplicate_marked += 1
             if not sc_mode:
