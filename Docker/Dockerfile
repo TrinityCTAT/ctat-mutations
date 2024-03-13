@@ -145,8 +145,8 @@ RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.2
 RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v4.0.0
-ENV CTAT_MUTATIONS_COMMIT=e7f7b48f88a89fcda20e41ecb38916980ac096f2
+ENV CTAT_MUTATIONS_TAG=v4.1.0
+ENV CTAT_MUTATIONS_COMMIT=86fa82a26b1671ebe462ecea097a65e16511ff43
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
