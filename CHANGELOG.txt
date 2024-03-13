@@ -1,3 +1,9 @@
+4.1.0 March 13, 2024
+- incorporated support for single cell transcriptomics
+- more robust accounting of read support per variant type including indels and multithreading
+- include HC-realigned bam file as an output.
+
+
 4.0.0 Sept. 17, 2023
 - included preliminary support for pacbio rna-seq (operational, but not benchmarked):  use --left <pbio.fastq> and --is_long_reads
 - turned off boosting by default

@@ -8,8 +8,8 @@ import tempfile
 
 import sys
 
-#VERSION = "ctat_mutations-4.0.0"
-VERSION = "ctat_mutations-BLEEDING_EDGE"
+VERSION = "ctat_mutations-4.1.0"
+#VERSION = "ctat_mutations-BLEEDING_EDGE"
 
 if sys.version_info[0] < 3:
     print("This script requires Python 3")
