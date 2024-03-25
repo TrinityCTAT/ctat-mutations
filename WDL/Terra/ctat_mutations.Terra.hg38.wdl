@@ -40,13 +40,12 @@ workflow ctat_mutations_Terra_hg38 {
       "rna_editing_vcf" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz",
       "rna_editing_vcf_index" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz.csi",
       "star_reference" : gs_base_url + "/ref_genome.fa.star.idx.tar.bz2",
-      "mm2_genome_idx" : gs_base_uril + "/ref_genome.fa.mm2",
-      "mm2_splice_bed" : gs_base_uril + "/ref_annot.gtf.mm2.splice.bed"
+      "mm2_genome_idx" : gs_base_url + "/ref_genome.fa.mm2",
+      "mm2_splice_bed" : gs_base_url + "/ref_annot.gtf.mm2.splice.bed"
 
     }
 
   }
-
   
 
   call CTAT_Mutations_Terra.ctat_mutations_Terra as CM_Terra_wf {
@@ -75,12 +74,12 @@ workflow ctat_mutations_Terra_hg38 {
         File? cancer_igv_report = CM_Terra_wf.cancer_igv_report
         File? cancer_variants_tsv = CM_Terra_wf.cancer_variants_tsv
         File? cancer_vcf = CM_Terra_wf.cancer_vcf
-        File? haplotype_caller_realigned_bam = CM_Terra_wf.realigned_bam
-        File? haplotype_caller_realigned_bai = CM_Terra_wf.realigned_bai
+        File? haplotype_caller_realigned_bam = CM_Terra_wf.haplotype_caller_realigned_bam
+        File? haplotype_caller_realigned_bai = CM_Terra_wf.haplotype_caller_realigned_bai
 
  }
 
-  
+
 }
 
 
