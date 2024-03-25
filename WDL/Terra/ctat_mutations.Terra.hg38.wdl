@@ -1,7 +1,7 @@
 version 1.0
 
 
-import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/Terra/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-4.1.0/WDL/Terra/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
 
 
 workflow ctat_mutations_Terra_hg38 {
@@ -39,7 +39,9 @@ workflow ctat_mutations_Terra_hg38 {
       "repeat_mask_bed" : gs_base_url + "/ctat_mutation_lib/repeats_ucsc_gb.bed.gz",
       "rna_editing_vcf" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz",
       "rna_editing_vcf_index" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz.csi",
-      "star_reference" : gs_base_url + "/ref_genome.fa.star.idx.tar.bz2"
+      "star_reference" : gs_base_url + "/ref_genome.fa.star.idx.tar.bz2",
+      "mm2_genome_idx" : gs_base_uril + "/ref_genome.fa.mm2",
+      "mm2_splice_bed" : gs_base_uril + "/ref_annot.gtf.mm2.splice.bed"
 
     }
 
@@ -73,6 +75,8 @@ workflow ctat_mutations_Terra_hg38 {
         File? cancer_igv_report = CM_Terra_wf.cancer_igv_report
         File? cancer_variants_tsv = CM_Terra_wf.cancer_variants_tsv
         File? cancer_vcf = CM_Terra_wf.cancer_vcf
+        File? haplotype_caller_realigned_bam = CM_Terra_wf.realigned_bam
+        File? haplotype_caller_realigned_bai = CM_Terra_wf.realigned_bai
 
  }
 

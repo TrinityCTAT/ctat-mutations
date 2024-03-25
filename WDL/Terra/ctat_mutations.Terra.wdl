@@ -3,10 +3,7 @@ version 1.0
 import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/ctat_mutations.wdl" as CTAT_Mutations_wf
 
 
-
-
 struct Ctat_mutations_config {
-
 
   File gtf
   File ref_bed
@@ -36,6 +33,11 @@ struct Ctat_mutations_config {
   File rna_editing_vcf_index
   
   File star_reference
+
+  Boolean is_long_reads = false
+  File? mm2_genome_idx
+  File? mm2_splice_bed
+
 }
 
   
@@ -66,6 +68,8 @@ workflow ctat_mutations_Terra {
       annotate_variants = annotate_variants,
       boosting_method = boosting_method,
       
+      is_long_reads = is_long_reads,
+
       gtf = pipe_inputs_config.gtf,
       ref_bed = pipe_inputs_config.ref_bed,
       ref_fasta = pipe_inputs_config.ref_fasta,
@@ -83,9 +87,10 @@ workflow ctat_mutations_Terra {
       repeat_mask_bed = pipe_inputs_config.repeat_mask_bed,
       rna_editing_vcf = pipe_inputs_config.rna_editing_vcf,
       rna_editing_vcf_index = pipe_inputs_config.rna_editing_vcf_index,
-      star_reference = pipe_inputs_config.star_reference
+      star_reference = pipe_inputs_config.star_reference,
+      mm2_genome_idx = pipe_input_config.mm2_genome_idx
 
-  }
+   }
 
 
     output {
@@ -100,6 +105,9 @@ workflow ctat_mutations_Terra {
         File? cancer_igv_report = CM_wf.cancer_igv_report
         File? cancer_variants_tsv = CM_wf.cancer_variants_tsv
         File? cancer_vcf = CM_wf.cancer_vcf
+        File? haplotype_caller_realigned_bam = CM_wf.realigned_bam
+        File? haplotype_caller_realigned_bai = CM_wf.realigned_bai
+
     }
 }
 
