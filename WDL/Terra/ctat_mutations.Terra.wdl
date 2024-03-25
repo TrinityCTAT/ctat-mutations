@@ -34,7 +34,6 @@ struct Ctat_mutations_config {
   
   File star_reference
 
-  Boolean is_long_reads
   File mm2_genome_idx
   File mm2_splice_bed
 
