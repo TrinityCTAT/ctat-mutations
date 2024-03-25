@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/Terra/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
+import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-4.1.0/WDL/Terra/ctat_mutations.Terra.wdl" as CTAT_Mutations_Terra
 
 
 workflow ctat_mutations_Terra_hg19 {
@@ -14,6 +14,7 @@ workflow ctat_mutations_Terra_hg19 {
     File? intervals
     Boolean annotate_variants = true
     String boosting_method = "none"
+    Boolean is_long_reads = false
 
     String gs_base_url = "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play"
     
@@ -35,11 +36,12 @@ workflow ctat_mutations_Terra_hg19 {
       "repeat_mask_bed" : gs_base_url + "/ctat_mutation_lib/repeats_ucsc_gb.bed.gz",
       "rna_editing_vcf" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz",
       "rna_editing_vcf_index" : gs_base_url + "/ctat_mutation_lib/RNAediting.library.vcf.gz.csi",
-      "star_reference" : gs_base_url + "/ref_genome.fa.star.idx.tar.bz2"
+      "star_reference" : gs_base_url + "/ref_genome.fa.star.idx.tar.bz2",
+      "mm2_genome_idx" : gs_base_url + "/ref_genome.fa.mm2",
+      "mm2_splice_bed" : gs_base_url + "/ref_annot.gtf.mm2.splice.bed"
     }
-
-    
   }
+
   
   call CTAT_Mutations_Terra.ctat_mutations_Terra as CM_Terra_wf {
 
@@ -50,6 +52,7 @@ workflow ctat_mutations_Terra_hg19 {
       right = right,
       intervals = intervals,
       annotate_variants = annotate_variants,
+      is_long_reads = is_long_reads,
       boosting_method = boosting_method,
       pipe_inputs_config = pipe_inputs_config
   }
@@ -66,6 +69,8 @@ workflow ctat_mutations_Terra_hg19 {
         File? cancer_igv_report = CM_Terra_wf.cancer_igv_report
         File? cancer_variants_tsv = CM_Terra_wf.cancer_variants_tsv
         File? cancer_vcf = CM_Terra_wf.cancer_vcf
+        File? haplotype_caller_realigned_bam = CM_Terra_wf.haplotype_caller_realigned_bam
+        File? haplotype_caller_realigned_bai = CM_Terra_wf.haplotype_caller_realigned_bai
 
  }
 
