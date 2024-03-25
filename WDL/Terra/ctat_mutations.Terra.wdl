@@ -34,9 +34,9 @@ struct Ctat_mutations_config {
   
   File star_reference
 
-  Boolean is_long_reads = false
-  File? mm2_genome_idx
-  File? mm2_splice_bed
+  Boolean is_long_reads
+  File mm2_genome_idx
+  File mm2_splice_bed
 
 }
 
@@ -51,6 +51,7 @@ workflow ctat_mutations_Terra {
     File left
     File? right
     File? intervals
+    Boolean is_long_reads = false
     Boolean annotate_variants = true
     String boosting_method = "none"
     Ctat_mutations_config pipe_inputs_config
@@ -88,7 +89,8 @@ workflow ctat_mutations_Terra {
       rna_editing_vcf = pipe_inputs_config.rna_editing_vcf,
       rna_editing_vcf_index = pipe_inputs_config.rna_editing_vcf_index,
       star_reference = pipe_inputs_config.star_reference,
-      mm2_genome_idx = pipe_input_config.mm2_genome_idx
+      mm2_genome_idx = pipe_inputs_config.mm2_genome_idx,
+      mm2_splice_bed = pipe_inputs_config.mm2_splice_bed
 
    }
 
@@ -105,8 +107,8 @@ workflow ctat_mutations_Terra {
         File? cancer_igv_report = CM_wf.cancer_igv_report
         File? cancer_variants_tsv = CM_wf.cancer_variants_tsv
         File? cancer_vcf = CM_wf.cancer_vcf
-        File? haplotype_caller_realigned_bam = CM_wf.realigned_bam
-        File? haplotype_caller_realigned_bai = CM_wf.realigned_bai
+        File? haplotype_caller_realigned_bam = CM_wf.haplotype_caller_realigned_bam
+        File? haplotype_caller_realigned_bai = CM_wf.haplotype_caller_realigned_bai
 
     }
 }
