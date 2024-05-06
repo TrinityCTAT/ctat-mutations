@@ -1503,7 +1503,7 @@ task SplitNCigarReads {
     >>>
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 10) * 10 + size(ref_fasta, "GB") * 2)) + " SSD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 50) * 10 + size(ref_fasta, "GB") * 2)) + " SSD"
         docker: docker
         memory: memory + "GB"
         preemptible: preemptible
