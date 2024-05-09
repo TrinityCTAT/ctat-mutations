@@ -92,6 +92,7 @@ workflow ctat_mutations {
 
         Boolean singlecell_mode = false
 
+        Boolean normalize_bam = true
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
@@ -259,11 +260,21 @@ workflow ctat_mutations {
 
     }
 
-   
+    if (normalize_bam ) {
+
+        call NormalizeBam {
+            input:
+            input_bam = select_first([StarAlign.bam, mm2.bam, bam]),
+            scripts_path = scripts_path,
+            docker = docker,
+            preemptible = preemptible
+        }
+    }
+    
     if(!vcf_input && !variant_ready_bam && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
-                input_bam = select_first([StarAlign.bam, mm2.bam, bam]),
+                input_bam = select_first([NormalizeBam.output_bam, StarAlign.bam, mm2.bam, bam]),
                 sample_id = sample_id,
                 base_name = sample_id + '.sorted',
                 sequencing_platform=sequencing_platform,
@@ -276,7 +287,7 @@ workflow ctat_mutations {
     if(!vcf_input && !variant_ready_bam && mark_duplicates) {
         call MarkDuplicates {
             input:
-                input_bam = select_first([AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                input_bam = select_first([AddOrReplaceReadGroups.bam, NormalizeBam.output_bam, StarAlign.bam, mm2.bam, bam]),
                 base_name = sample_id + ".dedupped",
                 gatk_path = gatk_path,
                 memory = mark_duplicates_memory,
@@ -284,6 +295,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
+    
     if(!vcf_input && !variant_ready_bam && defined(extra_fasta) && merge_extra_fasta) {
         call MergeFastas {
             input:
@@ -1558,4 +1570,39 @@ task HaplotypeCaller {
 
 
 
+task NormalizeBam {
+    input {
+        File input_bam
+        Int max_coverage = 1000
+        String scripts_path
+        String docker
+        Int preemptible
+    }
+    
+    String output_bam_filename = basename(input_bam) + ".norm~{max_coverage}.bam"
+    
+    command <<<
 
+        set -ex
+
+        ~{scripts_path}/normalize_bam_by_strand.py --input_bam ~{input_bam} \
+            --normalize_max_cov_level ~{max_coverage} \
+            --output_bam ~{output_bam_filename}
+
+        
+    >>>
+
+    output {
+        File output_bam = "~{output_bam_filename}"
+    }
+
+    runtime {
+        docker: docker
+        bootDiskSizeGb: 12
+        memory: "8G"
+        disks: "local-disk " + ceil(size(input_bam, "GB")*6 + 10) + " HDD"
+        preemptible: preemptible
+        cpu: 1
+    }
+
+}
