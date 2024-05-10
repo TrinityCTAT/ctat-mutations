@@ -1,10 +1,22 @@
-    version: 1.2
-    workflows:
-        - subclass: <CWL | WDL | NFL | GALAXY>
-          primaryDescriptorPath: <String>  # absolute path
-          testParameterFiles: <String Array>  # absolute path
-          readMePath: <String> # absolute path
-          authors:
-              - name: <String>
-                email: <String>
+version: 1.2
+workflows:
+   - name: ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/ctat_mutations.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org
+   - name: hg19_ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/Terra/ctat_mutations.Terra.hg19.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org
+   - name: hg38_ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/Terra/ctat_mutations.Terra.hg38.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org
+
                 
