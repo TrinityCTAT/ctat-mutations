@@ -47,7 +47,9 @@ workflow ctat_mutations_Terra {
   input {
     String docker
     String sample_id
-    File left
+    File? bam
+    File? bai  
+    File? left
     File? right
     File? intervals
     Boolean is_long_reads = false
@@ -61,6 +63,8 @@ workflow ctat_mutations_Terra {
     input:
       docker = docker,
       sample_id = sample_id,
+      bam = bam,
+      bai = bai,
       left = left,
       right = right,
 

@@ -11,8 +11,10 @@ workflow ctat_mutations_Terra_hg38 {
 
     String docker
     String sample_id
-    File left
+    File? left
     File? right
+    File? bam
+    File? bai 
     File? intervals
     Boolean annotate_variants = true
     String boosting_method = "none"
@@ -56,6 +58,8 @@ workflow ctat_mutations_Terra_hg38 {
       sample_id = sample_id,
       left = left,
       right = right,
+      bam = bam,
+      bai = bai,
       intervals = intervals,
       annotate_variants = annotate_variants,
       is_long_reads = is_long_reads,
