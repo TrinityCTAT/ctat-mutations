@@ -284,7 +284,7 @@ workflow ctat_mutations {
         }
     }
 
-    if(!vcf_input && !variant_ready_bam && mark_duplicates) {
+    if(!vcf_input && !variant_ready_bam && mark_duplicates && !is_long_reads ) {
         call MarkDuplicates {
             input:
                 input_bam = select_first([AddOrReplaceReadGroups.bam, NormalizeBam.output_bam, StarAlign.bam, mm2.bam, bam]),
@@ -307,16 +307,31 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
+    
     File fasta = select_first([MergeFastas.fasta, ref_fasta])
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
 
     if( (!vcf_input) && (!variant_ready_bam) ) {
-        call SplitNCigarReads {
+
+        if (is_long_reads) {
+            call SplitNCigarLongReads {
+                input:
+                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, bai]),
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+            }
+
+        }
+
+        if ( !is_long_reads ) {    
+          call SplitNCigarReads {
             input:
-                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
+                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, bai]),
                 base_name = sample_id + ".split",
                 ref_fasta = fasta,
                 ref_fasta_index = fasta_index,
@@ -325,13 +340,15 @@ workflow ctat_mutations {
                 memory = split_n_cigar_reads_memory,
                 docker = docker,
                 preemptible = preemptible
-        }
+          }
 
-        if(apply_bqsr && defined(db_snp_vcf)) {
+        }
+          
+        if(apply_bqsr && defined(db_snp_vcf) && !is_long_reads ) {
             call BaseRecalibrator {
                 input:
-                    input_bam = SplitNCigarReads.bam,
-                    input_bam_index = SplitNCigarReads.bam_index,
+                    input_bam = select_first([SplitNCigarReads.bam]),
+                    input_bam_index = select_first([SplitNCigarReads.bam_index]),
                     recal_output_file = sample_id + ".recal_data.csv",
                     db_snp_vcf = db_snp_vcf,
                     db_snp_vcf_index = db_snp_vcf_index,
@@ -347,8 +364,8 @@ workflow ctat_mutations {
             }
             call ApplyBQSR {
                 input:
-                    input_bam = SplitNCigarReads.bam,
-                    input_bam_index = SplitNCigarReads.bam_index,
+                    input_bam = select_first([SplitNCigarReads.bam]),
+                    input_bam_index = select_first([SplitNCigarReads.bam_index]),
                     base_name = sample_id + ".bqsr",
                     recalibration_report = BaseRecalibrator.recalibration_report,
                 #                recalibration_plot = recalibration_plot,
@@ -403,8 +420,8 @@ workflow ctat_mutations {
 
     if(!vcf_input) {
         
-        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
-        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
+        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, SplitNCigarLongReads.bam, bam])
+        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, SplitNCigarLongReads.bai, bai])
        
          if(variant_scatter_count > 1) {
             call SplitIntervals {
@@ -1481,6 +1498,7 @@ task CreateBamIndex {
     }
 }
 
+
 task SplitNCigarReads {
     input {
         File input_bam
@@ -1521,6 +1539,49 @@ task SplitNCigarReads {
         preemptible: preemptible
     }
 }
+
+
+task SplitNCigarLongReads {
+    input {
+        File input_bam
+        File input_bam_index
+        String scripts_path
+        
+        String docker
+        Int preemptible
+        
+    }
+
+    String output_bam_filename = basename(input_bam, ".bam") + ".splitNcigar.bam"
+    
+    command <<<
+        set -ex
+        # monitor_script.sh &
+
+        ~{scripts_path}/cigar_N_splitter.py ~{input_bam}  split_N.bam
+
+        samtools sort split_N.bam -o ~{output_bam_filename}
+
+        samtools index  ~{output_bam_filename}
+        
+    >>>
+
+
+    output {
+        File bam = "~{output_bam_filename}"
+        File bai = "~{output_bam_filename}.bai"
+    }
+        
+    runtime {
+        disks: "local-disk " + ceil((size(input_bam, "GB") + 10) * 10 ) + " SSD"
+        docker: docker
+        memory: "8GB"
+        preemptible: preemptible
+    }
+}
+
+
+
 
 task HaplotypeCaller {
     input {

@@ -20,6 +20,9 @@ def main():
 
 
     for read in bam_reader.fetch():
+        if read.query_sequence is None:
+            continue
+        
         for split_read in split_cigar_N(read):
             bam_writer.write(split_read)
 
