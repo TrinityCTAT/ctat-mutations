@@ -4,9 +4,11 @@ import sys, os, re
 import pysam
 
 
+DEBUG = False
+
 def main():
     
-    usage = "\n\n\tusage: {} input.bam output.bam\n\n".format(sys.argv[0])
+    usage = "\n\n\tusage: {} input.bam output.bam [DEBUG_flag]\n\n".format(sys.argv[0])
 
     if len(sys.argv) < 3:
         exit(usage)
@@ -14,7 +16,11 @@ def main():
     input_bam = sys.argv[1]
     output_bam = sys.argv[2]
 
+    global DEBUG
+    if len(sys.argv) > 3:
+        DEBUG = True
 
+    
     bam_reader = pysam.AlignmentFile(input_bam, "rb")
     bam_writer = pysam.AlignmentFile(output_bam, "wb", template=bam_reader)
 
@@ -51,7 +57,8 @@ B   BAM_CBACK        9
 def split_cigar_N(read):
 
 
-    print("SPLITING_READ: {}".format(str(read)))
+    if DEBUG:
+        print("SPLITING_READ: {}".format(str(read)))
     
     cigar_tuples = read.cigartuples
 
@@ -67,16 +74,20 @@ def split_cigar_N(read):
     except:
         read_quals = None
         
-    print("read_seq: {}".format(read_seq))
+    #print("read_seq: {}".format(read_seq))
     
     split_reads = list()
 
     
     # initial soft or hard clipping:
     if cigar_tuples[0][0] in (4,5):
-        read_start += cigar_tuples[0][1]
-        read_pos += cigar_tuples[0][1]
+        if cigar_tuples[0][0] == 4:
+            # soft-clipped
+            read_start += cigar_tuples[0][1]
+            read_pos += cigar_tuples[0][1]
+
         cigar_tuples.pop(0)
+
         
     for cigar_tuple in cigar_tuples:
         cigar_code, segment_length = cigar_tuple
@@ -126,22 +137,26 @@ def make_split_read(read, read_seq, read_quals, read_start, read_pos, genome_sta
 
     read_start += 1
     genome_start += 1
-    
-    print(f"Making split read: {read_start}-{read_pos} and {genome_start}-{genome_pos}")
+
+    if DEBUG:
+        print(f"Making split read: {read_start}-{read_pos} and {genome_start}-{genome_pos}")
 
     split_read_seq = read_seq[read_start-1:read_pos]
-    
-    print("query_read_name: {}, split_read_seq: {}".format(read.query_name, split_read_seq))
+
+    if DEBUG:
+        print("query_read_name: {}, split_read_seq: {}".format(read.query_name, split_read_seq))
 
     split_read_quals = None
     if read_quals is not None:
         split_read_quals = read_quals[read_start-1:read_pos] 
 
-        print("query_read_name: {}, query_read_quals: {}".format(read.query_name, split_read_quals))
+        if DEBUG:
+            print("query_read_name: {}, query_read_quals: {}".format(read.query_name, split_read_quals))
 
         assert len(split_read_seq) == len(split_read_quals), "Error, split read seq: {} differs in length from read quals: {}".format(split_read_seq, split_read_quals)
 
-    print("query len: {}, cigars: {}".format(len(split_read_seq), cigar_tuples_include)) 
+    if DEBUG:
+        print("query len: {}, cigars: {}".format(len(split_read_seq), cigar_tuples_include)) 
     
 
     
