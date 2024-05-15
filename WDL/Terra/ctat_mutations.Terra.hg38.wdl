@@ -19,6 +19,7 @@ workflow ctat_mutations_Terra_hg38 {
     Boolean annotate_variants = true
     String boosting_method = "none"
     Boolean is_long_reads = false
+    Int? preemptible  
   
 
 	String gs_base_url = "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh38_gencode_v22_CTAT_lib_Mar012021.plug-n-play"
@@ -64,7 +65,9 @@ workflow ctat_mutations_Terra_hg38 {
       annotate_variants = annotate_variants,
       is_long_reads = is_long_reads,
       boosting_method = boosting_method,
-      pipe_inputs_config = pipe_inputs_config
+      pipe_inputs_config = pipe_inputs_config,
+
+      preemptible = preemptible
 
   }
 

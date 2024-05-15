@@ -55,6 +55,7 @@ workflow ctat_mutations_Terra {
     Boolean is_long_reads = false
     Boolean annotate_variants = true
     String boosting_method = "none"
+    Int? preemptible  
     Ctat_mutations_config pipe_inputs_config
   }
   
@@ -93,8 +94,9 @@ workflow ctat_mutations_Terra {
       rna_editing_vcf_index = pipe_inputs_config.rna_editing_vcf_index,
       star_reference = pipe_inputs_config.star_reference,
       mm2_genome_idx = pipe_inputs_config.mm2_genome_idx,
-      mm2_splice_bed = pipe_inputs_config.mm2_splice_bed
+      mm2_splice_bed = pipe_inputs_config.mm2_splice_bed,
 
+      preemptible = preemptible
    }
 
 
