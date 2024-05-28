@@ -148,7 +148,7 @@ def main():
     #~~~~~~~~~~~~~~~~~~~
     # Sort the output
     #~~~~~~~~~~~~~~~~~~~
-    cmd = "bcftools sort {} -o {}".format(out_file, out_file)
+    cmd = "bcftools sort -T {} {} -o {}".format(temp_dir, out_file, out_file)
     logger.info("CMD: {}".format(cmd))
     subprocess.run(cmd, shell=True)
 
