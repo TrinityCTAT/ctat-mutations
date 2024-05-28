@@ -640,7 +640,7 @@ def main():
     parser.add_argument("--vcf", type=str, required=True, help="VCF of interest.")
     parser.add_argument("--output_vcf", type=str, required=True, help="output vcf filename")
     parser.add_argument("--threads", type=int, required=False, help="Number of CPUs to use.", default = "8")
-    parser.add_argument("--bam", type=str, required=False, help="input bam file.")
+    parser.add_argument("--bam", type=str, required=True, help="input bam file.")
     parser.add_argument("--chunks", type=int, required=False, help="Number to divide the VCF into.", default = "1000")
     parser.add_argument("--sc_mode", action='store_true', default=False, help="single cell mode, so capture cell/variant info. Creates separate file --output_vcf + .sc_reads")
     parser.add_argument("--debug", "-d", action='store_true', default=False, help='debug mode, verbose')
