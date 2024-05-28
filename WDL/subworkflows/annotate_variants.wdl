@@ -359,7 +359,7 @@ task left_norm_vcf {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -417,7 +417,7 @@ task snpEff {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -463,7 +463,7 @@ task annotate_dbsnp {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -511,7 +511,7 @@ task annotate_gnomad {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -566,7 +566,7 @@ task annotate_RNA_editing {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -627,7 +627,7 @@ task annotate_PASS_reads {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -678,7 +678,7 @@ task annotate_repeats {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -730,7 +730,7 @@ task annotate_homopolymers_n_entropy {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
@@ -784,7 +784,7 @@ task annotate_splice_distance {
     runtime {
         disks: "local-disk " + disk + " HDD"
         docker: docker
-        memory: "4G"
+        memory: "16G"
         preemptible: preemptible
         cpu : cpu
     }
