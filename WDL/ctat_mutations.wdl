@@ -1,7 +1,6 @@
 version 1.0
 
 import "subworkflows/annotate_variants.wdl" as VariantAnnotation
-#import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 
 workflow ctat_mutations {
@@ -63,20 +62,6 @@ workflow ctat_mutations {
         Boolean annotate_variants = true
 
 
-        # annotation options
-        Boolean incl_snpEff = true
-        Boolean incl_dbsnp = true
-        Boolean incl_gnomad = true
-        Boolean incl_rna_editing = true
-        Boolean include_read_var_pos_annotations = true
-        Boolean incl_repeats = true
-        Boolean incl_homopolymers = true
-        Boolean incl_splice_dist = true
-        Boolean incl_blat_ED = true
-        Boolean incl_cosmic = true
-        Boolean incl_cravat = true
-
-
         Boolean filter_variants = true
         Boolean filter_cancer_variants = true
 		
@@ -96,12 +81,25 @@ workflow ctat_mutations {
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
+        String boosting_method = "none" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
         Boolean boost_indels = false
 
         # no boosting if long reads!  Not trained for that yet.
         String boosting_method_use = if (is_long_reads) then "none" else boosting_method
-        
+
+        # annotation options
+        Boolean incl_snpEff = true
+        Boolean incl_dbsnp = true
+        Boolean incl_gnomad = true
+        Boolean incl_rna_editing = true
+        Boolean include_read_var_pos_annotations = (boosting_method_use != "none") 
+        Boolean incl_repeats = true
+        Boolean incl_homopolymers = true
+        Boolean incl_splice_dist = true
+        Boolean incl_blat_ED = (boosting_method_use != "none")
+        Boolean incl_cosmic = true
+        Boolean incl_cravat = true
+
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
         ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","TCR","TDM","VAF","VMMF"]
@@ -123,12 +121,11 @@ workflow ctat_mutations {
         Float haplotype_caller_memory = 6.5
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker = "trinityctat/ctat_mutations:3.0.0"
+        String docker = "trinityctat/ctat_mutations:latest"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
 
-        Boolean include_read_var_pos_annotations = true
         Float mark_duplicates_memory = 16
         Float split_n_cigar_reads_memory = 32
 
@@ -539,7 +536,6 @@ workflow ctat_mutations {
                     incl_dbsnp = incl_dbsnp,
                     incl_gnomad = incl_gnomad,
                     incl_rna_editing = incl_rna_editing,
-                    include_read_var_pos_annotations = include_read_var_pos_annotations,
                     incl_repeats = incl_repeats,
                     incl_homopolymers = incl_homopolymers,
                     incl_splice_dist = incl_splice_dist,
@@ -1039,7 +1035,7 @@ task Minimap2_align {
     command <<<
         set -ex
 
-        minimap2 --junc-bed ~{mm2_splice_bed} -ax splice -u b -t ~{cpu} ~{mm2_genome_idx} ~{reads} > mm2.sam
+        minimap2 --junc-bed ~{mm2_splice_bed} -ax splice:hq -u b -t ~{cpu} ~{mm2_genome_idx} ~{reads} > mm2.sam
 
         samtools view -Sb -o mm2.unsorted.bam mm2.sam
         
