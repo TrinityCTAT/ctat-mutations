@@ -1656,7 +1656,7 @@ task NormalizeBam {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: "8G"
+        memory: "16G"
         disks: "local-disk " + ceil(size(input_bam, "GB")*6 + 10) + " HDD"
         preemptible: preemptible
         cpu: 1
