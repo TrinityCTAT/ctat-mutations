@@ -139,23 +139,6 @@ RUN curl -L https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.2
     mv ./minimap2-2.26_x64-linux/minimap2 $BIN/
 
 
-## NCIP CTAT mutations
-
-
-RUN apt-get update && apt-get install -y git
-
-WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v4.1.0
-ENV CTAT_MUTATIONS_COMMIT=86fa82a26b1671ebe462ecea097a65e16511ff43
-RUN git clone https://github.com/NCIP/ctat-mutations.git && \
-    cd ctat-mutations && \
-    git checkout $CTAT_MUTATIONS_COMMIT && \
-    git submodule init && git submodule update && \
-    git submodule foreach --recursive git submodule init && \
-    git submodule foreach --recursive git submodule update && \
-    make
-    
-
 ENV PATH=/usr/local/src/gatk-${GATK_VERSION}:/usr/local/src/ctat-mutations/WDL/:$PATH
 
 RUN pip install aiosqlite3
@@ -165,10 +148,25 @@ RUN curl -L https://github.com/attractivechaos/k8/releases/download/v0.2.4/k8-0.
     cp k8-0.2.4/k8-`uname -s` $BIN/k8
 
 
+## NCIP CTAT mutations
 
+RUN apt-get update && apt-get install -y git
+
+WORKDIR $SRC
+ENV CTAT_MUTATIONS_TAG=v4.1.0-postdev3
+ENV CTAT_MUTATIONS_COMMIT=821a0f61108b96e27e11be8e304c918776ab59d8
+RUN git clone https://github.com/NCIP/ctat-mutations.git && \
+    cd ctat-mutations && \
+    git checkout $CTAT_MUTATIONS_COMMIT && \
+    git submodule init && git submodule update && \
+    git submodule foreach --recursive git submodule init && \
+    git submodule foreach --recursive git submodule update && \
+    make
+    
+
+# docker cleanup
 RUN apt-get -qq -y remove automake build-essential curl gcc g++ git make unzip wget && \
     apt-get -qq -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
-
 

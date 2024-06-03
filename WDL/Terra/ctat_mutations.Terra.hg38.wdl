@@ -11,12 +11,15 @@ workflow ctat_mutations_Terra_hg38 {
 
     String docker
     String sample_id
-    File left
+    File? left
     File? right
+    File? bam
+    File? bai 
     File? intervals
     Boolean annotate_variants = true
     String boosting_method = "none"
     Boolean is_long_reads = false
+    Int? preemptible  
   
 
 	String gs_base_url = "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh38_gencode_v22_CTAT_lib_Mar012021.plug-n-play"
@@ -56,11 +59,15 @@ workflow ctat_mutations_Terra_hg38 {
       sample_id = sample_id,
       left = left,
       right = right,
+      bam = bam,
+      bai = bai,
       intervals = intervals,
       annotate_variants = annotate_variants,
       is_long_reads = is_long_reads,
       boosting_method = boosting_method,
-      pipe_inputs_config = pipe_inputs_config
+      pipe_inputs_config = pipe_inputs_config,
+
+      preemptible = preemptible
 
   }
 

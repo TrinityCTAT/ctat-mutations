@@ -1,11 +1,20 @@
 version: 1.2
 workflows:
-  - name: ctat_mutations
-    subclass: WDL
-    publish: True
-    primaryDescriptorPath: /WDL/Terra/ctat_mutations.Terra.hg38.wdl
-    testParameterFiles:
-      - /WDL/ctat_mutations.terra_inputs.json
-    filters: # All tags, no branches
-      branches:
-        - master
+   - name: ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/ctat_mutations.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org
+   - name: hg19_ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/Terra/ctat_mutations.Terra.hg19.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org
+   - name: hg38_ctat_mutations
+     subclass: WDL
+     primaryDescriptorPath: /WDL/Terra/ctat_mutations.Terra.hg38.wdl
+     authors:
+         - name: Brian Haas
+           email: bhaas@broadinstitute.org

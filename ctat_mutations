@@ -177,6 +177,13 @@ def main():
         default=6,
         help="Number of parallel variant caller jobs",
     )
+
+
+    parser.add_argument(
+        "--no_annotate_variants", action='store_true', help='skips all variant annotations, just focuses on getting the basic vcf file'
+    )
+
+
     parser.add_argument(
         "--no_cravat", action="store_true", help="Skips CRAVAT annotations, also skips partitioning of cancer-related variants given they rely on cravat annotations",
     )
@@ -423,6 +430,10 @@ def main():
     input_json["repeat_mask_bed"] = repeat_mask_bed
     input_json["ref_splice_adj_regions_bed"] = ref_splice_adj_regions_bed
     input_json["ref_bed"] = ref_bed
+
+    if args.no_annotate_variants:
+        input_json["annotate_variants"] = False
+    
     if no_cravat:
         input_json["incl_cravat"] = False
         no_filter_cancer_variants = True # relies largely on cravat

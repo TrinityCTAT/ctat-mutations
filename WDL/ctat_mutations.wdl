@@ -1,7 +1,6 @@
 version 1.0
 
 import "subworkflows/annotate_variants.wdl" as VariantAnnotation
-#import "https://raw.githubusercontent.com/NCIP/ctat-mutations/Terra-3.3.0/WDL/subworkflows/annotate_variants.wdl" as VariantAnnotation
 
 
 workflow ctat_mutations {
@@ -63,20 +62,6 @@ workflow ctat_mutations {
         Boolean annotate_variants = true
 
 
-        # annotation options
-        Boolean incl_snpEff = true
-        Boolean incl_dbsnp = true
-        Boolean incl_gnomad = true
-        Boolean incl_rna_editing = true
-        Boolean include_read_var_pos_annotations = true
-        Boolean incl_repeats = true
-        Boolean incl_homopolymers = true
-        Boolean incl_splice_dist = true
-        Boolean incl_blat_ED = true
-        Boolean incl_cosmic = true
-        Boolean incl_cravat = true
-
-
         Boolean filter_variants = true
         Boolean filter_cancer_variants = true
 		
@@ -92,15 +77,29 @@ workflow ctat_mutations {
 
         Boolean singlecell_mode = false
 
+        Boolean normalize_bam = true
 
         # boosting
         String boosting_alg_type = "classifier" #["classifier", "regressor"],
-        String boosting_method = "XGBoost" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
+        String boosting_method = "none" #  ["none", "AdaBoost", "XGBoost", "LR", "NGBoost", "RF", "SGBoost", "SVM_RBF", "SVML"]
         Boolean boost_indels = false
 
         # no boosting if long reads!  Not trained for that yet.
         String boosting_method_use = if (is_long_reads) then "none" else boosting_method
-        
+
+        # annotation options
+        Boolean incl_snpEff = true
+        Boolean incl_dbsnp = true
+        Boolean incl_gnomad = true
+        Boolean incl_rna_editing = true
+        Boolean include_read_var_pos_annotations = (boosting_method_use != "none") 
+        Boolean incl_repeats = true
+        Boolean incl_homopolymers = true
+        Boolean incl_splice_dist = true
+        Boolean incl_blat_ED = (boosting_method_use != "none")
+        Boolean incl_cosmic = true
+        Boolean incl_cravat = true
+
         # variant attributes on which to perform boosting
         Array[String] boosting_attributes =
         ["AC","ALT","BaseQRankSum","DJ","DP","ED","Entropy","ExcessHet","FS","Homopolymer","LEN","MLEAF","MMF","QUAL","REF","RPT","RS","ReadPosRankSum","SAO","SOR","TCR","TDM","VAF","VMMF"]
@@ -122,12 +121,11 @@ workflow ctat_mutations {
         Float haplotype_caller_memory = 6.5
         String sequencing_platform = "ILLUMINA"
         Int preemptible = 2
-        String docker = "trinityctat/ctat_mutations:3.0.0"
+        String docker = "trinityctat/ctat_mutations:latest"
         Int variant_scatter_count = 6
         String plugins_path = "/usr/local/src/ctat-mutations/plugins"
         String scripts_path = "/usr/local/src/ctat-mutations/src"
 
-        Boolean include_read_var_pos_annotations = true
         Float mark_duplicates_memory = 16
         Float split_n_cigar_reads_memory = 32
 
@@ -259,11 +257,21 @@ workflow ctat_mutations {
 
     }
 
-   
+    if (normalize_bam ) {
+
+        call NormalizeBam {
+            input:
+            input_bam = select_first([StarAlign.bam, mm2.bam, bam]),
+            scripts_path = scripts_path,
+            docker = docker,
+            preemptible = preemptible
+        }
+    }
+    
     if(!vcf_input && !variant_ready_bam && add_read_groups) {
         call AddOrReplaceReadGroups {
             input:
-                input_bam = select_first([StarAlign.bam, mm2.bam, bam]),
+                input_bam = select_first([NormalizeBam.output_bam, StarAlign.bam, mm2.bam, bam]),
                 sample_id = sample_id,
                 base_name = sample_id + '.sorted',
                 sequencing_platform=sequencing_platform,
@@ -273,10 +281,10 @@ workflow ctat_mutations {
         }
     }
 
-    if(!vcf_input && !variant_ready_bam && mark_duplicates) {
+    if(!vcf_input && !variant_ready_bam && mark_duplicates && !is_long_reads ) {
         call MarkDuplicates {
             input:
-                input_bam = select_first([AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
+                input_bam = select_first([AddOrReplaceReadGroups.bam, NormalizeBam.output_bam, StarAlign.bam, mm2.bam, bam]),
                 base_name = sample_id + ".dedupped",
                 gatk_path = gatk_path,
                 memory = mark_duplicates_memory,
@@ -284,6 +292,7 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
+    
     if(!vcf_input && !variant_ready_bam && defined(extra_fasta) && merge_extra_fasta) {
         call MergeFastas {
             input:
@@ -295,16 +304,31 @@ workflow ctat_mutations {
                 preemptible = preemptible
         }
     }
+    
     File fasta = select_first([MergeFastas.fasta, ref_fasta])
     File fasta_index = select_first([MergeFastas.fasta_index, ref_fasta_index])
     File sequence_dict = select_first([MergeFastas.sequence_dict, ref_dict])
 
 
     if( (!vcf_input) && (!variant_ready_bam) ) {
-        call SplitNCigarReads {
+
+        if (is_long_reads) {
+            call SplitNCigarLongReads {
+                input:
+                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, bai]),
+                scripts_path = scripts_path,
+                docker = docker,
+                preemptible = preemptible
+            }
+
+        }
+
+        if ( !is_long_reads ) {    
+          call SplitNCigarReads {
             input:
-                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, StarAlign.bam, bam]),
-                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, StarAlign.bai, bai]),
+                input_bam = select_first([MarkDuplicates.bam, AddOrReplaceReadGroups.bam, bam]),
+                input_bam_index = select_first([MarkDuplicates.bai, AddOrReplaceReadGroups.bai, bai]),
                 base_name = sample_id + ".split",
                 ref_fasta = fasta,
                 ref_fasta_index = fasta_index,
@@ -313,13 +337,15 @@ workflow ctat_mutations {
                 memory = split_n_cigar_reads_memory,
                 docker = docker,
                 preemptible = preemptible
-        }
+          }
 
-        if(apply_bqsr && defined(db_snp_vcf)) {
+        }
+          
+        if(apply_bqsr && defined(db_snp_vcf) && !is_long_reads ) {
             call BaseRecalibrator {
                 input:
-                    input_bam = SplitNCigarReads.bam,
-                    input_bam_index = SplitNCigarReads.bam_index,
+                    input_bam = select_first([SplitNCigarReads.bam]),
+                    input_bam_index = select_first([SplitNCigarReads.bam_index]),
                     recal_output_file = sample_id + ".recal_data.csv",
                     db_snp_vcf = db_snp_vcf,
                     db_snp_vcf_index = db_snp_vcf_index,
@@ -335,8 +361,8 @@ workflow ctat_mutations {
             }
             call ApplyBQSR {
                 input:
-                    input_bam = SplitNCigarReads.bam,
-                    input_bam_index = SplitNCigarReads.bam_index,
+                    input_bam = select_first([SplitNCigarReads.bam]),
+                    input_bam_index = select_first([SplitNCigarReads.bam_index]),
                     base_name = sample_id + ".bqsr",
                     recalibration_report = BaseRecalibrator.recalibration_report,
                 #                recalibration_plot = recalibration_plot,
@@ -391,8 +417,8 @@ workflow ctat_mutations {
 
     if(!vcf_input) {
         
-        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, bam])
-        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, bai])
+        File bam_for_variant_calls = select_first([SplitReads.ref_bam, ApplyBQSR.bam, SplitNCigarReads.bam, SplitNCigarLongReads.bam, bam])
+        File bai_for_variant_calls = select_first([SplitReads.ref_bai, ApplyBQSR.bam_index, SplitNCigarReads.bam_index, SplitNCigarLongReads.bai, bai])
        
          if(variant_scatter_count > 1) {
             call SplitIntervals {
@@ -510,7 +536,6 @@ workflow ctat_mutations {
                     incl_dbsnp = incl_dbsnp,
                     incl_gnomad = incl_gnomad,
                     incl_rna_editing = incl_rna_editing,
-                    include_read_var_pos_annotations = include_read_var_pos_annotations,
                     incl_repeats = incl_repeats,
                     incl_homopolymers = incl_homopolymers,
                     incl_splice_dist = incl_splice_dist,
@@ -1010,7 +1035,7 @@ task Minimap2_align {
     command <<<
         set -ex
 
-        minimap2 --junc-bed ~{mm2_splice_bed} -ax splice -u b -t ~{cpu} ~{mm2_genome_idx} ~{reads} > mm2.sam
+        minimap2 --junc-bed ~{mm2_splice_bed} -ax splice:hq -u b -t ~{cpu} ~{mm2_genome_idx} ~{reads} > mm2.sam
 
         samtools view -Sb -o mm2.unsorted.bam mm2.sam
         
@@ -1469,6 +1494,7 @@ task CreateBamIndex {
     }
 }
 
+
 task SplitNCigarReads {
     input {
         File input_bam
@@ -1509,6 +1535,49 @@ task SplitNCigarReads {
         preemptible: preemptible
     }
 }
+
+
+task SplitNCigarLongReads {
+    input {
+        File input_bam
+        File input_bam_index
+        String scripts_path
+        
+        String docker
+        Int preemptible
+        
+    }
+
+    String output_bam_filename = basename(input_bam, ".bam") + ".splitNcigar.bam"
+    
+    command <<<
+        set -ex
+        # monitor_script.sh &
+
+        ~{scripts_path}/cigar_N_splitter.py ~{input_bam}  split_N.bam
+
+        samtools sort split_N.bam -o ~{output_bam_filename}
+
+        samtools index  ~{output_bam_filename}
+        
+    >>>
+
+
+    output {
+        File bam = "~{output_bam_filename}"
+        File bai = "~{output_bam_filename}.bai"
+    }
+        
+    runtime {
+        disks: "local-disk " + ceil((size(input_bam, "GB") + 10) * 10 ) + " SSD"
+        docker: docker
+        memory: "8GB"
+        preemptible: preemptible
+    }
+}
+
+
+
 
 task HaplotypeCaller {
     input {
@@ -1558,4 +1627,39 @@ task HaplotypeCaller {
 
 
 
+task NormalizeBam {
+    input {
+        File input_bam
+        Int max_coverage = 1000
+        String scripts_path
+        String docker
+        Int preemptible
+    }
+    
+    String output_bam_filename = basename(input_bam) + ".norm~{max_coverage}.bam"
+    
+    command <<<
 
+        set -ex
+
+        ~{scripts_path}/normalize_bam_by_strand.py --input_bam ~{input_bam} \
+            --normalize_max_cov_level ~{max_coverage} \
+            --output_bam ~{output_bam_filename}
+
+        
+    >>>
+
+    output {
+        File output_bam = "~{output_bam_filename}"
+    }
+
+    runtime {
+        docker: docker
+        bootDiskSizeGb: 12
+        memory: "16G"
+        disks: "local-disk " + ceil(size(input_bam, "GB")*6 + 10) + " HDD"
+        preemptible: preemptible
+        cpu: 1
+    }
+
+}
