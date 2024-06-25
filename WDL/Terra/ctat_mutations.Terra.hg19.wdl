@@ -19,7 +19,7 @@ workflow ctat_mutations_Terra_hg19 {
     Boolean is_long_reads = false
     Int? preemptible
 
-    String gs_base_url = "gs://ctat_genome_libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play"
+    String gs_base_url = "gs://mdl-ctat-genome-libs/__genome_libs_StarFv1.10/GRCh37_gencode_v19_CTAT_lib_Mar012021.plug-n-play"
     
     Ctat_mutations_config pipe_inputs_config = {
       "genome_version" : "hg19",
