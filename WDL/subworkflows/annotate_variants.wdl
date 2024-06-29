@@ -1136,6 +1136,8 @@ task examine_existing_annotations {
         echo "checking done annotations:"
         ls *.done
 
+        echo "done checking"
+        
     >>>
 
 
