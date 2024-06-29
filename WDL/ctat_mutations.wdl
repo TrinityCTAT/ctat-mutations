@@ -615,6 +615,7 @@ workflow ctat_mutations {
         File? annotated_vcf = AnnotateVariants.vcf
         File? filtered_vcf = VariantFiltration.vcf
         File? aligned_bam = StarAlign.bam
+        File? aligned_bai = StarAlign.bai
         File? output_log_final =  StarAlign.output_log_final
         File? output_SJ =  StarAlign.output_SJ
         File? recalibrated_bam = ApplyBQSR.bam

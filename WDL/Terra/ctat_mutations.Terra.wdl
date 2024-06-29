@@ -105,6 +105,7 @@ workflow ctat_mutations_Terra {
         File? annotated_vcf = CM_wf.annotated_vcf
         File? filtered_vcf = CM_wf.filtered_vcf
         File? aligned_bam = CM_wf.aligned_bam
+        File? aligned_bai = CM_wf.aligned_bai
         File? output_log_final =  CM_wf.output_log_final
         File? output_SJ =  CM_wf.output_SJ
         File? recalibrated_bam = CM_wf.recalibrated_bam
