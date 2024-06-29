@@ -211,47 +211,49 @@ workflow ctat_mutations {
         docker:{help:"Docker or singularity image"}
     }
 
-    if(!vcf_input && !defined(bam) && (defined(star_reference_dir) || defined(star_reference))) {
-
+    if(!vcf_input && !defined(bam)) {
+        
         if (is_long_reads) {
-
-            call Minimap2_align as mm2 {
-              input:
-                sample_id=sample_id,
-                mm2_genome_idx = mm2_genome_idx,
-                mm2_splice_bed = mm2_splice_bed,
-                reads = left,
-                
-                extra_disk_space = star_extra_disk_space,
-                fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
-                memory = star_memory,
-                use_ssd = star_use_ssd,
-                cpu = star_cpu,
-                docker = docker,
-                preemptible = preemptible
-            }  
+            if (defined(mm2_genome_idx) || defined(mm2_splice_bed)) {
+                call Minimap2_align as mm2 {
+                  input:
+                    sample_id=sample_id,
+                    mm2_genome_idx = mm2_genome_idx,
+                    mm2_splice_bed = mm2_splice_bed,
+                    reads = left,
+                    
+                    extra_disk_space = star_extra_disk_space,
+                    fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
+                    memory = star_memory,
+                    use_ssd = star_use_ssd,
+                    cpu = star_cpu,
+                    docker = docker,
+                    preemptible = preemptible
+                }  
+           }
         }
         
         if (! is_long_reads) {
-                    
-          call StarAlign {
-            input:
-                star_reference = star_reference,
-                star_reference_dir = star_reference_dir,
-                fastq1 = left,
-                fastq2 = right,
-                output_unmapped_reads = output_unmapped_reads,
-                genomeFastaFiles=extra_fasta,
-                STAR_limitBAMsortRAM=star_limitBAMsortRAM,
-                base_name = sample_id + '.star',
-                extra_disk_space = star_extra_disk_space,
-                fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
-                memory = star_memory,
-                use_ssd = star_use_ssd,
-                cpu = star_cpu,
-                docker = docker,
-                preemptible = preemptible
-           }
+          if (defined(star_reference_dir) || defined(star_reference)) {
+              call StarAlign {
+                input:
+                    star_reference = star_reference,
+                    star_reference_dir = star_reference_dir,
+                    fastq1 = left,
+                    fastq2 = right,
+                    output_unmapped_reads = output_unmapped_reads,
+                    genomeFastaFiles=extra_fasta,
+                    STAR_limitBAMsortRAM=star_limitBAMsortRAM,
+                    base_name = sample_id + '.star',
+                    extra_disk_space = star_extra_disk_space,
+                    fastq_disk_space_multiplier = star_fastq_disk_space_multiplier,
+                    memory = star_memory,
+                    use_ssd = star_use_ssd,
+                    cpu = star_cpu,
+                    docker = docker,
+                    preemptible = preemptible
+               }
+         }
             
        }
 
@@ -1529,7 +1531,7 @@ task SplitNCigarReads {
     >>>
 
     runtime {
-        disks: "local-disk " + ceil(((size(input_bam, "GB") + 10) * 10 + size(ref_fasta, "GB") * 2)) + " SSD"
+        disks: "local-disk " + ceil(((size(input_bam, "GB") + 50) * 10 + size(ref_fasta, "GB") * 2)) + " SSD"
         docker: docker
         memory: memory + "GB"
         preemptible: preemptible
@@ -1656,7 +1658,7 @@ task NormalizeBam {
     runtime {
         docker: docker
         bootDiskSizeGb: 12
-        memory: "16G"
+        memory: "32G"
         disks: "local-disk " + ceil(size(input_bam, "GB")*6 + 10) + " HDD"
         preemptible: preemptible
         cpu: 1

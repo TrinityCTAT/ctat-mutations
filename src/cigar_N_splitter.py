@@ -176,8 +176,13 @@ def make_split_read(read, read_seq, read_quals, read_start, read_pos, genome_sta
         a.query_qualities = split_read_quals   #pysam.qualitystring_to_array("<<<<<<<<<<<<<<<<<<<<<:<9/,&,22;;<<<")
     #a.tags = (("NM", 1),
     #          ("RG", "L1"))
+
+    if read.has_tag("RG"):
+        rg = read.get_tag("RG", "Z")[0]
+        a.set_tags( [("RG", rg, "Z") ] )
     
     return a
+
 
 
 

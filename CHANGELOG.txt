@@ -1,3 +1,11 @@
+4.2.0 June 3, 2024
+- for faster workflow, set default boosting to 'none' and turned off blat_ED and annot pass annotations unless boosting is indicated.
+- ctat mutation wdl and Terra wrapper wdls updated
+- added bamsifter and strand-specific read normalization
+- replace gatk cigar-N-splitter with our own pysam based version
+- add ctat-mutations to dockstore for easy integration into terra or other supported cloud platforms
+
+
 4.1.0 March 13, 2024
 - incorporated support for single cell transcriptomics
 - more robust accounting of read support per variant type including indels and multithreading
