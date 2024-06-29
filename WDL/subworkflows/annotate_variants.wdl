@@ -1087,42 +1087,42 @@ task examine_existing_annotations {
         
         # check header for various annots
         checkpoints = list()
-        if re.match("##bcftools_normCommand=norm", header) is not None:
+        if re.search("##bcftools_normCommand=norm", header) is not None:
             checkpoints.append("left_norm.done")
 
-        if re.match("##INFO=<ID=ANN,", header) is not None:
+        if re.search("##INFO=<ID=ANN,", header) is not None:
             checkpoints.append("snpEff.done")
         
-        if re.match("##INFO=<ID=RS,") is not None:
+        if re.search("##INFO=<ID=RS,", header) is not None:
             checkpoints.append("dbsnp.done")
 
-        if re.match("##INFO=<ID=gnomad_AF,") is not None:
+        if re.search("##INFO=<ID=gnomad_AF,", header) is not None:
             checkpoints.append("gnomad.done")
 
         
-        if re.match("##INFO=<ID=RNAEDIT,") is not None:
+        if re.search("##INFO=<ID=RNAEDIT,", header) is not None:
             checkpoints.append("rna_editing.done")
 
-        if re.match("##INFO=<ID=VPR,") is not None:
+        if re.search("##INFO=<ID=VPR,", header) is not None:
             checkpoints.append("pass_read_annots.done")
 
 
-        if re.match("##INFO=<ID=RPT,") is not None:
+        if re.search("##INFO=<ID=RPT,", header) is not None:
             checkpoints.append("repeats.done")
 
-        if re.match("##INFO=<ID=Homopolymer,") is not None:
+        if re.search("##INFO=<ID=Homopolymer,", header) is not None:
             checkpoints.append("homopolymer.done")
 
-        if re.match("##INFO=<ID=DJ,") is not None:
+        if re.search("##INFO=<ID=DJ,", header) is not None:
             checkpoints.append("splice_dist.done")
 
-        if re.match("##INFO=<ID=ED,") is not None:
+        if re.search("##INFO=<ID=ED,", header) is not None:
             checkpoints.append("blat_ED.done")
 
-        if re.match("##INFO=<ID=COSMIC_ID,") is not None:
+        if re.search("##INFO=<ID=COSMIC_ID,", header) is not None:
             checkpoints.append("COSMIC.done")
 
-        if re.match("##INFO=<ID=chasmplus_pval,") is not None and re.match("##INFO=<ID=vest_pval,") is not None:
+        if re.search("##INFO=<ID=chasmplus_pval,", header) is not None and re.search("##INFO=<ID=vest_pval,", header) is not None:
             checkpoints.append("CRAVAT.done")
 
 
