@@ -1071,6 +1071,8 @@ task examine_existing_annotations {
         python <<CODE
         import gzip, re, subprocess
 
+        input_vcf="~{input_vcf}"
+        
         if re.search("\\.gz$", input_vcf):
             fh = gzip.open(input_vcf, "rt")
         else:
