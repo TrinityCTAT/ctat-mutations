@@ -1,4 +1,8 @@
-4.2.0 June 3, 2024
+
+4.3.0 June 29, 2024
+- bugfix w/ cigar-N-splitter, incorporating the required read group ID in each alignment entry - impacts long read calling sensitivity
+
+4.2.0 June 3, 2024 (removed due to cigar-N-splitter used in long reads not incorporating read group id - needed for haplotypecaller)
 - for faster workflow, set default boosting to 'none' and turned off blat_ED and annot pass annotations unless boosting is indicated.
 - ctat mutation wdl and Terra wrapper wdls updated
 - added bamsifter and strand-specific read normalization

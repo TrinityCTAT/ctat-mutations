@@ -153,8 +153,8 @@ RUN curl -L https://github.com/attractivechaos/k8/releases/download/v0.2.4/k8-0.
 RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
-ENV CTAT_MUTATIONS_TAG=v4.2.0
-ENV CTAT_MUTATIONS_COMMIT=014f1230604514167be282b3fc61017a06a3fb9e
+ENV CTAT_MUTATIONS_TAG=v4.3.0
+ENV CTAT_MUTATIONS_COMMIT=a092203384a665271f95980aad0830e1037f33bd
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
