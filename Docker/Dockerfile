@@ -154,7 +154,7 @@ RUN apt-get update && apt-get install -y git
 
 WORKDIR $SRC
 ENV CTAT_MUTATIONS_TAG=v4.2.0
-ENV CTAT_MUTATIONS_COMMIT=2ca70ae117b883c5d6d158e48e4a8bd696e818b0
+ENV CTAT_MUTATIONS_COMMIT=014f1230604514167be282b3fc61017a06a3fb9e
 RUN git clone https://github.com/NCIP/ctat-mutations.git && \
     cd ctat-mutations && \
     git checkout $CTAT_MUTATIONS_COMMIT && \
