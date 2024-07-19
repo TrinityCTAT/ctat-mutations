@@ -10,8 +10,15 @@ import time
 import numpy as np
 import traceback
 
-## Set up the logging  
-logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.INFO)
+## Set up the logging
+
+FORMAT = "%(asctime)-15s %(levelname)s %(module)s.%(name)s.%(funcName)s at %(lineno)d :\n\t%(message)s\n"
+
+logging.basicConfig(level=logging.INFO, 
+                    format=FORMAT,
+                    datefmt='%H:%M:%S')
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -181,6 +188,7 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
         # separate the output
         readname, samflag, readstart, cigar, sequencebases, qualscores = bamfields[0], bamfields[1], bamfields[3], bamfields[5], bamfields[9], bamfields[10]
 
+        readlen = len(sequencebases)
 
         if sequencebases == "*":
             continue
@@ -226,44 +234,57 @@ def worker_evaluate_PASS_reads(vcf_line, bamFile, sc_mode):
             
             if currentpos > position:
                 break
-            
-            cigarletter = cigarletters[k]
-            cigarnumval = int(cigarnums[k])
-                              
-            if (cigarletter == "I") or (cigarletter == "S"):
-                readpos = readpos + cigarnumval
-                logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
 
-            elif (cigarletter == "D") or (cigarletter == "N"):
-                currentpos = currentpos + cigarnumval
-                logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
+            if readpos > readlen:
+                break
 
-            elif cigarletter == "M":
-                # iterate each base position of the match
-                num_aligned_bases = int(cigarnums[k])
-                segment_end_pos = readpos + num_aligned_bases -1
-                logger.debug("segment end pos: {}".format(segment_end_pos))
-                for j in range(num_aligned_bases):
+            try:
+
+                cigarletter = cigarletters[k]
+                cigarnumval = int(cigarnums[k])
+
+                logger.debug("readpos: {}".format(readpos))
+                
+                if (cigarletter == "I") or (cigarletter == "S"):
+                    readpos = readpos + cigarnumval
                     logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
-                    if currentpos == position:
-                        base_readpos = readpos
-                        logger.debug("** base_readpos: {} at variant site: {}".format(base_readpos, currentpos))
-                        if base_readpos == segment_end_pos:
-                            # see if its at an indel
-                            logger.debug("k + 1 = {} and num cigar letters: {}".format(k+1, num_cigarletters))
-                            if k + 1 < num_cigarletters:
-                                adjacent_base_type = cigarletters[k+1]
-                                logger.debug("adjacent_base_type: {}".format( adjacent_base_type))
-                        #nuc = sequencebases[base_readpos-1]
-                        #print("\t".join([readname, str(position), str(base_readpos), nuc]))
-                        
-                    currentpos += 1
-                    readpos += 1
 
-        read_end_pos = readpos
+                elif (cigarletter == "D") or (cigarletter == "N"):
+                    currentpos = currentpos + cigarnumval
+                    logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
 
-        logger.debug("\t".join([ref_bases, alt_bases, adjacent_base_type, str(cigarletters)]))
+                elif cigarletter == "M":
+                    # iterate each base position of the match
+                    num_aligned_bases = int(cigarnums[k])
+                    segment_end_pos = readpos + num_aligned_bases -1
+                    logger.debug("segment end pos: {}".format(segment_end_pos))
+                    for j in range(num_aligned_bases):
+                        logger.debug("currentpos: {}, readpos: {}, cigar: {}, readbase: {}".format(currentpos, readpos, cigarletter, sequencebases[readpos-1])) 
+                        if currentpos == position:
+                            base_readpos = readpos
+                            logger.debug("** base_readpos: {} at variant site: {}".format(base_readpos, currentpos))
+                            if base_readpos == segment_end_pos:
+                                # see if its at an indel
+                                logger.debug("k + 1 = {} and num cigar letters: {}".format(k+1, num_cigarletters))
+                                if k + 1 < num_cigarletters:
+                                    adjacent_base_type = cigarletters[k+1]
+                                    logger.debug("adjacent_base_type: {}".format( adjacent_base_type))
+                            #nuc = sequencebases[base_readpos-1]
+                            #print("\t".join([readname, str(position), str(base_readpos), nuc]))
+
+                        currentpos += 1
+                        readpos += 1
+
+                read_end_pos = readpos
+
+                logger.debug("\t".join([ref_bases, alt_bases, adjacent_base_type, str(cigarletters)]))
+
+            except IndexError:
+                logger.error("Error processing vcf line: {}".format(vcf_line))
+                raise IndexError
         
+
+            
         if base_readpos:
             #print("Got read pos")
             base_qual = ord(str(qualscores)[base_readpos-1]) - quality_offset
